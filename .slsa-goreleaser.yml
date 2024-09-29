@@ -1,18 +1,17 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
-
-# The lines below are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/need to use them.
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
-
 version: 1
 
 env:
   - CGO_ENABLED=0
 
-goos: linux
+builds:
+  - binary: slurm_exporter
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - 386
+      - arm64
 
-goarch: amd64
-
-binary: binary-{{ .Os }}-{{ .Arch }}
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
