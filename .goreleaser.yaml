@@ -1,5 +1,4 @@
 # .goreleaser.yaml
-
 version: 2
 
 project_name: slurm_exporter
@@ -7,7 +6,7 @@ project_name: slurm_exporter
 # Release configuration
 release:
   github:
-    owner: sckyzo 
+    owner: sckyzo
   name_template: "{{ .ProjectName }} v{{ .Version }}"
 
 builds:
@@ -24,11 +23,13 @@ builds:
     main: "."
     ldflags:
       - "-s -w"
-      - "-X=github.com/prometheus/common/version.Version={{.Version}}"
-      - "-X=github.com/prometheus/common/version.Revision={{.Commit}}"
-      - "-X=github.com/prometheus/common/version.Branch={{.Branch}}"
-      - "-X=github.com/prometheus/common/version.BuildUser={{.Env.BUILD_USER}}"
-      - "-X=github.com/prometheus/common/version.BuildDate={{.Env.BUILD_DATE}}"
+      - "-X main.version={{.Version}}"
+      - "-X main.revision={{.Commit}}"
+      - "-X main.branch={{.Branch}}"
+      - "-X main.buildUser={{.Env.BUILD_USER}}"
+      - "-X main.buildDate={{.Env.BUILD_DATE}}"
+      - "-X 'main.goVersion={{.Env.GO_VERSION}}'"
+      - "-X main.projectURL=https://github.com/SckyzO/slurm_exporter"
     env:
       - CGO_ENABLED=0
 
@@ -38,10 +39,9 @@ archives:
     files:
       - README.md
       - LICENSE
+      - CHANGELOG.md
 
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
-
-
 
 

@@ -1,66 +1,98 @@
 name: Release
-
 on:
   push:
+    branches:
+      - master
     tags:
-      - 'v*'
-
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  pull_request:
 permissions:
-  contents: read
-
+  contents: write
+  id-token: write
 jobs:
-  lint:
+  dev:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.59
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-      - run: make test
-
-  release:
-    runs-on: ubuntu-latest
-    needs:
-      - lint
-      - test
-    permissions:
-      contents: write # needed to write releases
-      id-token: write # needed for keyless signing
-      packages: write # needed for ghcr access
-    steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
           go-version: '1.22'
-          cache: true
+      - name: Set build environment variables
+        run: |
+          echo "BUILD_DATE=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+          echo "GO_VERSION=$(go version)" >> $GITHUB_ENV
+      - name: Get latest tag and set GORELEASER_CURRENT_TAG
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "GORELEASER_CURRENT_TAG=${TAG}-dev" >> $GITHUB_ENV
+      - name: Debug GoReleaser Environment Variables
+        run: |
+          echo "BRANCH_NAME: ${{ github.ref_name }}"
+          echo "BUILD_DATE: ${{ env.BUILD_DATE }}"
+          echo "GO_VERSION: ${{ env.GO_VERSION }}"
+          echo "GORELEASER_CURRENT_TAG: ${{ env.GORELEASER_CURRENT_TAG }}"
+          echo "PATH: $PATH"
+          echo "Current directory: $(pwd)"
+          ls -l .goreleaser.dev.yaml
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59.1
+          args: --verbose
+
+      - name: Run GoReleaser Dev
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: --snapshot --clean --skip=sign --config .goreleaser.dev.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ env.GORELEASER_CURRENT_TAG }}
+          BUILD_USER: "${{ github.actor }}"
+          BUILD_DATE: ${{ env.BUILD_DATE }}
+          GO_VERSION: ${{ env.GO_VERSION }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          REVISION: ${{ github.sha }}
+      - name: Rename Dev Archive
+        run: |
+          mv dist/slurm_exporter.dev.tar.gz dist/slurm_exporter.${{ env.GORELEASER_CURRENT_TAG }}.branch-${{ github.ref_name }}.${{ env.BUILD_DATE }}.tar.gz
+      - name: Upload Dev Archive (Linux AMD64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: slurm_exporter.${{ env.GORELEASER_CURRENT_TAG }}.branch-${{ github.ref_name }}.${{ env.BUILD_DATE }}.tar.gz
+          path: dist/slurm_exporter.${{ env.GORELEASER_CURRENT_TAG }}.branch-${{ github.ref_name }}.${{ env.BUILD_DATE }}.tar.gz
+      - name: Upload Checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: slurm_exporter_checksums.txt
+          path: dist/slurm_exporter_checksums.txt
+  release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
       - name: Set build environment variables
         run: |
           echo "BUILD_DATE=$(date +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
           echo "GO_VERSION=$(go version)" >> $GITHUB_ENV
-      - name: Debug Git State
-        run: |
-          echo "Current commit:"
-          git log -n 1
-          echo "All tags:"
-          git tag -l
-          echo "HEAD commit hash:"
-          git rev-parse HEAD
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59.1
+          args: --verbose
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
