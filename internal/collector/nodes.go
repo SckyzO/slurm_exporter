@@ -258,6 +258,30 @@ func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
 			nc.logger.Error("Failed to get nodes metrics", "partition", part, "err", err)
 			continue
 		}
+
+		// Create a slice of all the metric maps
+		allMaps := []map[string]float64{
+			nm.alloc, nm.comp, nm.down, nm.drain, nm.err, nm.fail,
+			nm.idle, nm.maint, nm.mix, nm.resv, nm.other, nm.planned,
+		}
+
+		// Collect all unique feature sets across all maps
+		allFeatureSets := make(map[string]struct{})
+		for _, metricMap := range allMaps {
+			for fs := range metricMap {
+				allFeatureSets[fs] = struct{}{}
+			}
+		}
+
+		// Ensure all maps have all feature sets, defaulting to 0
+		for _, metricMap := range allMaps {
+			for fs := range allFeatureSets {
+				if _, ok := metricMap[fs]; !ok {
+					metricMap[fs] = 0
+				}
+			}
+		}
+
 		SendFeatureSetMetric(ch, nc.alloc, prometheus.GaugeValue, nm.alloc, part)
 		SendFeatureSetMetric(ch, nc.comp, prometheus.GaugeValue, nm.comp, part)
 		SendFeatureSetMetric(ch, nc.down, prometheus.GaugeValue, nm.down, part)
