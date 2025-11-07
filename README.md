@@ -365,7 +365,7 @@ Provides metrics on CPU usage and pending jobs for each partition.
 
 Provides detailed metrics on job states and resource usage.
 
-- **Command:** `squeue -h -o "%P,%T,%C,%r,%u"`
+- **Command:** `squeue -h -o "%P|%T|%C|%r|%u"`
 
 | Metric | Description | Labels |
 |---|---|---|
