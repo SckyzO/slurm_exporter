@@ -11,19 +11,18 @@ import (
 )
 
 type NodesMetrics struct {
-	alloc   map[string]float64
-	comp    map[string]float64
-	down    map[string]float64
-	drain   map[string]float64
-	err     map[string]float64
-	fail    map[string]float64
-	idle    map[string]float64
-	maint   map[string]float64
-	mix     map[string]float64
-	resv    map[string]float64
-	other   map[string]float64
-	planned map[string]float64
-	total   map[string]float64
+	alloc   float64
+	comp    float64
+	down    float64
+	drain   float64
+	err     float64
+	fail    float64
+	idle    float64
+	maint   float64
+	mix     float64
+	resv    float64
+	other   float64
+	planned float64
 }
 
 func NodesGetMetrics(logger *logger.Logger, part string) (*NodesMetrics, error) {
@@ -34,53 +33,23 @@ func NodesGetMetrics(logger *logger.Logger, part string) (*NodesMetrics, error) 
 	return ParseNodesMetrics(data), nil
 }
 
-
-
-func InitFeatureSet(nm *NodesMetrics, feature_set string) {
-	// This function is intentionally left empty.
-	// It was previously used to initialize map keys, but this is not necessary in Go.
-	// The linter correctly identified self-assignments here.
-}
-
 /*
 ParseNodesMetrics parses the output of the sinfo command for node metrics.
-Expected input format: "%D|%T|%b" (Nodes|State|Features).
+Expected input format: "%D|%T" (Nodes|State).
 */
 func ParseNodesMetrics(input []byte) *NodesMetrics {
 	var nm NodesMetrics
-	var feature_set string
 	lines := strings.Split(string(input), "\n")
 
 	// Sort and remove all the duplicates from the 'sinfo' output
 	sort.Strings(lines)
 	lines_uniq := RemoveDuplicates(lines)
 
-	nm.alloc = make(map[string]float64)
-	nm.comp = make(map[string]float64)
-	nm.down = make(map[string]float64)
-	nm.drain = make(map[string]float64)
-	nm.err = make(map[string]float64)
-	nm.fail = make(map[string]float64)
-	nm.idle = make(map[string]float64)
-	nm.maint = make(map[string]float64)
-	nm.mix = make(map[string]float64)
-	nm.resv = make(map[string]float64)
-	nm.other = make(map[string]float64)
-	nm.planned = make(map[string]float64)
-	nm.total = make(map[string]float64)
-
 	for _, line := range lines_uniq {
 		if strings.Contains(line, "|") {
 			split := strings.Split(line, "|")
 			state := split[1]
 			count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
-			features := strings.Split(split[2], ",")
-			sort.Strings(features)
-			feature_set = strings.Join(features[:], ",")
-			if feature_set == "(null)" {
-				feature_set = "null"
-			}
-			InitFeatureSet(&nm, feature_set)
 			alloc := regexp.MustCompile(`^alloc`)
 			comp := regexp.MustCompile(`^comp`)
 			down := regexp.MustCompile(`^down`)
@@ -94,42 +63,41 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 			planned := regexp.MustCompile(`^planned`)
 			switch {
 			case alloc.MatchString(state):
-				nm.alloc[feature_set] += count
+				nm.alloc += count
 			case comp.MatchString(state):
-				nm.comp[feature_set] += count
+				nm.comp += count
 			case down.MatchString(state):
-				nm.down[feature_set] += count
+				nm.down += count
 			case drain.MatchString(state):
-				nm.drain[feature_set] += count
+				nm.drain += count
 			case fail.MatchString(state):
-				nm.fail[feature_set] += count
+				nm.fail += count
 			case err.MatchString(state):
-				nm.err[feature_set] += count
+				nm.err += count
 			case idle.MatchString(state):
-				nm.idle[feature_set] += count
+				nm.idle += count
 			case maint.MatchString(state):
-				nm.maint[feature_set] += count
+				nm.maint += count
 			case mix.MatchString(state):
-				nm.mix[feature_set] += count
+				nm.mix += count
 			case resv.MatchString(state):
-				nm.resv[feature_set] += count
+				nm.resv += count
 			case planned.MatchString(state):
-				nm.planned[feature_set] += count
+				nm.planned += count
 			default:
-				nm.other[feature_set] += count
+				nm.other += count
 			}
 		}
 	}
 	return &nm
 }
 
-
 /*
 NodesData executes the sinfo command to retrieve node information.
-Expected sinfo output format: "%D|%T|%b" (Nodes|State|Features).
+Expected sinfo output format: "%D|%T" (Nodes|State).
 */
 func NodesData(logger *logger.Logger, part string) ([]byte, error) {
-	return Execute(logger, "sinfo", []string{"-h", "-o", "%D|%T|%b", "-p", part})
+	return Execute(logger, "sinfo", []string{"-h", "-o", "%D|%T", "-p", part})
 }
 
 /*
@@ -183,7 +151,6 @@ func SlurmGetPartitions(logger *logger.Logger) ([]string, error) {
 func NewNodesCollector(logger *logger.Logger) *NodesCollector {
 	labelnames := make([]string, 0, 1)
 	labelnames = append(labelnames, "partition")
-	labelnames = append(labelnames, "active_feature_set")
 	return &NodesCollector{
 		alloc:   prometheus.NewDesc("slurm_nodes_alloc", "Allocated nodes", labelnames, nil),
 		comp:    prometheus.NewDesc("slurm_nodes_comp", "Completing nodes", labelnames, nil),
@@ -219,7 +186,6 @@ type NodesCollector struct {
 	logger  *logger.Logger
 }
 
-
 func (nc *NodesCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.alloc
 	ch <- nc.comp
@@ -234,12 +200,6 @@ func (nc *NodesCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.other
 	ch <- nc.planned
 	ch <- nc.total
-}
-
-func SendFeatureSetMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, valueType prometheus.ValueType, featurestate map[string]float64, part string) {
-	for set, value := range featurestate {
-		ch <- prometheus.MustNewConstMetric(desc, valueType, value, part, set)
-	}
 }
 
 func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
@@ -259,41 +219,18 @@ func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 
-		// Create a slice of all the metric maps
-		allMaps := []map[string]float64{
-			nm.alloc, nm.comp, nm.down, nm.drain, nm.err, nm.fail,
-			nm.idle, nm.maint, nm.mix, nm.resv, nm.other, nm.planned,
-		}
-
-		// Collect all unique feature sets across all maps
-		allFeatureSets := make(map[string]struct{})
-		for _, metricMap := range allMaps {
-			for fs := range metricMap {
-				allFeatureSets[fs] = struct{}{}
-			}
-		}
-
-		// Ensure all maps have all feature sets, defaulting to 0
-		for _, metricMap := range allMaps {
-			for fs := range allFeatureSets {
-				if _, ok := metricMap[fs]; !ok {
-					metricMap[fs] = 0
-				}
-			}
-		}
-
-		SendFeatureSetMetric(ch, nc.alloc, prometheus.GaugeValue, nm.alloc, part)
-		SendFeatureSetMetric(ch, nc.comp, prometheus.GaugeValue, nm.comp, part)
-		SendFeatureSetMetric(ch, nc.down, prometheus.GaugeValue, nm.down, part)
-		SendFeatureSetMetric(ch, nc.drain, prometheus.GaugeValue, nm.drain, part)
-		SendFeatureSetMetric(ch, nc.err, prometheus.GaugeValue, nm.err, part)
-		SendFeatureSetMetric(ch, nc.fail, prometheus.GaugeValue, nm.fail, part)
-		SendFeatureSetMetric(ch, nc.idle, prometheus.GaugeValue, nm.idle, part)
-		SendFeatureSetMetric(ch, nc.maint, prometheus.GaugeValue, nm.maint, part)
-		SendFeatureSetMetric(ch, nc.mix, prometheus.GaugeValue, nm.mix, part)
-		SendFeatureSetMetric(ch, nc.resv, prometheus.GaugeValue, nm.resv, part)
-		SendFeatureSetMetric(ch, nc.other, prometheus.GaugeValue, nm.other, part)
-		SendFeatureSetMetric(ch, nc.planned, prometheus.GaugeValue, nm.planned, part)
+		ch <- prometheus.MustNewConstMetric(nc.alloc, prometheus.GaugeValue, nm.alloc, part)
+		ch <- prometheus.MustNewConstMetric(nc.comp, prometheus.GaugeValue, nm.comp, part)
+		ch <- prometheus.MustNewConstMetric(nc.down, prometheus.GaugeValue, nm.down, part)
+		ch <- prometheus.MustNewConstMetric(nc.drain, prometheus.GaugeValue, nm.drain, part)
+		ch <- prometheus.MustNewConstMetric(nc.err, prometheus.GaugeValue, nm.err, part)
+		ch <- prometheus.MustNewConstMetric(nc.fail, prometheus.GaugeValue, nm.fail, part)
+		ch <- prometheus.MustNewConstMetric(nc.idle, prometheus.GaugeValue, nm.idle, part)
+		ch <- prometheus.MustNewConstMetric(nc.maint, prometheus.GaugeValue, nm.maint, part)
+		ch <- prometheus.MustNewConstMetric(nc.mix, prometheus.GaugeValue, nm.mix, part)
+		ch <- prometheus.MustNewConstMetric(nc.resv, prometheus.GaugeValue, nm.resv, part)
+		ch <- prometheus.MustNewConstMetric(nc.other, prometheus.GaugeValue, nm.other, part)
+		ch <- prometheus.MustNewConstMetric(nc.planned, prometheus.GaugeValue, nm.planned, part)
 	}
 	total, err := SlurmGetTotal(nc.logger)
 	if err != nil {

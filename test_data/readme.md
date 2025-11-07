@@ -26,7 +26,7 @@ This file documents all the Slurm shell commands executed by the `slurm_exporter
 
 ## `collector/nodes.go`
 
-- `sinfo -h -o %D|%T|%b -p <partition>`: Retrieves the number of nodes by state and feature set for a given partition.
+- `sinfo -h -o %D|%T -p <partition>`: Retrieves the number of nodes by state for a given partition.
 - `scontrol show nodes -o`: Retrieves detailed information for all nodes to get a total count.
 - `sinfo -h -o %R`: Retrieves the list of all unique partitions.
 

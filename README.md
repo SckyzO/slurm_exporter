@@ -329,22 +329,22 @@ Provides detailed, per-node metrics for CPU and memory usage.
 
 Provides aggregated metrics on node states for the cluster.
 
-- **Commands:** `sinfo -h -o "%D|%T|%b"`, `scontrol show nodes -o`
+- **Commands:** `sinfo -h -o "%D|%T"`, `scontrol show nodes -o`
 
 | Metric | Description | Labels |
 |---|---|---|
-| `slurm_nodes_alloc` | Allocated nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_comp` | Completing nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_down` | Down nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_drain` | Drain nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_err` | Error nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_fail` | Fail nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_idle` | Idle nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_maint` | Maint nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_mix` | Mix nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_resv` | Reserved nodes | `partition`, `active_feature_set` |
-| `slurm_nodes_other` | Nodes reported with an unknown state | `partition`, `active_feature_set` |
-| `slurm_nodes_planned` | Planned nodes | `partition`, `active_feature_set` |
+| `slurm_nodes_alloc` | Allocated nodes | `partition` |
+| `slurm_nodes_comp` | Completing nodes | `partition` |
+| `slurm_nodes_down` | Down nodes | `partition` |
+| `slurm_nodes_drain` | Drain nodes | `partition` |
+| `slurm_nodes_err` | Error nodes | `partition` |
+| `slurm_nodes_fail` | Fail nodes | `partition` |
+| `slurm_nodes_idle` | Idle nodes | `partition` |
+| `slurm_nodes_maint` | Maint nodes | `partition` |
+| `slurm_nodes_mix` | Mix nodes | `partition` |
+| `slurm_nodes_resv` | Reserved nodes | `partition` |
+| `slurm_nodes_other` | Nodes reported with an unknown state | `partition` |
+| `slurm_nodes_planned` | Planned nodes | `partition` |
 | `slurm_nodes_total` | Total number of nodes | (none) |
 
 ### `partitions` Collector
