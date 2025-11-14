@@ -30,6 +30,7 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
     - [`fairshare` Collector](#fairshare-collector)
     - [`gpus` Collector](#gpus-collector)
     - [`info` Collector](#info-collector)
+    - [`licenses` Collector](#licenses-collector)
     - [`node` Collector](#node-collector)
     - [`nodes` Collector](#nodes-collector)
     - [`partitions` Collector](#partitions-collector)
@@ -192,7 +193,7 @@ This project requires access to a node with the Slurm CLI (`sinfo`, `squeue`, `s
 
 ### Prerequisites
 
-- [Go](https://golang.org/dl/) (version 1.22 or higher recommended)
+- [Go](https://golang.org/dl/) (version 1.25 or higher recommended)
 - Slurm CLI tools available in your `$PATH`
 
 ### Building from Source
@@ -238,7 +239,7 @@ curl http://localhost:8080/metrics
 **Advanced build options:**
 You can override the Go version and architecture via environment variables:
 ```bash
-make build GO_VERSION=1.22.2 OS=linux ARCH=amd64
+make build GO_VERSION=1.25.4 OS=linux ARCH=amd64
 ```
 
 ---
@@ -308,6 +309,18 @@ Exposes the version of Slurm and the availability of different Slurm binaries.
 | Metric | Description | Labels |
 |---|---|---|
 | `slurm_info` | Information on Slurm version and binaries | `type`, `binary`, `version` |
+
+### `licenses` Collector
+
+Provides metrics on license counts and usage.
+
+- **Command:** `scontrol show licenses -o`
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_license_total` | Total count for license | `license` |
+| `slurm_license_used` | Used count for license | `license` |
+| `slurm_license_free` | Free count for license | `license` |
 
 ### `node` Collector
 

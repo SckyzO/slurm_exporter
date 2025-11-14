@@ -3,7 +3,7 @@ PROJECT_NAME = slurm_exporter
 
 # Go environment configuration
 GO_INSTALLED_VERSION := $(shell go version 2>/dev/null | awk '{print $$3}' | sed 's/go//g')
-GO_VERSION ?= $(if $(GO_INSTALLED_VERSION),$(GO_INSTALLED_VERSION),1.22.2)
+GO_VERSION ?= $(if $(GO_INSTALLED_VERSION),$(GO_INSTALLED_VERSION),1.25.4)
 OS ?= linux
 ARCH ?= amd64
 GOPATH := $(shell pwd)/go/modules

@@ -56,6 +56,7 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"info":         func(l *logger.Logger) prometheus.Collector { return collector.NewSlurmInfoCollector(l) },
 	"gpus":         func(l *logger.Logger) prometheus.Collector { return collector.NewGPUsCollector(l) },
 	"reservations": func(l *logger.Logger) prometheus.Collector { return collector.NewReservationsCollector(l) },
+	"licenses":     func(l *logger.Logger) prometheus.Collector { return collector.NewLicensesCollector(l) },
 }
 
 // indexHTML is the HTML content displayed on the root page

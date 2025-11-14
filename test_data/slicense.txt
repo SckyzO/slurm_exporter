@@ -1,0 +1,2 @@
+LicenseName=ansys@flex Total=100 Used=20 Free=80 Reserved=0 Remote=yes LastConsumed=0 LastDeficit=0 LastUpdate=2025-08-16T10:10:00
+LicenseName=fluent@flex Total=30 Used=10 Free=20 Reserved=0 Remote=yes LastConsumed=0 LastDeficit=0 LastUpdate=2025-08-16T10:10:00
