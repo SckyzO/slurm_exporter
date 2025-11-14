@@ -76,7 +76,6 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 	return nodes
 }
 
-
 /*
 NodeData executes the sinfo command to get detailed data for each node.
 Expected sinfo output format: "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition".
@@ -97,7 +96,6 @@ type NodeCollector struct {
 	logger     *logger.Logger
 }
 
-
 func NewNodeCollector(logger *logger.Logger) *NodeCollector {
 	labels := []string{"node", "status", "partition"}
 	return &NodeCollector{
@@ -111,7 +109,6 @@ func NewNodeCollector(logger *logger.Logger) *NodeCollector {
 		logger:     logger,
 	}
 }
-
 
 func (nc *NodeCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.cpuAlloc
@@ -148,7 +145,7 @@ func appendUnique(slice []string, value string) []string {
 		if v == value {
 			return slice
 		}
-}
+	}
 	return append(slice, value)
 }
 

@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	
-	
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
@@ -19,16 +17,16 @@ const (
 
 // ReservationInfo holds information about a single reservation.
 type ReservationInfo struct {
-	Name          string
-	State         string
-	Users         string
-	Nodes         string
-	Partition     string
-	Flags         string
-	NodeCount     float64
-	CoreCount     float64
-	StartTime     time.Time
-	EndTime       time.Time
+	Name      string
+	State     string
+	Users     string
+	Nodes     string
+	Partition string
+	Flags     string
+	NodeCount float64
+	CoreCount float64
+	StartTime time.Time
+	EndTime   time.Time
 }
 
 // ReservationsCollector collects metrics about Slurm reservations.
@@ -40,7 +38,6 @@ type ReservationsCollector struct {
 	nodeCount *prometheus.Desc
 	coreCount *prometheus.Desc
 }
-
 
 func NewReservationsCollector(logger *logger.Logger) *ReservationsCollector {
 	labels := []string{"reservation_name", "state", "users", "nodes", "partition", "flags"}
@@ -129,7 +126,7 @@ func parseReservations(data []byte) ([]ReservationInfo, error) {
 		if strings.TrimSpace(record) == "" {
 			continue
 		}
-		
+
 		res := ReservationInfo{}
 		// Use a regex to find all key=value pairs.
 		re := regexp.MustCompile(`(\w+)=([^ \n]+)`)

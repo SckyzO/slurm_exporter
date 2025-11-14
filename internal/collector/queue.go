@@ -4,8 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	
-	
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
@@ -37,7 +35,6 @@ type QueueMetrics struct {
 	c_preempted   NVal
 	c_node_fail   NVal
 }
-
 
 func QueueGetMetrics(logger *logger.Logger) (*QueueMetrics, error) {
 	data, err := QueueData(logger)
@@ -150,7 +147,6 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 	}
 	return &qm
 }
-
 
 /*
 QueueData executes the squeue command to retrieve queue information.

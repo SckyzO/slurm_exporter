@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	
-	
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )

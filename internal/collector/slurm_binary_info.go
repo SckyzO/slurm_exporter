@@ -3,7 +3,6 @@ package collector
 import (
 	"strings"
 
-	
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
@@ -14,7 +13,6 @@ type SlurmInfoCollector struct {
 	binaries  []string
 	logger    *logger.Logger
 }
-
 
 func NewSlurmInfoCollector(logger *logger.Logger) *SlurmInfoCollector {
 	binaries := []string{
@@ -29,23 +27,20 @@ func NewSlurmInfoCollector(logger *logger.Logger) *SlurmInfoCollector {
 	}
 }
 
-
 func (c *SlurmInfoCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.slurmInfo
 }
 
-
 func (c *SlurmInfoCollector) Collect(ch chan<- prometheus.Metric) {
-	
+
 	version, found := GetBinaryVersion(c.logger, "sinfo")
 	versionValue := 0.0
 	if found {
 		versionValue = 1.0
 	}
-	
+
 	ch <- prometheus.MustNewConstMetric(c.slurmInfo, prometheus.GaugeValue, versionValue, "general", "", version)
 
-	
 	for _, binary := range c.binaries {
 		binVersion, binFound := GetBinaryVersion(c.logger, binary)
 		binValue := 0.0
@@ -55,7 +50,6 @@ func (c *SlurmInfoCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.slurmInfo, prometheus.GaugeValue, binValue, "binary", binary, binVersion)
 	}
 }
-
 
 func GetBinaryVersion(logger *logger.Logger, binary string) (string, bool) {
 	output, err := Execute(logger, binary, []string{"--version"})

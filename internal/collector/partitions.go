@@ -45,7 +45,7 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 	lines := strings.Split(string(partitionsData), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, ",") {
-			
+
 			partition := strings.Split(line, ",")[0]
 			_, key := partitions[partition]
 			if !key {
@@ -62,14 +62,14 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 			partitions[partition].total = total
 		}
 	}
-	
+
 	pendingJobsData, err := PartitionsPendingJobsData(logger)
 	if err != nil {
 		return nil, err
 	}
 	list := strings.Split(string(pendingJobsData), "\n")
 	for _, partition := range list {
-		
+
 		_, key := partitions[partition]
 		if key {
 			partitions[partition].pending += 1

@@ -39,7 +39,6 @@ func ParseCPUsMetrics(input []byte) *CPUsMetrics {
 	return &cm
 }
 
-
 /*
 CPUsData executes the sinfo command to retrieve CPU information.
 Expected sinfo output format: "%C" (allocated/idle/other/total CPUs).
@@ -71,7 +70,6 @@ type CPUsCollector struct {
 	total  *prometheus.Desc
 	logger *logger.Logger
 }
-
 
 func (cc *CPUsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cc.alloc
