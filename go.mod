@@ -1,4 +1,4 @@
-module github.com/sckyzo/slurm_exporter
+module github.com/mike8161990/slurm_exporter
 
 go 1.25
 

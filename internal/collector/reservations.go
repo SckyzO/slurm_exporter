@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mike8161990/slurm_exporter/internal/logger"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
 const (

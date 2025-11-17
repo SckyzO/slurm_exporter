@@ -7,7 +7,7 @@ project_name: slurm_exporter
 # Release configuration
 release:
   github:
-    owner: sckyzo 
+    owner: mike8161990 
   name_template: "{{ .ProjectName }} v{{ .Version }}"
 
 builds:

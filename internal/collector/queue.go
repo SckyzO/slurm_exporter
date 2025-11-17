@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mike8161990/slurm_exporter/internal/logger"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
 type NNVal map[string]map[string]map[string]float64

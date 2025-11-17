@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/mike8161990/slurm_exporter/internal/logger"
 )
 
 var (

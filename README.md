@@ -1,9 +1,9 @@
 # Prometheus Slurm Exporter 🚀
 
-[![Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml)
-[![Create Dev Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/sckyzo/slurm_exporter)](https://github.com/sckyzo/slurm_exporter/releases/latest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/sckyzo/slurm_exporter)](https://goreportcard.com/report/github.com/sckyzo/slurm_exporter)
+[![Release](https://github.com/mike8161990/slurm_exporter/actions/workflows/release.yml/badge.svg)](https://github.com/mike8161990/slurm_exporter/actions/workflows/release.yml)
+[![Create Dev Release](https://github.com/mike8161990/slurm_exporter/actions/workflows/dev-release.yml/badge.svg)](https://github.com/mike8161990/slurm_exporter/actions/workflows/dev-release.yml)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/mike8161990/slurm_exporter)](https://github.com/mike8161990/slurm_exporter/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mike8161990/slurm_exporter)](https://goreportcard.com/report/github.com/mike8161990/slurm_exporter)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 Prometheus collector and exporter for metrics extracted from the [Slurm](https://slurm.schedmd.com/overview.html) resource scheduling system.
@@ -63,7 +63,7 @@ There are two recommended ways to install the Slurm Exporter.
 
 This is the easiest method for most users.
 
-1. Download the latest release for your OS and architecture from the [GitHub Releases](https://github.com/sckyzo/slurm_exporter/releases) page. 📥
+1. Download the latest release for your OS and architecture from the [GitHub Releases](https://github.com/mike8161990/slurm_exporter/releases) page. 📥
 2. Place the `slurm_exporter` binary in a suitable location on a node with Slurm CLI access, such as `/usr/local/bin/`.
 3. Ensure the binary is executable:
 
@@ -88,7 +88,7 @@ If you want to build the exporter yourself, you can do so using the provided Mak
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/sckyzo/slurm_exporter.git
+   git clone https://github.com/mike8161990/slurm_exporter.git
    cd slurm_exporter
    ```
 
@@ -200,7 +200,7 @@ This project requires access to a node with the Slurm CLI (`sinfo`, `squeue`, `s
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/sckyzo/slurm_exporter.git
+   git clone https://github.com/mike8161990/slurm_exporter.git
    cd slurm_exporter
    ```
 
@@ -485,13 +485,12 @@ A [Grafana dashboard](https://grafana.com/dashboards/4323) is available:
 
 This project is licensed under the GNU General Public License, version 3 or later.
 
-[![Buy Me a Coffee](https://storage.ko-fi.com/cdn/kofi6.png?v=6)](https://ko-fi.com/C0C514I8WG)
-
 ---
 
 ## 🍴 About this fork
 
-This project is a **fork** of [cea-hpc/slurm_exporter](https://github.com/cea-hpc/slurm_exporter),
+This project is a fork of [SckyzO/slurm_exporter](https://github.com/SckyzO/slurm_exporter),
+which itself is a fork of [cea-hpc/slurm_exporter](https://github.com/cea-hpc/slurm_exporter),
 which itself is a fork of [vpenso/prometheus-slurm-exporter](https://github.com/vpenso/prometheus-slurm-exporter) (now apparently unmaintained).
 
 Feel free to contribute or open issues!

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mike8161990/slurm_exporter/internal/logger"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
 // SchedulerMetrics holds performance statistics from the Slurm scheduler daemon

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2025-11-16
+
+This release embraces the fork and removes any branding related to the previous repo.
+
+## [2.0.1] - 2025-11-14
+
+This release removes the feature set label from nodes metrics. It also adds a new collector for license counts.
+
+## [2.0.0] - 2025-11-06
+
+This is the initial project fork opened to fix a bug with queue counts for jobs with multiple partitions.
+
 ## [1.1.0] - 2025-08-07
 
 This release focuses on major architectural improvements and modernization of the codebase. The project structure has been reorganized to follow Go best practices, and the logging system has been migrated from go-kit/log to the standard log/slog package for better performance and structured logging.

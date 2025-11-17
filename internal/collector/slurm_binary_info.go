@@ -3,8 +3,8 @@ package collector
 import (
 	"strings"
 
+	"github.com/mike8161990/slurm_exporter/internal/logger"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
 // SlurmInfoCollector defines a Prometheus collector for Slurm binary and version information
