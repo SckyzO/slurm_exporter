@@ -7,4 +7,5 @@
 24|foo_bar_baz|feature_a
 3|planned|feature_a
 5|planned|feature_b
+7|inval|(null)
 

@@ -340,6 +340,7 @@ Provides aggregated metrics on node states for the cluster.
 | `slurm_nodes_err` | Error nodes | `partition`, `active_feature_set` |
 | `slurm_nodes_fail` | Fail nodes | `partition`, `active_feature_set` |
 | `slurm_nodes_idle` | Idle nodes | `partition`, `active_feature_set` |
+| `slurm_nodes_inval` | Inval nodes | `partition`, `active_feature_set` |
 | `slurm_nodes_maint` | Maint nodes | `partition`, `active_feature_set` |
 | `slurm_nodes_mix` | Mix nodes | `partition`, `active_feature_set` |
 | `slurm_nodes_resv` | Reserved nodes | `partition`, `active_feature_set` |

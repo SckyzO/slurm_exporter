@@ -18,6 +18,7 @@ type NodesMetrics struct {
 	err     map[string]float64
 	fail    map[string]float64
 	idle    map[string]float64
+	inval   map[string]float64
 	maint   map[string]float64
 	mix     map[string]float64
 	resv    map[string]float64
@@ -33,8 +34,6 @@ func NodesGetMetrics(logger *logger.Logger, part string) (*NodesMetrics, error) 
 	}
 	return ParseNodesMetrics(data), nil
 }
-
-
 
 func InitFeatureSet(nm *NodesMetrics, feature_set string) {
 	// This function is intentionally left empty.
@@ -62,6 +61,7 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 	nm.err = make(map[string]float64)
 	nm.fail = make(map[string]float64)
 	nm.idle = make(map[string]float64)
+	nm.inval = make(map[string]float64)
 	nm.maint = make(map[string]float64)
 	nm.mix = make(map[string]float64)
 	nm.resv = make(map[string]float64)
@@ -88,6 +88,7 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 			fail := regexp.MustCompile(`^fail`)
 			err := regexp.MustCompile(`^err`)
 			idle := regexp.MustCompile(`^idle`)
+			inval := regexp.MustCompile(`^inval`)
 			maint := regexp.MustCompile(`^maint`)
 			mix := regexp.MustCompile(`^mix`)
 			resv := regexp.MustCompile(`^res`)
@@ -107,6 +108,8 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 				nm.err[feature_set] += count
 			case idle.MatchString(state):
 				nm.idle[feature_set] += count
+			case inval.MatchString(state):
+				nm.inval[feature_set] += count
 			case maint.MatchString(state):
 				nm.maint[feature_set] += count
 			case mix.MatchString(state):
@@ -122,7 +125,6 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 	}
 	return &nm
 }
-
 
 /*
 NodesData executes the sinfo command to retrieve node information.
@@ -192,6 +194,7 @@ func NewNodesCollector(logger *logger.Logger) *NodesCollector {
 		err:     prometheus.NewDesc("slurm_nodes_err", "Error nodes", labelnames, nil),
 		fail:    prometheus.NewDesc("slurm_nodes_fail", "Fail nodes", labelnames, nil),
 		idle:    prometheus.NewDesc("slurm_nodes_idle", "Idle nodes", labelnames, nil),
+		inval:   prometheus.NewDesc("slurm_nodes_inval", "Inval nodes", labelnames, nil),
 		maint:   prometheus.NewDesc("slurm_nodes_maint", "Maint nodes", labelnames, nil),
 		mix:     prometheus.NewDesc("slurm_nodes_mix", "Mix nodes", labelnames, nil),
 		resv:    prometheus.NewDesc("slurm_nodes_resv", "Reserved nodes", labelnames, nil),
@@ -210,6 +213,7 @@ type NodesCollector struct {
 	err     *prometheus.Desc
 	fail    *prometheus.Desc
 	idle    *prometheus.Desc
+	inval   *prometheus.Desc
 	maint   *prometheus.Desc
 	mix     *prometheus.Desc
 	resv    *prometheus.Desc
@@ -219,7 +223,6 @@ type NodesCollector struct {
 	logger  *logger.Logger
 }
 
-
 func (nc *NodesCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.alloc
 	ch <- nc.comp
@@ -228,6 +231,7 @@ func (nc *NodesCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.err
 	ch <- nc.fail
 	ch <- nc.idle
+	ch <- nc.inval
 	ch <- nc.maint
 	ch <- nc.mix
 	ch <- nc.resv
@@ -262,7 +266,7 @@ func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
 		// Create a slice of all the metric maps
 		allMaps := []map[string]float64{
 			nm.alloc, nm.comp, nm.down, nm.drain, nm.err, nm.fail,
-			nm.idle, nm.maint, nm.mix, nm.resv, nm.other, nm.planned,
+			nm.idle, nm.inval, nm.maint, nm.mix, nm.resv, nm.other, nm.planned,
 		}
 
 		// Collect all unique feature sets across all maps
@@ -289,6 +293,7 @@ func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
 		SendFeatureSetMetric(ch, nc.err, prometheus.GaugeValue, nm.err, part)
 		SendFeatureSetMetric(ch, nc.fail, prometheus.GaugeValue, nm.fail, part)
 		SendFeatureSetMetric(ch, nc.idle, prometheus.GaugeValue, nm.idle, part)
+		SendFeatureSetMetric(ch, nc.inval, prometheus.GaugeValue, nm.inval, part)
 		SendFeatureSetMetric(ch, nc.maint, prometheus.GaugeValue, nm.maint, part)
 		SendFeatureSetMetric(ch, nc.mix, prometheus.GaugeValue, nm.mix, part)
 		SendFeatureSetMetric(ch, nc.resv, prometheus.GaugeValue, nm.resv, part)
