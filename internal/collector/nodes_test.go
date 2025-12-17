@@ -28,4 +28,5 @@ func TestNodesMetrics(t *testing.T) {
 	assert.Equal(t, 24, int(nm.other["feature_a"]))
 	assert.Equal(t, 3, int(nm.planned["feature_a"]))
 	assert.Equal(t, 5, int(nm.planned["feature_b"]))
+	assert.Equal(t, 7, int(nm.inval["null"]))
 }
