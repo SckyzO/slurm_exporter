@@ -360,6 +360,7 @@ Provides metrics on CPU usage and pending jobs for each partition.
 | `slurm_partition_cpus_idle` | Idle CPUs for partition | `partition` |
 | `slurm_partition_cpus_other` | Other CPUs for partition | `partition` |
 | `slurm_partition_jobs_pending` | Pending jobs for partition | `partition` |
+| `slurm_partition_jobs_running` | Running jobs for partition | `partition` |
 | `slurm_partition_cpus_total` | Total CPUs for partition | `partition` |
 
 ### `queue` Collector
