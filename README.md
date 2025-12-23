@@ -1,5 +1,9 @@
 # Prometheus Slurm Exporter 🚀
 
+> [!WARNING]
+> This repository will no longer be actively maintained starting with Slurm version 25.11, as Slurm natively integrates support for OpenMetrics metrics for Prometheus. Please consider migrating to:
+> [Slurm 25.11 metrics plugin](https://slurm.schedmd.com/metrics.html)
+
 [![Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml)
 [![Create Dev Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/sckyzo/slurm_exporter)](https://github.com/sckyzo/slurm_exporter/releases/latest)
