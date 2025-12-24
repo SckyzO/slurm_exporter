@@ -1,9 +1,5 @@
 # Prometheus Slurm Exporter 🚀
 
-> [!WARNING]
-> This repository will no longer be actively maintained starting with Slurm version 25.11, as Slurm natively integrates support for OpenMetrics metrics for Prometheus. Please consider migrating to:
-> [Slurm 25.11 metrics plugin](https://slurm.schedmd.com/metrics.html)
-
 [![Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml)
 [![Create Dev Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/sckyzo/slurm_exporter)](https://github.com/sckyzo/slurm_exporter/releases/latest)
@@ -12,10 +8,26 @@
 
 Prometheus collector and exporter for metrics extracted from the [Slurm](https://slurm.schedmd.com/overview.html) resource scheduling system.
 
+> [!WARNING]
+> This repository will no longer be actively maintained starting with Slurm version 25.11, as Slurm natively integrates support for OpenMetrics metrics for Prometheus. Please consider migrating to:
+> [Slurm 25.11 metrics plugin](https://slurm.schedmd.com/metrics.html)
+>
+>
+> I developed a new Slurm exporter to simplify and improve the usage of Slurm metrics:
+> https://github.com/sckyzo/slurm_prometheus_exporter/
+>
+> ✨ Features:
+> - ✅ Export Native OpenMetrics from Slurm (version 25.11+)
+> - ✅ Support for multiple endpoints (jobs, jobs-users-accts, nodes, partitions, scheduler)
+> - ✅ Basic Authentication and SSL/TLS support
+> - ✅ Customizable global labels for all metrics
+> - ✅ Easy configuration with YAML
+> - ✅ Built with Clean Architecture principles
+> - ✅ Comprehensive error handling and logging
+
 ## 📋 Table of Contents
 
 - [Prometheus Slurm Exporter 🚀](#prometheus-slurm-exporter-)
-  - [📋 Table of Contents](#-table-of-contents)
   - [✨ Features](#-features)
   - [📦 Installation](#-installation)
     - [1. From Pre-compiled Releases](#1-from-pre-compiled-releases)
