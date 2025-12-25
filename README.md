@@ -354,14 +354,16 @@ Provides metrics on CPU usage and pending jobs for each partition.
 
 - **Commands:** `sinfo -h -o "%R,%C"`, `squeue -a -r -h -o "%P" --states=PENDING`
 
-| Metric | Description | Labels |
-|---|---|---|
+| Metric                           | Description | Labels |
+|----------------------------------|---|---|
 | `slurm_partition_cpus_allocated` | Allocated CPUs for partition | `partition` |
-| `slurm_partition_cpus_idle` | Idle CPUs for partition | `partition` |
-| `slurm_partition_cpus_other` | Other CPUs for partition | `partition` |
-| `slurm_partition_jobs_pending` | Pending jobs for partition | `partition` |
-| `slurm_partition_jobs_running` | Running jobs for partition | `partition` |
-| `slurm_partition_cpus_total` | Total CPUs for partition | `partition` |
+| `slurm_partition_cpus_idle`      | Idle CPUs for partition | `partition` |
+| `slurm_partition_cpus_other`     | Other CPUs for partition | `partition` |
+| `slurm_partition_jobs_pending`   | Pending jobs for partition | `partition` |
+| `slurm_partition_jobs_running`   | Running jobs for partition | `partition` |
+| `slurm_partition_cpus_total`     | Total CPUs for partition | `partition` |
+| `slurm_partition_gpus_idle`      | Idle GPUs for partition | `partition` |
+| `slurm_partition_gpus_allocated` | Allocated GPUs for partition | `partition` |
 
 ### `queue` Collector
 
