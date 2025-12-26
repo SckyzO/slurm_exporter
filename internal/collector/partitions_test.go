@@ -39,11 +39,11 @@ func TestParsePartitionsMetricsWithRealOutput(t *testing.T) {
 					if len(args) >= 5 {
 						// PartitionsPendingJobsData: ... "--states=PENDING"
 						if strings.Contains(args[5], "PENDING") {
-							filename = "sinfo_partitions_pending_job.txt"
+							filename = "squeue_partitions_pending_job.txt"
 						}
 						// PartitionsRunningJobsData: ... "--states=RUNNING"
 						if strings.Contains(args[5], "RUNNING") {
-							filename = "sinfo_partitions_running_job.txt"
+							filename = "squeue_partitions_running_job.txt"
 						}
 					}
 				}

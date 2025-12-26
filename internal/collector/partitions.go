@@ -22,7 +22,7 @@ PartitionsGpuData executes the sinfo command to retrieve partition GPU informati
 Expected sinfo output format: "Partition,Gres,GresUsed" (PartitionName,Total/Alloc GPUs).
 */
 func PartitionsGpuData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "sinfo", []string{"-h", "--Format=Nodes: ,Partition: ,Gres: ,GresUsed:"})
+	return Execute(logger, "sinfo", []string{"-h", "--Format=Nodes: ,Partition: ,Gres: ,GresUsed:", "--state=idle,allocated"})
 }
 
 /*
@@ -90,7 +90,7 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 			partitions[partition].cpuAllocated = allocated
 			partitions[partition].cpuIdle = idle
 			partitions[partition].cpuOther = other
-			partitions[partition].cpuOther = total
+			partitions[partition].cpuTotal = total
 		}
 	}
 	// partition gpu usage
