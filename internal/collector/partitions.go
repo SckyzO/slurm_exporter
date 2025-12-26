@@ -189,30 +189,13 @@ func (pc *PartitionsCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	for p := range pm {
-		if pm[p].cpuAllocated > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.cpuAllocated, prometheus.GaugeValue, pm[p].cpuAllocated, p)
-		}
-		if pm[p].cpuIdle > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.cpuIdle, prometheus.GaugeValue, pm[p].cpuIdle, p)
-		}
-		if pm[p].cpuOther > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.cpuOther, prometheus.GaugeValue, pm[p].cpuOther, p)
-		}
-		if pm[p].cpuTotal > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.cpuTotal, prometheus.GaugeValue, pm[p].cpuTotal, p)
-		}
-		if pm[p].jobPending > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.jobPending, prometheus.GaugeValue, pm[p].jobPending, p)
-		}
-		if pm[p].jobRunning > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.jobRunning, prometheus.GaugeValue, pm[p].jobRunning, p)
-		}
-
-		if pm[p].gpuIdle > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.gpuIdle, prometheus.GaugeValue, pm[p].gpuIdle, p)
-		}
-		if pm[p].gpuAllocated > 0 {
-			ch <- prometheus.MustNewConstMetric(pc.gpuAllocated, prometheus.GaugeValue, pm[p].gpuAllocated, p)
-		}
+		ch <- prometheus.MustNewConstMetric(pc.cpuAllocated, prometheus.GaugeValue, pm[p].cpuAllocated, p)
+		ch <- prometheus.MustNewConstMetric(pc.cpuIdle, prometheus.GaugeValue, pm[p].cpuIdle, p)
+		ch <- prometheus.MustNewConstMetric(pc.cpuOther, prometheus.GaugeValue, pm[p].cpuOther, p)
+		ch <- prometheus.MustNewConstMetric(pc.cpuTotal, prometheus.GaugeValue, pm[p].cpuTotal, p)
+		ch <- prometheus.MustNewConstMetric(pc.jobPending, prometheus.GaugeValue, pm[p].jobPending, p)
+		ch <- prometheus.MustNewConstMetric(pc.jobRunning, prometheus.GaugeValue, pm[p].jobRunning, p)
+		ch <- prometheus.MustNewConstMetric(pc.gpuIdle, prometheus.GaugeValue, pm[p].gpuIdle, p)
+		ch <- prometheus.MustNewConstMetric(pc.gpuAllocated, prometheus.GaugeValue, pm[p].gpuAllocated, p)
 	}
 }

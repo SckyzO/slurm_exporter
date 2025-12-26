@@ -8,6 +8,6 @@
 5 a100 gpu:NVlink_A100_40GB:4(S:0-1) gpu:NVlink_A100_40GB:4(IDX:0-3)
 1 a800 gpu:NVlink_A800_80GB:4(S:0-1) gpu:NVlink_A800_80GB:4(IDX:0-3)
 548 cpu (null) (null)
-1 debuga100 gpu:nvidia_a100_1g.5gb:21(S:0-1) gpu:nvidia_a100_1g.5gb:1(IDX:0)
+1 debuga100 gpu:nvidia_a100_1g.5gb:21(S:0-1) gpu:nvidia_a100_1g.5gb:0(IDX:N/A)
 1 dgx2 gpu:tesla_v100-sxm3-32gb:16 gpu:tesla_v100-sxm3-32gb:16(IDX:0-15)
 1 dgx2 gpu:tesla_v100-sxm3-32gb:16 gpu:tesla_v100-sxm3-32gb:13(IDX:0-3,5-7,9-11,13-15)
