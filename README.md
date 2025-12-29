@@ -153,7 +153,7 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--collector.<name>` | Enable the specified collector | `true` (all enabled by default) |
 | `--no-collector.<name>` | Disable the specified collector | (none) |
 
-**Available collectors:** `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `node`, `nodes`, `partitions`, `queue`, `reservations`, `scheduler`, `users`
+**Available collectors:** `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `node`, `nodes`, `partitions`, `queue`, `reservations`, `scheduler`, `users`, `licenses`
 
 ### Enabling and Disabling Collectors
 
@@ -324,6 +324,18 @@ Exposes the version of Slurm and the availability of different Slurm binaries.
 | Metric | Description | Labels |
 |---|---|---|
 | `slurm_info` | Information on Slurm version and binaries | `type`, `binary`, `version` |
+
+### `licenses` Collector
+
+Provides metrics on license counts and usage.
+
+- **Command:** `scontrol show licenses -o`
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_license_total` | Total count for license | `license` |
+| `slurm_license_used` | Used count for license | `license` |
+| `slurm_license_free` | Free count for license | `license` |
 
 ### `node` Collector
 

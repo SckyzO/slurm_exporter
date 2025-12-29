@@ -1,0 +1,2 @@
+LicenseName=ansys@flex Total=100 Used=20 Free=80
+LicenseName=fluent@flex Total=30 Used=10 Free=20
