@@ -1,0 +1,11 @@
+cpu
+cpu
+cpu
+cpu
+a100
+a100
+a800
+a800
+dgx2
+dgx2
+debuga100

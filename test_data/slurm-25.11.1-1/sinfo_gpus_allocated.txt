@@ -1,0 +1,7 @@
+1398 (null)
+1 gpu:NVlink_A100_40GB:2(IDX:0,3)
+2 gpu:NVlink_A100_40GB:3(IDX:0-2)
+3 gpu:NVlink_A100_40GB:2(IDX:0-1)
+7 gpu:NVlink_A100_40GB:4(IDX:0-3)
+1 gpu:NVlink_A800_80GB:4(IDX:0-3)
+2 gpu:tesla_v100-sxm3-32gb:16(IDX:0-15)
