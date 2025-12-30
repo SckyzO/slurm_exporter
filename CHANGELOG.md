@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-12-29
+
+### ✨ Features
+
+- **Licenses Collector:** Added a new collector to monitor license usage (`slurm_license_total`, `slurm_license_used`, `slurm_license_free`) via `scontrol show licenses`.
+- **Enhanced Partition Metrics:** Added new metrics to the `partitions` collector:
+  - `slurm_partition_jobs_running`: Number of running jobs per partition.
+  - `slurm_partition_gpus_idle`: Number of idle GPUs per partition.
+  - `slurm_partition_gpus_allocated`: Number of allocated GPUs per partition.
+
 ## [1.1.0] - 2025-08-07
 
 This release focuses on major architectural improvements and modernization of the codebase. The project structure has been reorganized to follow Go best practices, and the logging system has been migrated from go-kit/log to the standard log/slog package for better performance and structured logging.
