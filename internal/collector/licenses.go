@@ -49,7 +49,7 @@ func ParseLicenseMetrics(input []byte) *LicenseMetrics {
 
 		lm.total[name] = total
 		lm.used[name] = used
-	lm.free[name] = free
+		lm.free[name] = free
 	}
 	return &lm
 }
