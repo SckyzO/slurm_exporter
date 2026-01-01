@@ -52,6 +52,10 @@ type PartitionMetrics struct {
 	gpuAllocated float64
 }
 
+var (
+	partitionGpuRe = regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
+)
+
 // parseGpuCount extracts GPU count from GPU spec string
 func parseGpuCount(gpuSpec string, re *regexp.Regexp) float64 {
 	matches := re.FindStringSubmatch(gpuSpec)
@@ -99,7 +103,6 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 		return nil, err
 	}
 	gpuLines := strings.Split(string(partitionsGPUData), "\n")
-	re := regexp.MustCompile("gpu:(\\(null\\)|[^:(]*):?([0-9]+)(\\([^)]*\\))?")
 	for _, line := range gpuLines {
 		if len(line) > 0 && strings.Contains(line, "gpu:") {
 			fields := strings.Fields(line)
@@ -108,8 +111,8 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 			}
 			numNodes, _ := strconv.ParseFloat(fields[0], 64)
 			partition := fields[1]
-			nodeGpus := parseGpuCount(fields[2], re)
-			allocatedGpus := parseGpuCount(fields[3], re)
+			nodeGpus := parseGpuCount(fields[2], partitionGpuRe)
+			allocatedGpus := parseGpuCount(fields[3], partitionGpuRe)
 
 			partitions[partition].gpuIdle += numNodes * (nodeGpus - allocatedGpus)
 			partitions[partition].gpuAllocated += numNodes * allocatedGpus
