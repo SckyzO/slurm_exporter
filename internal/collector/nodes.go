@@ -72,6 +72,9 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 	for _, line := range lines_uniq {
 		if strings.Contains(line, "|") {
 			split := strings.Split(line, "|")
+			if len(split) < 3 {
+				continue
+			}
 			state := split[1]
 			count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
 			features := strings.Split(split[2], ",")

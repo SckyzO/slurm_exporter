@@ -80,17 +80,24 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 	lines := strings.Split(string(partitionsData), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, ",") {
-
-			partition := strings.Split(line, ",")[0]
+			splitLine := strings.Split(line, ",")
+			if len(splitLine) < 2 {
+				continue
+			}
+			partition := splitLine[0]
 			_, key := partitions[partition]
 			if !key {
 				partitions[partition] = &PartitionMetrics{0, 0, 0, 0, 0, 0, 0, 0}
 			}
-			states := strings.Split(line, ",")[1]
-			allocated, _ := strconv.ParseFloat(strings.Split(states, "/")[0], 64)
-			idle, _ := strconv.ParseFloat(strings.Split(states, "/")[1], 64)
-			other, _ := strconv.ParseFloat(strings.Split(states, "/")[2], 64)
-			total, _ := strconv.ParseFloat(strings.Split(states, "/")[3], 64)
+			states := splitLine[1]
+			statesSplit := strings.Split(states, "/")
+			if len(statesSplit) < 4 {
+				continue
+			}
+			allocated, _ := strconv.ParseFloat(statesSplit[0], 64)
+			idle, _ := strconv.ParseFloat(statesSplit[1], 64)
+			other, _ := strconv.ParseFloat(statesSplit[2], 64)
+			total, _ := strconv.ParseFloat(statesSplit[3], 64)
 			partitions[partition].cpuAllocated = allocated
 			partitions[partition].cpuIdle = idle
 			partitions[partition].cpuOther = other
@@ -114,6 +121,9 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 			nodeGpus := parseGpuCount(fields[2], partitionGpuRe)
 			allocatedGpus := parseGpuCount(fields[3], partitionGpuRe)
 
+			if _, ok := partitions[partition]; !ok {
+				partitions[partition] = &PartitionMetrics{0, 0, 0, 0, 0, 0, 0, 0}
+			}
 			partitions[partition].gpuIdle += numNodes * (nodeGpus - allocatedGpus)
 			partitions[partition].gpuAllocated += numNodes * allocatedGpus
 		}

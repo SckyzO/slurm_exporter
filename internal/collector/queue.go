@@ -103,14 +103,16 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 	lines := strings.Split(string(input), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, ",") {
-			part := strings.Split(line, ",")[0]
-			part = strings.TrimSpace(part)
-			state := strings.Split(line, ",")[1]
-			cores_i, _ := strconv.Atoi(strings.Split(line, ",")[2])
+			fields := strings.Split(line, ",")
+			if len(fields) < 5 {
+				continue
+			}
+			part := strings.TrimSpace(fields[0])
+			state := fields[1]
+			cores_i, _ := strconv.Atoi(fields[2])
 			cores := float64(cores_i)
-			user := strings.Split(line, ",")[4]
-			user = strings.TrimSpace(user)
-			reason := strings.Split(line, ",")[3]
+			user := strings.TrimSpace(fields[4])
+			reason := fields[3]
 			switch state {
 			case "PENDING":
 				qm.pending.Incr2(reason, user, part, 1)
