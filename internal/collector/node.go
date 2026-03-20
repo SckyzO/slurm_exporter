@@ -1,7 +1,7 @@
 package collector
 
 import (
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -37,8 +37,8 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 	lines := strings.Split(string(input), "\n")
 
 	// Sort and remove all the duplicates from the 'sinfo' output
-	sort.Strings(lines)
-	linesUniq := RemoveDuplicates(lines)
+	slices.Sort(lines)
+	linesUniq := slices.Compact(lines)
 
 	for _, line := range linesUniq {
 		node := strings.Fields(line)
@@ -143,25 +143,10 @@ func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// appendUnique adds a string to a slice if it doesn't already exist
+// appendUnique adds a string to a slice if it doesn't already exist.
 func appendUnique(slice []string, value string) []string {
-	for _, v := range slice {
-		if v == value {
-			return slice
-		}
+	if slices.Contains(slice, value) {
+		return slice
 	}
 	return append(slice, value)
-}
-
-// RemoveDuplicates removes duplicate strings from a slice
-func RemoveDuplicates(slice []string) []string {
-	keys := make(map[string]bool)
-	list := []string{}
-	for _, entry := range slice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }

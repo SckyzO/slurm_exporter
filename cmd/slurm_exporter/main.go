@@ -124,7 +124,7 @@ func main() {
 	server := &http.Server{
 		ReadHeaderTimeout: 5 * time.Second, // Mitigate Slowloris attack (G112)
 	}
-	if err := web.ListenAndServe(server, toolkitFlags, log); err != nil {
+	if err := web.ListenAndServe(server, toolkitFlags, log.Logger); err != nil {
 		log.Error("Failed to start HTTP server", "err", err)
 		os.Exit(1)
 	}

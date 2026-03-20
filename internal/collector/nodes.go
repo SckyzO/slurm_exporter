@@ -2,7 +2,7 @@ package collector
 
 import (
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -68,8 +68,8 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 	lines := strings.Split(string(input), "\n")
 
 	// Sort and remove all the duplicates from the 'sinfo' output
-	sort.Strings(lines)
-	lines_uniq := RemoveDuplicates(lines)
+	slices.Sort(lines)
+	lines_uniq := slices.Compact(lines)
 
 	nm.alloc = make(map[string]float64)
 	nm.comp = make(map[string]float64)
@@ -95,7 +95,7 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 			state := split[1]
 			count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
 			features := strings.Split(split[2], ",")
-			sort.Strings(features)
+			slices.Sort(features)
 			feature_set = strings.Join(features, ",")
 			if feature_set == "(null)" {
 				feature_set = "null"
@@ -180,8 +180,8 @@ func SlurmGetPartitions(logger *logger.Logger) ([]string, error) {
 			cleanedPartitions = append(cleanedPartitions, p)
 		}
 	}
-	sort.Strings(cleanedPartitions)
-	return RemoveDuplicates(cleanedPartitions), nil
+	slices.Sort(cleanedPartitions)
+	return slices.Compact(cleanedPartitions), nil
 }
 
 /*

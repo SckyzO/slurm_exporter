@@ -25,7 +25,7 @@ var Execute = func(logger *logger.Logger, command string, args []string) ([]byte
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, command, args...)
+	cmd := exec.CommandContext(ctx, command, args...) //nolint:gosec // G204: command is always a controlled Slurm binary, never user input
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Check if the error is due to the context deadline exceeding.
