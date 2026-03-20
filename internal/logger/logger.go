@@ -36,7 +36,7 @@ func NewTextLogger(level string) *Logger {
 	}
 
 	opts := &slog.HandlerOptions{
-		Level: slogLevel,
+		Level:     slogLevel,
 		AddSource: true,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			// Remove the source file path for cleaner output
@@ -49,7 +49,7 @@ func NewTextLogger(level string) *Logger {
 
 	handler := slog.NewTextHandler(os.Stdout, opts)
 	logger := slog.New(handler)
-	
+
 	return &Logger{Logger: logger}
 }
 
@@ -71,13 +71,13 @@ func NewJSONLogger(level string) *Logger {
 	}
 
 	opts := &slog.HandlerOptions{
-		Level: slogLevel,
+		Level:     slogLevel,
 		AddSource: true,
 	}
 
 	handler := slog.NewJSONHandler(os.Stdout, opts)
 	logger := slog.New(handler)
-	
+
 	return &Logger{Logger: logger}
 }
 
@@ -86,7 +86,7 @@ func (l *Logger) Log(keyvals ...interface{}) error {
 	if len(keyvals)%2 != 0 {
 		keyvals = append(keyvals, "MISSING")
 	}
-	
+
 	args := make([]interface{}, 0, len(keyvals))
 	for i := 0; i < len(keyvals); i += 2 {
 		key, ok := keyvals[i].(string)
@@ -95,7 +95,7 @@ func (l *Logger) Log(keyvals ...interface{}) error {
 		}
 		args = append(args, key, keyvals[i+1])
 	}
-	
+
 	l.Logger.Info("", args...)
 	return nil
 }
@@ -105,7 +105,7 @@ func (l *Logger) With(keyvals ...interface{}) *Logger {
 	if len(keyvals)%2 != 0 {
 		keyvals = append(keyvals, "MISSING")
 	}
-	
+
 	args := make([]interface{}, 0, len(keyvals))
 	for i := 0; i < len(keyvals); i += 2 {
 		key, ok := keyvals[i].(string)
@@ -114,7 +114,7 @@ func (l *Logger) With(keyvals ...interface{}) *Logger {
 		}
 		args = append(args, key, keyvals[i+1])
 	}
-	
+
 	return &Logger{Logger: l.Logger.With(args...)}
 }
 
@@ -152,4 +152,4 @@ func (l *Logger) WithTimeout(timeout time.Duration) *Logger {
 // WithCommand adds command information to the logger context
 func (l *Logger) WithCommand(command string, args []string) *Logger {
 	return l.With("command", command, "args", args)
-} 
+}

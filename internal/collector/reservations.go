@@ -6,29 +6,25 @@ import (
 	"strings"
 	"time"
 
-	
-	
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
-const (
-	reservationsSubsystem = "reservations"
-	slurmTimeLayout       = "2006-01-02T15:04:05"
-)
+const slurmTimeLayout = "2006-01-02T15:04:05"
 
 // ReservationInfo holds information about a single reservation.
 type ReservationInfo struct {
-	Name          string
-	State         string
-	Users         string
-	Nodes         string
-	Partition     string
-	Flags         string
-	NodeCount     float64
-	CoreCount     float64
-	StartTime     time.Time
-	EndTime       time.Time
+	Name      string
+	State     string
+	Users     string
+	Nodes     string
+	Partition string
+	Flags     string
+	NodeCount float64
+	CoreCount float64
+	StartTime time.Time
+	EndTime   time.Time
 }
 
 // ReservationsCollector collects metrics about Slurm reservations.
@@ -40,7 +36,6 @@ type ReservationsCollector struct {
 	nodeCount *prometheus.Desc
 	coreCount *prometheus.Desc
 }
-
 
 func NewReservationsCollector(logger *logger.Logger) *ReservationsCollector {
 	labels := []string{"reservation_name", "state", "users", "nodes", "partition", "flags"}
@@ -98,7 +93,8 @@ func (c *ReservationsCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	for _, res := range reservations {
+	for i := range reservations {
+		res := &reservations[i]
 		labels := []string{res.Name, res.State, res.Users, res.Nodes, res.Partition, res.Flags}
 		ch <- prometheus.MustNewConstMetric(c.info, prometheus.GaugeValue, 1, labels...)
 		ch <- prometheus.MustNewConstMetric(c.startTime, prometheus.GaugeValue, float64(res.StartTime.Unix()), res.Name)
@@ -129,7 +125,7 @@ func parseReservations(data []byte) ([]ReservationInfo, error) {
 		if strings.TrimSpace(record) == "" {
 			continue
 		}
-		
+
 		res := ReservationInfo{}
 		// Use a regex to find all key=value pairs.
 		re := regexp.MustCompile(`(\w+)=([^ \n]+)`)

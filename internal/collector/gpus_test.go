@@ -51,15 +51,16 @@ func TestGPUsGetMetrics(t *testing.T) {
 
 	test_data_paths, _ := filepath.Glob("../../test_data/slurm-*")
 	for _, test_data_path := range test_data_paths {
-		slurm_version := strings.TrimPrefix(test_data_path, "../test_data/slurm-")
+		slurm_version := strings.TrimPrefix(test_data_path, "../../test_data/slurm-")
 		t.Run(slurm_version, func(t *testing.T) {
 			Execute = func(logger *logger.Logger, command string, args []string) ([]byte, error) {
 				var file string
-				if strings.Contains(args[2], "GresUsed:") && strings.Contains(args[2], "Gres:") {
+				switch {
+				case strings.Contains(args[2], "GresUsed:") && strings.Contains(args[2], "Gres:"):
 					file = filepath.Join(test_data_path, "sinfo_gpus_idle.txt")
-				} else if strings.Contains(args[2], "GresUsed:") {
+				case strings.Contains(args[2], "GresUsed:"):
 					file = filepath.Join(test_data_path, "sinfo_gpus_allocated.txt")
-				} else if strings.Contains(args[2], "Gres:") {
+				case strings.Contains(args[2], "Gres:"):
 					file = filepath.Join(test_data_path, "sinfo_gpus_total.txt")
 				}
 				data, err := os.ReadFile(file)

@@ -5,10 +5,16 @@ import (
 	"strconv"
 	"strings"
 
-	
-	
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/sckyzo/slurm_exporter/internal/logger"
+)
+
+// Pre-compiled regexes for job state matching in the users collector.
+var (
+	userJobPending   = regexp.MustCompile(`^pending`)
+	userJobRunning   = regexp.MustCompile(`^running`)
+	userJobSuspended = regexp.MustCompile(`^suspended`)
 )
 
 /*
@@ -39,24 +45,25 @@ func ParseUsersMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error
 	lines := strings.Split(string(usersData), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "|") {
-			user := strings.Split(line, "|")[1]
+			fields := strings.Split(line, "|")
+			if len(fields) < 4 {
+				continue
+			}
+			user := fields[1]
 			_, key := users[user]
 			if !key {
 				users[user] = &UserJobMetrics{0, 0, 0, 0}
 			}
-			state := strings.Split(line, "|")[2]
+			state := fields[2]
 			state = strings.ToLower(state)
-			cpus, _ := strconv.ParseFloat(strings.Split(line, "|")[3], 64)
-			pending := regexp.MustCompile(`^pending`)
-			running := regexp.MustCompile(`^running`)
-			suspended := regexp.MustCompile(`^suspended`)
+			cpus, _ := strconv.ParseFloat(fields[3], 64)
 			switch {
-			case pending.MatchString(state):
+			case userJobPending.MatchString(state):
 				users[user].pending++
-			case running.MatchString(state):
+			case userJobRunning.MatchString(state):
 				users[user].running++
 				users[user].running_cpus += cpus
-			case suspended.MatchString(state):
+			case userJobSuspended.MatchString(state):
 				users[user].suspended++
 			}
 		}

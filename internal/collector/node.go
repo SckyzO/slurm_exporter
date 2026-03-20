@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
@@ -57,6 +58,9 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		memTotal, _ := strconv.ParseUint(node[2], 10, 64)
 
 		cpuInfo := strings.Split(node[3], "/")
+		if len(cpuInfo) < 4 {
+			continue
+		}
 		cpuAlloc, _ := strconv.ParseUint(cpuInfo[0], 10, 64)
 		cpuIdle, _ := strconv.ParseUint(cpuInfo[1], 10, 64)
 		cpuOther, _ := strconv.ParseUint(cpuInfo[2], 10, 64)
@@ -75,7 +79,6 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 
 	return nodes
 }
-
 
 /*
 NodeData executes the sinfo command to get detailed data for each node.
@@ -97,7 +100,6 @@ type NodeCollector struct {
 	logger     *logger.Logger
 }
 
-
 func NewNodeCollector(logger *logger.Logger) *NodeCollector {
 	labels := []string{"node", "status", "partition"}
 	return &NodeCollector{
@@ -111,7 +113,6 @@ func NewNodeCollector(logger *logger.Logger) *NodeCollector {
 		logger:     logger,
 	}
 }
-
 
 func (nc *NodeCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.cpuAlloc
@@ -148,7 +149,7 @@ func appendUnique(slice []string, value string) []string {
 		if v == value {
 			return slice
 		}
-}
+	}
 	return append(slice, value)
 }
 

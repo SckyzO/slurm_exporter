@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
@@ -31,6 +32,9 @@ func ParseCPUsMetrics(input []byte) *CPUsMetrics {
 	var cm CPUsMetrics
 	if strings.Contains(string(input), "/") {
 		splitted := strings.Split(strings.TrimSpace(string(input)), "/")
+		if len(splitted) < 4 {
+			return &cm
+		}
 		cm.alloc, _ = strconv.ParseFloat(splitted[0], 64)
 		cm.idle, _ = strconv.ParseFloat(splitted[1], 64)
 		cm.other, _ = strconv.ParseFloat(splitted[2], 64)
@@ -38,7 +42,6 @@ func ParseCPUsMetrics(input []byte) *CPUsMetrics {
 	}
 	return &cm
 }
-
 
 /*
 CPUsData executes the sinfo command to retrieve CPU information.
@@ -71,7 +74,6 @@ type CPUsCollector struct {
 	total  *prometheus.Desc
 	logger *logger.Logger
 }
-
 
 func (cc *CPUsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cc.alloc

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
@@ -224,25 +225,25 @@ type SchedulerCollector struct {
 	logger                            *logger.Logger
 }
 
-func (c *SchedulerCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.threads
-	ch <- c.queue_size
-	ch <- c.dbd_queue_size
-	ch <- c.last_cycle
-	ch <- c.mean_cycle
-	ch <- c.cycle_per_minute
-	ch <- c.backfill_last_cycle
-	ch <- c.backfill_mean_cycle
-	ch <- c.backfill_depth_mean
-	ch <- c.total_backfilled_jobs_since_start
-	ch <- c.total_backfilled_jobs_since_cycle
-	ch <- c.total_backfilled_heterogeneous
-	ch <- c.rpc_stats_count
-	ch <- c.rpc_stats_avg_time
-	ch <- c.rpc_stats_total_time
-	ch <- c.user_rpc_stats_count
-	ch <- c.user_rpc_stats_avg_time
-	ch <- c.user_rpc_stats_total_time
+func (sc *SchedulerCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- sc.threads
+	ch <- sc.queue_size
+	ch <- sc.dbd_queue_size
+	ch <- sc.last_cycle
+	ch <- sc.mean_cycle
+	ch <- sc.cycle_per_minute
+	ch <- sc.backfill_last_cycle
+	ch <- sc.backfill_mean_cycle
+	ch <- sc.backfill_depth_mean
+	ch <- sc.total_backfilled_jobs_since_start
+	ch <- sc.total_backfilled_jobs_since_cycle
+	ch <- sc.total_backfilled_heterogeneous
+	ch <- sc.rpc_stats_count
+	ch <- sc.rpc_stats_avg_time
+	ch <- sc.rpc_stats_total_time
+	ch <- sc.user_rpc_stats_count
+	ch <- sc.user_rpc_stats_avg_time
+	ch <- sc.user_rpc_stats_total_time
 }
 
 func (sc *SchedulerCollector) Collect(ch chan<- prometheus.Metric) {
@@ -281,7 +282,6 @@ func (sc *SchedulerCollector) Collect(ch chan<- prometheus.Metric) {
 	for user, value := range sm.user_rpc_stats_total_time {
 		ch <- prometheus.MustNewConstMetric(sc.user_rpc_stats_total_time, prometheus.GaugeValue, value, user)
 	}
-
 }
 
 func NewSchedulerCollector(logger *logger.Logger) *SchedulerCollector {

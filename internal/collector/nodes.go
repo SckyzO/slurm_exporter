@@ -7,7 +7,24 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/sckyzo/slurm_exporter/internal/logger"
+)
+
+// Pre-compiled regexes for node state matching — avoids re-compilation on every loop iteration.
+var (
+	nodeStateAlloc   = regexp.MustCompile(`^alloc`)
+	nodeStateComp    = regexp.MustCompile(`^comp`)
+	nodeStateDown    = regexp.MustCompile(`^down`)
+	nodeStateDrain   = regexp.MustCompile(`^drain`)
+	nodeStateFail    = regexp.MustCompile(`^fail`)
+	nodeStateErr     = regexp.MustCompile(`^err`)
+	nodeStateIdle    = regexp.MustCompile(`^idle`)
+	nodeStateInval   = regexp.MustCompile(`^inval`)
+	nodeStateMaint   = regexp.MustCompile(`^maint`)
+	nodeStateMix     = regexp.MustCompile(`^mix`)
+	nodeStateResv    = regexp.MustCompile(`^res`)
+	nodeStatePlanned = regexp.MustCompile(`^planned`)
 )
 
 type NodesMetrics struct {
@@ -72,51 +89,42 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 	for _, line := range lines_uniq {
 		if strings.Contains(line, "|") {
 			split := strings.Split(line, "|")
+			if len(split) < 3 {
+				continue
+			}
 			state := split[1]
 			count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
 			features := strings.Split(split[2], ",")
 			sort.Strings(features)
-			feature_set = strings.Join(features[:], ",")
+			feature_set = strings.Join(features, ",")
 			if feature_set == "(null)" {
 				feature_set = "null"
 			}
 			InitFeatureSet(&nm, feature_set)
-			alloc := regexp.MustCompile(`^alloc`)
-			comp := regexp.MustCompile(`^comp`)
-			down := regexp.MustCompile(`^down`)
-			drain := regexp.MustCompile(`^drain`)
-			fail := regexp.MustCompile(`^fail`)
-			err := regexp.MustCompile(`^err`)
-			idle := regexp.MustCompile(`^idle`)
-			inval := regexp.MustCompile(`^inval`)
-			maint := regexp.MustCompile(`^maint`)
-			mix := regexp.MustCompile(`^mix`)
-			resv := regexp.MustCompile(`^res`)
-			planned := regexp.MustCompile(`^planned`)
 			switch {
-			case alloc.MatchString(state):
+			case nodeStateAlloc.MatchString(state):
 				nm.alloc[feature_set] += count
-			case comp.MatchString(state):
+			case nodeStateComp.MatchString(state):
 				nm.comp[feature_set] += count
-			case down.MatchString(state):
+			case nodeStateDown.MatchString(state):
 				nm.down[feature_set] += count
-			case drain.MatchString(state):
+			case nodeStateDrain.MatchString(state):
 				nm.drain[feature_set] += count
-			case fail.MatchString(state):
+			case nodeStateFail.MatchString(state):
 				nm.fail[feature_set] += count
-			case err.MatchString(state):
+			case nodeStateErr.MatchString(state):
 				nm.err[feature_set] += count
-			case idle.MatchString(state):
+			case nodeStateIdle.MatchString(state):
 				nm.idle[feature_set] += count
-			case inval.MatchString(state):
+			case nodeStateInval.MatchString(state):
 				nm.inval[feature_set] += count
-			case maint.MatchString(state):
+			case nodeStateMaint.MatchString(state):
 				nm.maint[feature_set] += count
-			case mix.MatchString(state):
+			case nodeStateMix.MatchString(state):
 				nm.mix[feature_set] += count
-			case resv.MatchString(state):
+			case nodeStateResv.MatchString(state):
 				nm.resv[feature_set] += count
-			case planned.MatchString(state):
+			case nodeStatePlanned.MatchString(state):
 				nm.planned[feature_set] += count
 			default:
 				nm.other[feature_set] += count

@@ -18,6 +18,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -120,7 +121,9 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 
 	// Start HTTP server with exporter toolkit (supports TLS, Basic Auth, etc.)
-	server := &http.Server{}
+	server := &http.Server{
+		ReadHeaderTimeout: 5 * time.Second, // Mitigate Slowloris attack (G112)
+	}
 	if err := web.ListenAndServe(server, toolkitFlags, log); err != nil {
 		log.Error("Failed to start HTTP server", "err", err)
 		os.Exit(1)
