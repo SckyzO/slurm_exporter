@@ -8,27 +8,26 @@ import (
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
-// StatusCollector wraps any prometheus.Collector and emits per-collector
-// health metrics: slurm_exporter_collector_success and
-// slurm_exporter_collector_duration_seconds.
-//
-// This follows the Prometheus exporter best-practice of exposing internal
-// scrape health so operators can build alerts on individual collector failures
-// without waiting for a global scrape_error.
-type StatusCollector struct {
-	inner    prometheus.Collector
-	name     string
-	logger   *logger.Logger
+// StatusTracker is a single Prometheus collector that runs a set of inner
+// collectors and emits per-collector health metrics. Using one shared collector
+// avoids duplicate descriptor panics that occur when each inner collector
+// independently emits the same status metric descriptor.
+type StatusTracker struct {
+	entries  []statusEntry
 	success  *prometheus.Desc
 	duration *prometheus.Desc
+	logger   *logger.Logger
 }
 
-// WrapWithStatus wraps a collector with instrumentation that tracks success
-// and duration per named collector.
-func WrapWithStatus(name string, c prometheus.Collector, log *logger.Logger) *StatusCollector {
-	return &StatusCollector{
-		inner:  c,
-		name:   name,
+type statusEntry struct {
+	name      string
+	collector prometheus.Collector
+}
+
+// NewStatusTracker creates a StatusTracker. Register it once with the Prometheus
+// registry; add inner collectors via Add().
+func NewStatusTracker(log *logger.Logger) *StatusTracker {
+	return &StatusTracker{
 		logger: log,
 		success: prometheus.NewDesc(
 			"slurm_exporter_collector_success",
@@ -43,43 +42,48 @@ func WrapWithStatus(name string, c prometheus.Collector, log *logger.Logger) *St
 	}
 }
 
-// Describe forwards the inner collector's descriptors plus the two status descs.
-func (s *StatusCollector) Describe(ch chan<- *prometheus.Desc) {
-	s.inner.Describe(ch)
-	ch <- s.success
-	ch <- s.duration
+// Add registers an inner collector under the given name.
+func (st *StatusTracker) Add(name string, c prometheus.Collector) {
+	st.entries = append(st.entries, statusEntry{name: name, collector: c})
 }
 
-// Collect runs the inner collector, measures duration, and emits status metrics.
-// If the inner Collect panics, it is recovered and reported as a failure.
-func (s *StatusCollector) Collect(ch chan<- prometheus.Metric) {
-	start := time.Now()
-	succeeded := 1.0
-
-	// Intercept metrics from the inner collector into a buffer so we can
-	// detect whether it produced any output (empty = likely an error).
-	buf := make(chan prometheus.Metric, 512)
-	done := make(chan struct{})
-
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				s.logger.Error("Collector panicked", "collector", s.name, "panic", r)
-				succeeded = 0
-			}
-			close(done)
-		}()
-		s.inner.Collect(buf)
-	}()
-
-	<-done
-	close(buf)
-
-	for m := range buf {
-		ch <- m
+// Describe sends the inner collectors' descriptors plus the two status descriptors.
+func (st *StatusTracker) Describe(ch chan<- *prometheus.Desc) {
+	for _, e := range st.entries {
+		e.collector.Describe(ch)
 	}
+	ch <- st.success
+	ch <- st.duration
+}
 
-	elapsed := time.Since(start).Seconds()
-	ch <- prometheus.MustNewConstMetric(s.success, prometheus.GaugeValue, succeeded, s.name)
-	ch <- prometheus.MustNewConstMetric(s.duration, prometheus.GaugeValue, elapsed, s.name)
+// Collect runs each inner collector, measures duration, and emits status metrics.
+// A panic in an inner collector is recovered and reported as a failure.
+func (st *StatusTracker) Collect(ch chan<- prometheus.Metric) {
+	for _, e := range st.entries {
+		start := time.Now()
+		succeeded := 1.0
+
+		buf := make(chan prometheus.Metric, 512)
+		done := make(chan struct{})
+		go func(entry statusEntry) {
+			defer func() {
+				if r := recover(); r != nil {
+					st.logger.Error("Collector panicked", "collector", entry.name, "panic", r)
+					succeeded = 0
+				}
+				close(done)
+			}()
+			entry.collector.Collect(buf)
+		}(e)
+
+		<-done
+		close(buf)
+		for m := range buf {
+			ch <- m
+		}
+
+		elapsed := time.Since(start).Seconds()
+		ch <- prometheus.MustNewConstMetric(st.success, prometheus.GaugeValue, succeeded, e.name)
+		ch <- prometheus.MustNewConstMetric(st.duration, prometheus.GaugeValue, elapsed, e.name)
+	}
 }

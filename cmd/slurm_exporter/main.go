@@ -39,6 +39,13 @@ var (
 	logFormat      = kingpin.Flag("log.format", "Log format. One of: [json, text]").Default("text").Enum("json", "text")
 	toolkitFlags   = webflag.AddFlags(kingpin.CommandLine, ":9341")
 
+	// disableExporterMetrics removes Go runtime and process metrics from /metrics.
+	// Useful when scraping with a dedicated Go runtime exporter.
+	disableExporterMetrics = kingpin.Flag(
+		"web.disable-exporter-metrics",
+		"Exclude Go runtime and process metrics from /metrics endpoint.",
+	).Default("false").Bool()
+
 	// nodesFeatureSet controls whether active_feature_set label is included in nodes metrics
 	nodesFeatureSet = kingpin.Flag(
 		"collector.nodes.feature-set",
@@ -77,18 +84,20 @@ const indexHTML = `<html>
 	</body>
 </html>`
 
-// registerCollectors registers enabled collectors with a custom Prometheus registry.
-// Using a custom registry avoids pollution from third-party packages that register
-// metrics in the default global registry, and makes the exposed metric set explicit.
-func registerCollectors(reg *prometheus.Registry, logger *logger.Logger) {
+// registerCollectors registers enabled collectors with the Prometheus registry.
+// All enabled collectors are wrapped by a single StatusTracker that emits
+// per-collector health metrics (success, duration) without desc conflicts.
+func registerCollectors(reg *prometheus.Registry, log *logger.Logger) {
+	tracker := collector.NewStatusTracker(log)
 	for name, constructor := range collectorConstructors {
 		if *collectorState[name] {
-			reg.MustRegister(collector.WrapWithStatus(name, constructor(logger), logger))
-			logger.Info("Collector enabled", "collector", name)
+			tracker.Add(name, constructor(log))
+			log.Info("Collector enabled", "collector", name)
 		} else {
-			logger.Info("Collector disabled", "collector", name)
+			log.Info("Collector disabled", "collector", name)
 		}
 	}
+	reg.MustRegister(tracker)
 }
 
 func main() {
@@ -112,12 +121,14 @@ func main() {
 	// Create a custom registry to avoid global state and third-party metric pollution
 	reg := prometheus.NewRegistry()
 
-	// Register standard Go runtime and build info collectors
-	reg.MustRegister(
-		collectors.NewGoCollector(),
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-		collectors.NewBuildInfoCollector(),
-	)
+	// Always register build info; Go runtime and process collectors are optional.
+	reg.MustRegister(collectors.NewBuildInfoCollector())
+	if !*disableExporterMetrics {
+		reg.MustRegister(
+			collectors.NewGoCollector(),
+			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		)
+	}
 
 	// Register enabled Slurm collectors
 	registerCollectors(reg, log)
