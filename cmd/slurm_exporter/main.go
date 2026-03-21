@@ -69,11 +69,13 @@ const indexHTML = `<html>
 	</body>
 </html>`
 
-// registerCollectors registers enabled collectors with Prometheus
-func registerCollectors(logger *logger.Logger) {
+// registerCollectors registers enabled collectors with a custom Prometheus registry.
+// Using a custom registry avoids pollution from third-party packages that register
+// metrics in the default global registry, and makes the exposed metric set explicit.
+func registerCollectors(reg *prometheus.Registry, logger *logger.Logger) {
 	for name, constructor := range collectorConstructors {
 		if *collectorState[name] {
-			prometheus.MustRegister(constructor(logger))
+			reg.MustRegister(constructor(logger))
 			logger.Info("Collector enabled", "collector", name)
 		} else {
 			logger.Info("Collector disabled", "collector", name)
@@ -103,11 +105,18 @@ func main() {
 	// Configure global command timeout for all collectors
 	collector.SetCommandTimeout(*commandTimeout)
 
-	// Register Prometheus build info collector
-	prometheus.MustRegister(collectors.NewBuildInfoCollector())
+	// Create a custom registry to avoid global state and third-party metric pollution
+	reg := prometheus.NewRegistry()
+
+	// Register standard Go runtime and build info collectors
+	reg.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		collectors.NewBuildInfoCollector(),
+	)
 
 	// Register enabled Slurm collectors
-	registerCollectors(log)
+	registerCollectors(reg, log)
 
 	// Log server startup information
 	log.Info("Starting Slurm Exporter server...")
@@ -118,7 +127,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(indexHTML))
 	})
-	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	}))
 
 	// Start HTTP server with exporter toolkit (supports TLS, Basic Auth, etc.)
 	server := &http.Server{
