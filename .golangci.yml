@@ -1,4 +1,4 @@
-# golangci-lint configuration for slurm_exporter
+# golangci-lint v2 configuration for slurm_exporter
 # Docs: https://golangci-lint.run/usage/configuration/
 version: "2"
 
@@ -27,7 +27,6 @@ linters:
     - misspell       # Spelling mistakes in comments and strings
     - whitespace     # Unnecessary blank lines
 
-
   settings:
     gosec:
       # G304 (file path from variable) is expected in test helpers that read fixture files
@@ -38,7 +37,7 @@ linters:
       rules:
         - name: indent-error-flow
         # var-naming (snake_case -> camelCase) and exported (godoc comments) are excluded
-        # because the entire codebase uses this pre-existing style — fixing it requires a
+        # because the entire codebase uses this pre-existing style — fixing requires a
         # dedicated renaming pass touching every file. Track as separate issue.
 
     gocritic:
@@ -56,6 +55,19 @@ linters:
         - "-ST1000"
         - "-ST1020"
 
+  exclusions:
+    rules:
+      # Test files: relax errcheck (io.ReadAll error is acceptable in tests)
+      - path: "_test\\.go"
+        linters:
+          - errcheck
+          - gosec
+
+      # revive: var-naming and exported godoc comments are pre-existing style throughout
+      # the codebase — fixing requires a dedicated renaming pass (separate issue).
+      - linters: [revive]
+        text: "(var-naming|exported)"
+
 formatters:
   enable:
     - gofmt
@@ -67,18 +79,5 @@ formatters:
         - github.com/sckyzo/slurm_exporter
 
 issues:
-  # Increase limits for generated/test files
   max-issues-per-linter: 0
   max-same-issues: 0
-
-  exclude-rules:
-    # Test files: relax errcheck (io.ReadAll error is acceptable in tests)
-    - path: "_test\\.go"
-      linters:
-        - errcheck
-        - gosec
-
-    # revive: var-naming and exported godoc comments are pre-existing style throughout
-    # the codebase — fixing requires a dedicated renaming pass (separate issue).
-    - linters: [revive]
-      text: "(var-naming|exported)"
