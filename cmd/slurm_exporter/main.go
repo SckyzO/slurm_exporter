@@ -75,7 +75,7 @@ const indexHTML = `<html>
 func registerCollectors(reg *prometheus.Registry, logger *logger.Logger) {
 	for name, constructor := range collectorConstructors {
 		if *collectorState[name] {
-			reg.MustRegister(constructor(logger))
+			reg.MustRegister(collector.WrapWithStatus(name, constructor(logger), logger))
 			logger.Info("Collector enabled", "collector", name)
 		} else {
 			logger.Info("Collector disabled", "collector", name)
