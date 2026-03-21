@@ -130,6 +130,13 @@ func main() {
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
 		EnableOpenMetrics: true,
 	}))
+	// /healthz returns 200 OK as long as the HTTP server is up.
+	// This allows orchestrators (Kubernetes, systemd watchdog) to distinguish
+	// "exporter process alive" from "Slurm commands reachable".
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
 
 	// Start HTTP server with exporter toolkit (supports TLS, Basic Auth, etc.)
 	server := &http.Server{
