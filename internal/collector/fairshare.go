@@ -23,8 +23,7 @@ type FairShareMetrics struct {
 // Lines indented with two spaces are sub-account entries and are skipped.
 func ParseFairShareMetrics(input []byte) map[string]*FairShareMetrics {
 	accounts := make(map[string]*FairShareMetrics)
-	lines := strings.Split(string(input), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(input), "\n") {
 		if strings.HasPrefix(line, "  ") || !strings.Contains(line, "|") {
 			continue
 		}

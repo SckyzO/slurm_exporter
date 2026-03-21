@@ -98,8 +98,7 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 		cPreempted:   make(NVal),
 		cNodeFail:    make(NVal),
 	}
-	lines := strings.Split(string(input), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(input), "\n") {
 		if strings.Contains(line, "|") {
 			// SplitN with 5 keeps a reason field that may itself contain pipes
 			fields := strings.SplitN(line, "|", 5)

@@ -36,7 +36,7 @@ type ReservationNodesMetrics struct {
 func ParseReservationNodesMetrics(input []byte) map[string]*ReservationNodesMetrics {
 	reservations := make(map[string]*ReservationNodesMetrics)
 
-	for _, line := range strings.Split(string(input), "\n") {
+	for line := range strings.SplitSeq(string(input), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

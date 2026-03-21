@@ -42,8 +42,7 @@ It expects input in the format: "JobID|User|State|CPUs".
 // ParseUsersMetrics parses raw squeue output into a map of user -> job metrics.
 func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 	users := make(map[string]*UserJobMetrics)
-	lines := strings.Split(string(input), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(input), "\n") {
 		if strings.Contains(line, "|") {
 			fields := strings.Split(line, "|")
 			if len(fields) < 4 {

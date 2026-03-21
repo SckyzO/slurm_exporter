@@ -41,7 +41,7 @@ func ParseLicenseMetrics(input []byte) *LicenseMetrics {
 		reserved: make(map[string]float64),
 	}
 
-	for _, line := range strings.Split(string(input), "\n") {
+	for line := range strings.SplitSeq(string(input), "\n") {
 		matches := licenseLineRe.FindStringSubmatch(line)
 		if matches == nil {
 			continue

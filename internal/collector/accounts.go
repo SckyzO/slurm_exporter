@@ -51,8 +51,7 @@ type JobMetrics struct {
 // Input format: "%A|%a|%T|%D|%C|%b" (JobID|Account|State|NumNodes|CPUs|TRES).
 func ParseAccountsMetrics(input []byte) map[string]*JobMetrics {
 	accounts := make(map[string]*JobMetrics)
-	lines := strings.Split(string(input), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(input), "\n") {
 		if !strings.Contains(line, "|") {
 			continue
 		}
