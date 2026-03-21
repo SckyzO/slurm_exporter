@@ -66,6 +66,9 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 - ✅ Exports a wide range of metrics from Slurm, including nodes, partitions, jobs, CPUs, and GPUs.
 - ✅ All metric collectors are optional and can be enabled/disabled via flags.
 - ✅ Supports TLS and Basic Authentication for secure connections.
+- ✅ OpenMetrics format supported (exemplars, newer Prometheus features).
+- ✅ Per-collector health metrics (`slurm_exporter_collector_success`, `slurm_exporter_collector_duration_seconds`).
+- ✅ Liveness probe at `/healthz` for orchestrators (Kubernetes, systemd).
 - ✅ Ready-to-use Grafana dashboard.
 
 ---
@@ -208,7 +211,7 @@ This project requires access to a node with the Slurm CLI (`sinfo`, `squeue`, `s
 
 ### Prerequisites
 
-- [Go](https://golang.org/dl/) (version 1.22 or higher recommended)
+- [Go](https://golang.org/dl/) (version 1.25 or higher, toolchain 1.26.1 recommended)
 - Slurm CLI tools available in your `$PATH`
 
 ### Building from Source
@@ -236,6 +239,11 @@ make test
 
 ### Development Commands
 
+**Run the linter:**
+```bash
+golangci-lint run ./...
+```
+
 **Clean build artifacts:**
 ```bash
 make clean
@@ -249,6 +257,12 @@ bin/slurm_exporter --web.listen-address=:8080
 **Query metrics:**
 ```bash
 curl http://localhost:8080/metrics
+```
+
+**Liveness probe:**
+```bash
+curl http://localhost:8080/healthz
+# returns: ok
 ```
 
 **Advanced build options:**
@@ -404,6 +418,7 @@ Provides detailed metrics on job states and resource usage.
 | `slurm_queue_pending` | Pending jobs in queue | `user`, `partition`, `reason` |
 | `slurm_queue_running` | Running jobs in the cluster | `user`, `partition` |
 | `slurm_queue_suspended` | Suspended jobs in the cluster | `user`, `partition` |
+| `slurm_cores_suspended` | Suspended cores in the cluster | `user`, `partition` |
 | `slurm_cores_pending` | Pending cores in queue | `user`, `partition`, `reason` |
 | `slurm_cores_running` | Running cores in the cluster | `user`, `partition` |
 | `...` | (and many other states: `completed`, `failed`, etc.) | `user`, `partition` |
@@ -411,6 +426,8 @@ Provides detailed metrics on job states and resource usage.
 ### `reservations` Collector
 
 Provides metrics about active Slurm reservations.
+
+> **Note:** `start_time` and `end_time` are parsed in the server's local timezone (`time.Local`).
 
 - **Command:** `scontrol show reservation`
 
@@ -471,6 +488,19 @@ Check config:
 ```bash
 promtool check-config prometheus.yml
 ```
+
+### Internal Exporter Metrics
+
+Each collector emits two self-monitoring metrics:
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_exporter_collector_success` | `1` if last scrape succeeded, `0` if the collector panicked | `collector` |
+| `slurm_exporter_collector_duration_seconds` | Wall time of the last `Collect()` call | `collector` |
+
+These allow per-collector alerting independently of the global Prometheus `scrape_error`.
+
+---
 
 ### Performance Considerations
 
