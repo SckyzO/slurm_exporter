@@ -69,7 +69,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           BUILD_USER: "${{ github.actor }}"
           BUILD_DATE: ${{ env.BUILD_DATE }}
           GO_VERSION: ${{ env.GO_VERSION }}

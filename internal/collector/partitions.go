@@ -88,7 +88,7 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 			partition := splitLine[0]
 			_, key := partitions[partition]
 			if !key {
-				partitions[partition] = &PartitionMetrics{0, 0, 0, 0, 0, 0, 0, 0}
+				partitions[partition] = &PartitionMetrics{}
 			}
 			states := splitLine[1]
 			statesSplit := strings.Split(states, "/")
