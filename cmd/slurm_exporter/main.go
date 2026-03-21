@@ -39,6 +39,13 @@ var (
 	logFormat      = kingpin.Flag("log.format", "Log format. One of: [json, text]").Default("text").Enum("json", "text")
 	toolkitFlags   = webflag.AddFlags(kingpin.CommandLine, ":9341")
 
+	// nodesFeatureSet controls whether active_feature_set label is included in nodes metrics
+	nodesFeatureSet = kingpin.Flag(
+		"collector.nodes.feature-set",
+		"Include active_feature_set label in slurm_nodes_* metrics. "+
+			"Disable on homogeneous clusters to reduce cardinality.",
+	).Default("true").Bool()
+
 	// collectorState stores the enabled/disabled state of each collector
 	collectorState = make(map[string]*bool)
 )
@@ -47,7 +54,7 @@ var (
 var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Collector{
 	"accounts":          func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
 	"cpus":              func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
-	"nodes":             func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l) },
+	"nodes":             func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l, *nodesFeatureSet) },
 	"node":              func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
 	"partitions":        func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
 	"queue":             func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l) },

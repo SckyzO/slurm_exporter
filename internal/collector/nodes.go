@@ -187,45 +187,54 @@ func SlurmGetPartitions(logger *logger.Logger) ([]string, error) {
  * https://godoc.org/github.com/prometheus/client_golang/prometheus#Collector
  */
 
-func NewNodesCollector(logger *logger.Logger) *NodesCollector {
-	labelnames := make([]string, 0, 1)
-	labelnames = append(labelnames, "partition")
-	labelnames = append(labelnames, "active_feature_set")
+// NewNodesCollector creates a nodes metrics collector.
+// When withFeatureSet is false, the active_feature_set label is omitted and
+// node counts are aggregated per partition only — useful on homogeneous clusters
+// to avoid high metric cardinality (controlled via --collector.nodes.feature-set).
+func NewNodesCollector(logger *logger.Logger, withFeatureSet bool) *NodesCollector {
+	var labelnames []string
+	if withFeatureSet {
+		labelnames = []string{"partition", "active_feature_set"}
+	} else {
+		labelnames = []string{"partition"}
+	}
 	return &NodesCollector{
-		alloc:   prometheus.NewDesc("slurm_nodes_alloc", "Allocated nodes", labelnames, nil),
-		comp:    prometheus.NewDesc("slurm_nodes_comp", "Completing nodes", labelnames, nil),
-		down:    prometheus.NewDesc("slurm_nodes_down", "Down nodes", labelnames, nil),
-		drain:   prometheus.NewDesc("slurm_nodes_drain", "Drain nodes", labelnames, nil),
-		err:     prometheus.NewDesc("slurm_nodes_err", "Error nodes", labelnames, nil),
-		fail:    prometheus.NewDesc("slurm_nodes_fail", "Fail nodes", labelnames, nil),
-		idle:    prometheus.NewDesc("slurm_nodes_idle", "Idle nodes", labelnames, nil),
-		inval:   prometheus.NewDesc("slurm_nodes_inval", "Inval nodes", labelnames, nil),
-		maint:   prometheus.NewDesc("slurm_nodes_maint", "Maint nodes", labelnames, nil),
-		mix:     prometheus.NewDesc("slurm_nodes_mix", "Mix nodes", labelnames, nil),
-		resv:    prometheus.NewDesc("slurm_nodes_resv", "Reserved nodes", labelnames, nil),
-		other:   prometheus.NewDesc("slurm_nodes_other", "Nodes reported with an unknown state", labelnames, nil),
-		planned: prometheus.NewDesc("slurm_nodes_planned", "Planned nodes", labelnames, nil),
-		total:   prometheus.NewDesc("slurm_nodes_total", "Total number of nodes", nil, nil),
-		logger:  logger,
+		alloc:          prometheus.NewDesc("slurm_nodes_alloc", "Allocated nodes", labelnames, nil),
+		comp:           prometheus.NewDesc("slurm_nodes_comp", "Completing nodes", labelnames, nil),
+		down:           prometheus.NewDesc("slurm_nodes_down", "Down nodes", labelnames, nil),
+		drain:          prometheus.NewDesc("slurm_nodes_drain", "Drain nodes", labelnames, nil),
+		err:            prometheus.NewDesc("slurm_nodes_err", "Error nodes", labelnames, nil),
+		fail:           prometheus.NewDesc("slurm_nodes_fail", "Fail nodes", labelnames, nil),
+		idle:           prometheus.NewDesc("slurm_nodes_idle", "Idle nodes", labelnames, nil),
+		inval:          prometheus.NewDesc("slurm_nodes_inval", "Inval nodes", labelnames, nil),
+		maint:          prometheus.NewDesc("slurm_nodes_maint", "Maint nodes", labelnames, nil),
+		mix:            prometheus.NewDesc("slurm_nodes_mix", "Mix nodes", labelnames, nil),
+		resv:           prometheus.NewDesc("slurm_nodes_resv", "Reserved nodes", labelnames, nil),
+		other:          prometheus.NewDesc("slurm_nodes_other", "Nodes reported with an unknown state", labelnames, nil),
+		planned:        prometheus.NewDesc("slurm_nodes_planned", "Planned nodes", labelnames, nil),
+		total:          prometheus.NewDesc("slurm_nodes_total", "Total number of nodes", nil, nil),
+		withFeatureSet: withFeatureSet,
+		logger:         logger,
 	}
 }
 
 type NodesCollector struct {
-	alloc   *prometheus.Desc
-	comp    *prometheus.Desc
-	down    *prometheus.Desc
-	drain   *prometheus.Desc
-	err     *prometheus.Desc
-	fail    *prometheus.Desc
-	idle    *prometheus.Desc
-	inval   *prometheus.Desc
-	maint   *prometheus.Desc
-	mix     *prometheus.Desc
-	resv    *prometheus.Desc
-	other   *prometheus.Desc
-	planned *prometheus.Desc
-	total   *prometheus.Desc
-	logger  *logger.Logger
+	alloc          *prometheus.Desc
+	comp           *prometheus.Desc
+	down           *prometheus.Desc
+	drain          *prometheus.Desc
+	err            *prometheus.Desc
+	fail           *prometheus.Desc
+	idle           *prometheus.Desc
+	inval          *prometheus.Desc
+	maint          *prometheus.Desc
+	mix            *prometheus.Desc
+	resv           *prometheus.Desc
+	other          *prometheus.Desc
+	planned        *prometheus.Desc
+	total          *prometheus.Desc
+	withFeatureSet bool
+	logger         *logger.Logger
 }
 
 func (nc *NodesCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -243,6 +252,15 @@ func (nc *NodesCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.other
 	ch <- nc.planned
 	ch <- nc.total
+}
+
+// sumMap returns the sum of all values in a float64 map.
+func sumMap(m map[string]float64) float64 {
+	var total float64
+	for _, v := range m {
+		total += v
+	}
+	return total
 }
 
 func SendFeatureSetMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, valueType prometheus.ValueType, featurestate map[string]float64, part string) {
@@ -291,19 +309,36 @@ func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
 			}
 		}
 
-		SendFeatureSetMetric(ch, nc.alloc, prometheus.GaugeValue, nm.alloc, part)
-		SendFeatureSetMetric(ch, nc.comp, prometheus.GaugeValue, nm.comp, part)
-		SendFeatureSetMetric(ch, nc.down, prometheus.GaugeValue, nm.down, part)
-		SendFeatureSetMetric(ch, nc.drain, prometheus.GaugeValue, nm.drain, part)
-		SendFeatureSetMetric(ch, nc.err, prometheus.GaugeValue, nm.err, part)
-		SendFeatureSetMetric(ch, nc.fail, prometheus.GaugeValue, nm.fail, part)
-		SendFeatureSetMetric(ch, nc.idle, prometheus.GaugeValue, nm.idle, part)
-		SendFeatureSetMetric(ch, nc.inval, prometheus.GaugeValue, nm.inval, part)
-		SendFeatureSetMetric(ch, nc.maint, prometheus.GaugeValue, nm.maint, part)
-		SendFeatureSetMetric(ch, nc.mix, prometheus.GaugeValue, nm.mix, part)
-		SendFeatureSetMetric(ch, nc.resv, prometheus.GaugeValue, nm.resv, part)
-		SendFeatureSetMetric(ch, nc.other, prometheus.GaugeValue, nm.other, part)
-		SendFeatureSetMetric(ch, nc.planned, prometheus.GaugeValue, nm.planned, part)
+		if nc.withFeatureSet {
+			SendFeatureSetMetric(ch, nc.alloc, prometheus.GaugeValue, nm.alloc, part)
+			SendFeatureSetMetric(ch, nc.comp, prometheus.GaugeValue, nm.comp, part)
+			SendFeatureSetMetric(ch, nc.down, prometheus.GaugeValue, nm.down, part)
+			SendFeatureSetMetric(ch, nc.drain, prometheus.GaugeValue, nm.drain, part)
+			SendFeatureSetMetric(ch, nc.err, prometheus.GaugeValue, nm.err, part)
+			SendFeatureSetMetric(ch, nc.fail, prometheus.GaugeValue, nm.fail, part)
+			SendFeatureSetMetric(ch, nc.idle, prometheus.GaugeValue, nm.idle, part)
+			SendFeatureSetMetric(ch, nc.inval, prometheus.GaugeValue, nm.inval, part)
+			SendFeatureSetMetric(ch, nc.maint, prometheus.GaugeValue, nm.maint, part)
+			SendFeatureSetMetric(ch, nc.mix, prometheus.GaugeValue, nm.mix, part)
+			SendFeatureSetMetric(ch, nc.resv, prometheus.GaugeValue, nm.resv, part)
+			SendFeatureSetMetric(ch, nc.other, prometheus.GaugeValue, nm.other, part)
+			SendFeatureSetMetric(ch, nc.planned, prometheus.GaugeValue, nm.planned, part)
+		} else {
+			// feature-set disabled: aggregate all feature sets into a single per-partition metric
+			ch <- prometheus.MustNewConstMetric(nc.alloc, prometheus.GaugeValue, sumMap(nm.alloc), part)
+			ch <- prometheus.MustNewConstMetric(nc.comp, prometheus.GaugeValue, sumMap(nm.comp), part)
+			ch <- prometheus.MustNewConstMetric(nc.down, prometheus.GaugeValue, sumMap(nm.down), part)
+			ch <- prometheus.MustNewConstMetric(nc.drain, prometheus.GaugeValue, sumMap(nm.drain), part)
+			ch <- prometheus.MustNewConstMetric(nc.err, prometheus.GaugeValue, sumMap(nm.err), part)
+			ch <- prometheus.MustNewConstMetric(nc.fail, prometheus.GaugeValue, sumMap(nm.fail), part)
+			ch <- prometheus.MustNewConstMetric(nc.idle, prometheus.GaugeValue, sumMap(nm.idle), part)
+			ch <- prometheus.MustNewConstMetric(nc.inval, prometheus.GaugeValue, sumMap(nm.inval), part)
+			ch <- prometheus.MustNewConstMetric(nc.maint, prometheus.GaugeValue, sumMap(nm.maint), part)
+			ch <- prometheus.MustNewConstMetric(nc.mix, prometheus.GaugeValue, sumMap(nm.mix), part)
+			ch <- prometheus.MustNewConstMetric(nc.resv, prometheus.GaugeValue, sumMap(nm.resv), part)
+			ch <- prometheus.MustNewConstMetric(nc.other, prometheus.GaugeValue, sumMap(nm.other), part)
+			ch <- prometheus.MustNewConstMetric(nc.planned, prometheus.GaugeValue, sumMap(nm.planned), part)
+		}
 	}
 	total, err := SlurmGetTotal(nc.logger)
 	if err != nil {
