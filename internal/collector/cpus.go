@@ -51,12 +51,6 @@ func CPUsData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "sinfo", []string{"-h", "-o", "%C"})
 }
 
-/*
- * Implement the Prometheus Collector interface and feed the
- * Slurm scheduler metrics into it.
- * https://godoc.org/github.com/prometheus/client_golang/prometheus#Collector
- */
-
 func NewCPUsCollector(logger *logger.Logger) *CPUsCollector {
 	return &CPUsCollector{
 		alloc:  prometheus.NewDesc("slurm_cpus_alloc", "Allocated CPUs", nil, nil),

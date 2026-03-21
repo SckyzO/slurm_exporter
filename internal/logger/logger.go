@@ -12,14 +12,12 @@ type Logger struct {
 	*slog.Logger
 }
 
-// NewLogger creates a new logger with the specified level
-// Defaults to text format for better readability
+// NewLogger creates a logger with the specified level, defaulting to text format.
 func NewLogger(level string) *Logger {
 	return NewTextLogger(level)
 }
 
-// NewTextLogger creates a new text-based logger
-// This is the default format for better human readability
+// NewTextLogger creates a text-format logger suitable for interactive use.
 func NewTextLogger(level string) *Logger {
 	var slogLevel slog.Level
 	switch level {
@@ -53,8 +51,7 @@ func NewTextLogger(level string) *Logger {
 	return &Logger{Logger: logger}
 }
 
-// NewJSONLogger creates a new JSON-based logger
-// Useful for production environments and log aggregation
+// NewJSONLogger creates a JSON-format logger suitable for log aggregation.
 func NewJSONLogger(level string) *Logger {
 	var slogLevel slog.Level
 	switch level {
@@ -81,7 +78,7 @@ func NewJSONLogger(level string) *Logger {
 	return &Logger{Logger: logger}
 }
 
-// Log is a compatibility method that mimics the go-kit/log interface
+// Log provides go-kit/log interface compatibility.
 func (l *Logger) Log(keyvals ...interface{}) error {
 	if len(keyvals)%2 != 0 {
 		keyvals = append(keyvals, "MISSING")
@@ -100,7 +97,6 @@ func (l *Logger) Log(keyvals ...interface{}) error {
 	return nil
 }
 
-// With returns a new logger with the given key-value pairs added to the context
 func (l *Logger) With(keyvals ...interface{}) *Logger {
 	if len(keyvals)%2 != 0 {
 		keyvals = append(keyvals, "MISSING")
@@ -118,38 +114,31 @@ func (l *Logger) With(keyvals ...interface{}) *Logger {
 	return &Logger{Logger: l.Logger.With(args...)}
 }
 
-// Debug logs a debug message
 func (l *Logger) Debug(msg string, args ...interface{}) {
 	l.Logger.Debug(msg, args...)
 }
 
-// Info logs an info message
 func (l *Logger) Info(msg string, args ...interface{}) {
 	l.Logger.Info(msg, args...)
 }
 
-// Warn logs a warning message
 func (l *Logger) Warn(msg string, args ...interface{}) {
 	l.Logger.Warn(msg, args...)
 }
 
-// Error logs an error message
 func (l *Logger) Error(msg string, args ...interface{}) {
 	l.Logger.Error(msg, args...)
 }
 
-// WithContext returns a logger with the given context
-// Note: slog doesn't have WithContext, so this is a no-op for compatibility
+// WithContext is a no-op kept for interface compatibility; slog uses context natively.
 func (l *Logger) WithContext(ctx context.Context) *Logger {
 	return l
 }
 
-// WithTimeout adds timeout information to the logger context
 func (l *Logger) WithTimeout(timeout time.Duration) *Logger {
 	return l.With("timeout", timeout)
 }
 
-// WithCommand adds command information to the logger context
 func (l *Logger) WithCommand(command string, args []string) *Logger {
 	return l.With("command", command, "args", args)
 }

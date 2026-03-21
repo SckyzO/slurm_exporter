@@ -52,11 +52,8 @@ func NodesGetMetrics(logger *logger.Logger, part string) (*NodesMetrics, error) 
 	return ParseNodesMetrics(data), nil
 }
 
-func InitFeatureSet(nm *NodesMetrics, featureSet string) {
-	// This function is intentionally left empty.
-	// It was previously used to initialize map keys, but this is not necessary in Go.
-	// The linter correctly identified self-assignments here.
-}
+// InitFeatureSet is a no-op kept for backwards compatibility.
+func InitFeatureSet(_ *NodesMetrics, _ string) {}
 
 /*
 ParseNodesMetrics parses the output of the sinfo command for node metrics.

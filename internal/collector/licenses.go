@@ -63,11 +63,6 @@ func LicenseData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "scontrol", []string{"show", "licenses", "-o"})
 }
 
-/*
- * Implement the Prometheus Collector interface and feed the
- * Slurm scheduler metrics into it.
- * https://godoc.org/github.com/prometheus/client_golang/prometheus#Collector
- */
 func NewLicensesCollector(logger *logger.Logger) *LicenseCollector {
 	labelnames := make([]string, 0, 1)
 	labelnames = append(labelnames, "license")

@@ -17,10 +17,8 @@ var (
 	accountJobSuspended = regexp.MustCompile(`^suspended`)
 )
 
-/*
-AccountsData executes the squeue command to retrieve job information by account.
-Expected squeue output format: "%A|%a|%T|%C" (Job ID|Account|State|CPUs).
-*/
+// AccountsData runs squeue to retrieve job/CPU counts grouped by Slurm account.
+// Output format: "%A|%a|%T|%C" (JobID|Account|State|CPUs).
 func AccountsData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "squeue", []string{"-a", "-r", "-h", "-o", "%A|%a|%T|%C"})
 }
@@ -32,36 +30,32 @@ type JobMetrics struct {
 	suspended   float64
 }
 
-/*
-ParseAccountsMetrics parses the output of the squeue command for account-specific job metrics.
-It expects input in the format: "JobID|Account|State|CPUs".
-*/
+// ParseAccountsMetrics parses squeue output into a map of account -> job metrics.
 func ParseAccountsMetrics(input []byte) map[string]*JobMetrics {
 	accounts := make(map[string]*JobMetrics)
 	lines := strings.Split(string(input), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, "|") {
-			fields := strings.Split(line, "|")
-			if len(fields) < 4 {
-				continue
-			}
-			account := fields[1]
-			_, key := accounts[account]
-			if !key {
-				accounts[account] = &JobMetrics{0, 0, 0, 0}
-			}
-			state := fields[2]
-			state = strings.ToLower(state)
-			cpus, _ := strconv.ParseFloat(fields[3], 64)
-			switch {
-			case accountJobPending.MatchString(state):
-				accounts[account].pending++
-			case accountJobRunning.MatchString(state):
-				accounts[account].running++
-				accounts[account].runningCpus += cpus
-			case accountJobSuspended.MatchString(state):
-				accounts[account].suspended++
-			}
+		if !strings.Contains(line, "|") {
+			continue
+		}
+		fields := strings.Split(line, "|")
+		if len(fields) < 4 {
+			continue
+		}
+		account := fields[1]
+		if _, exists := accounts[account]; !exists {
+			accounts[account] = &JobMetrics{}
+		}
+		state := strings.ToLower(fields[2])
+		cpus, _ := strconv.ParseFloat(fields[3], 64)
+		switch {
+		case accountJobPending.MatchString(state):
+			accounts[account].pending++
+		case accountJobRunning.MatchString(state):
+			accounts[account].running++
+			accounts[account].runningCpus += cpus
+		case accountJobSuspended.MatchString(state):
+			accounts[account].suspended++
 		}
 	}
 	return accounts
@@ -75,12 +69,13 @@ type AccountsCollector struct {
 	logger      *logger.Logger
 }
 
+// NewAccountsCollector creates a collector for per-account job metrics.
 func NewAccountsCollector(logger *logger.Logger) *AccountsCollector {
 	labels := []string{"account"}
 	return &AccountsCollector{
 		pending:     prometheus.NewDesc("slurm_account_jobs_pending", "Pending jobs for account", labels, nil),
 		running:     prometheus.NewDesc("slurm_account_jobs_running", "Running jobs for account", labels, nil),
-		runningCpus: prometheus.NewDesc("slurm_account_cpus_running", "Running cpus for account", labels, nil),
+		runningCpus: prometheus.NewDesc("slurm_account_cpus_running", "Running CPUs for account", labels, nil),
 		suspended:   prometheus.NewDesc("slurm_account_jobs_suspended", "Suspended jobs for account", labels, nil),
 		logger:      logger,
 	}

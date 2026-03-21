@@ -84,17 +84,14 @@ func registerCollectors(reg *prometheus.Registry, logger *logger.Logger) {
 }
 
 func main() {
-	// Dynamically create command-line flags for each collector
 	for name := range collectorConstructors {
 		collectorState[name] = kingpin.Flag("collector."+name, "Enable the "+name+" collector.").Default("true").Bool()
 	}
 
-	// Configure kingpin command-line parser
 	kingpin.Version(version.Print("slurm_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()
 
-	// Initialize logger based on configured format and level
 	var log *logger.Logger
 	if *logFormat == "json" {
 		log = logger.NewJSONLogger(*logLevel)
@@ -102,7 +99,6 @@ func main() {
 		log = logger.NewTextLogger(*logLevel)
 	}
 
-	// Configure global command timeout for all collectors
 	collector.SetCommandTimeout(*commandTimeout)
 
 	// Create a custom registry to avoid global state and third-party metric pollution
@@ -118,7 +114,6 @@ func main() {
 	// Register enabled Slurm collectors
 	registerCollectors(reg, log)
 
-	// Log server startup information
 	log.Info("Starting Slurm Exporter server...")
 	log.Info("Command timeout configured", "timeout", *commandTimeout)
 
