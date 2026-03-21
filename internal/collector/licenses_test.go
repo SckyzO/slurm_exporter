@@ -1,29 +1,26 @@
 package collector
 
 import (
-	"io"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLicenseMetrics(t *testing.T) {
-	// Read the input data from a file
-	file, err := os.Open("../../test_data/slicense.txt")
-	if err != nil {
-		t.Fatalf("Can not open test data: %v", err)
-	}
-	data, err := io.ReadAll(file)
-	if err != nil {
-		t.Fatalf("Can not read test data: %v", err)
-	}
-	lm := ParseLicenseMetrics(data)
-	assert.Equal(t, 100, int(lm.total["ansys@flex"]))
-	assert.Equal(t, 20, int(lm.used["ansys@flex"]))
-	assert.Equal(t, 80, int(lm.free["ansys@flex"]))
+	data, err := os.ReadFile("../../test_data/slicense.txt")
+	require.NoError(t, err, "cannot open test data")
 
-	assert.Equal(t, 30, int(lm.total["fluent@flex"]))
-	assert.Equal(t, 10, int(lm.used["fluent@flex"]))
-	assert.Equal(t, 20, int(lm.free["fluent@flex"]))
+	lm := ParseLicenseMetrics(data)
+
+	assert.Equal(t, 100.0, lm.total["ansys@flex"])
+	assert.Equal(t, 20.0, lm.used["ansys@flex"])
+	assert.Equal(t, 80.0, lm.free["ansys@flex"])
+	assert.Equal(t, 0.0, lm.reserved["ansys@flex"])
+
+	assert.Equal(t, 30.0, lm.total["fluent@flex"])
+	assert.Equal(t, 10.0, lm.used["fluent@flex"])
+	assert.Equal(t, 20.0, lm.free["fluent@flex"])
+	assert.Equal(t, 5.0, lm.reserved["fluent@flex"], "fluent@flex has 5 reserved licenses")
 }

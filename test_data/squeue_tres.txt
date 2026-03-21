@@ -1,0 +1,12 @@
+9722|account_a|PENDING|8|32|gres/gpu:4
+10414|account_b|PENDING|1|16|gres/gpu:2
+10271|account_b|PENDING|2|128|gres/gpu:2
+10269|account_b|PENDING|1|64|gres/gpu:4
+10243|account_c|PENDING|1|20|N/A
+10422|account_d|RUNNING|1|288|N/A
+10420|account_e|RUNNING|1|192|N/A
+10417|account_e|PENDING|1|1|gres/gpu:1
+10500|gpu_account|RUNNING|2|16|gres/gpu:4
+10501|gpu_account|RUNNING|1|8|gres/gpu:2
+10502|gpu_account|RUNNING|4|288|gres/gpu:4
+10503|account_b|SUSPENDED|1|32|gres/gpu:2

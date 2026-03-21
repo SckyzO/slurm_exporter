@@ -21,14 +21,17 @@ var (
 UsersData executes the squeue command to retrieve job information by user.
 Expected squeue output format: "%A|%u|%T|%C" (Job ID|User|State|CPUs).
 */
+// UsersData runs squeue to retrieve job/CPU/GPU counts grouped by user.
+// Output format: "%A|%u|%T|%D|%C|%b" (JobID|User|State|NumNodes|CPUs|TRES).
 func UsersData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{"-a", "-r", "-h", "-o", "%A|%u|%T|%C"})
+	return Execute(logger, "squeue", []string{"-a", "-r", "-h", "-o", "%A|%u|%T|%D|%C|%b"})
 }
 
 type UserJobMetrics struct {
 	pending     float64
 	running     float64
 	runningCpus float64
+	runningGPUs float64
 	suspended   float64
 }
 
@@ -51,15 +54,17 @@ func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 			if !key {
 				users[user] = &UserJobMetrics{}
 			}
-			state := fields[2]
-			state = strings.ToLower(state)
-			cpus, _ := strconv.ParseFloat(fields[3], 64)
+			state := strings.ToLower(fields[2])
+			numNodes, _ := strconv.ParseFloat(fields[3], 64)
+			cpus, _ := strconv.ParseFloat(fields[4], 64)
 			switch {
 			case userJobPending.MatchString(state):
 				users[user].pending++
 			case userJobRunning.MatchString(state):
 				users[user].running++
 				users[user].runningCpus += cpus
+				gpusPerNode := parseGPUsFromTRES(fields[5])
+				users[user].runningGPUs += gpusPerNode * numNodes
 			case userJobSuspended.MatchString(state):
 				users[user].suspended++
 			}
@@ -68,6 +73,7 @@ func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 	return users
 }
 
+// UsersGetMetrics fetches and parses user job metrics.
 // UsersGetMetrics fetches and parses user job metrics.
 func UsersGetMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error) {
 	data, err := UsersData(logger)
@@ -81,6 +87,7 @@ type UsersCollector struct {
 	pending     *prometheus.Desc
 	running     *prometheus.Desc
 	runningCpus *prometheus.Desc
+	runningGPUs *prometheus.Desc
 	suspended   *prometheus.Desc
 	logger      *logger.Logger
 }
@@ -90,7 +97,8 @@ func NewUsersCollector(logger *logger.Logger) *UsersCollector {
 	return &UsersCollector{
 		pending:     prometheus.NewDesc("slurm_user_jobs_pending", "Pending jobs for user", labels, nil),
 		running:     prometheus.NewDesc("slurm_user_jobs_running", "Running jobs for user", labels, nil),
-		runningCpus: prometheus.NewDesc("slurm_user_cpus_running", "Running cpus for user", labels, nil),
+		runningCpus: prometheus.NewDesc("slurm_user_cpus_running", "Running CPUs for user", labels, nil),
+		runningGPUs: prometheus.NewDesc("slurm_user_gpus_running", "Running GPUs for user", labels, nil),
 		suspended:   prometheus.NewDesc("slurm_user_jobs_suspended", "Suspended jobs for user", labels, nil),
 		logger:      logger,
 	}
@@ -100,6 +108,7 @@ func (uc *UsersCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- uc.pending
 	ch <- uc.running
 	ch <- uc.runningCpus
+	ch <- uc.runningGPUs
 	ch <- uc.suspended
 }
 
@@ -118,6 +127,9 @@ func (uc *UsersCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 		if um[u].runningCpus > 0 {
 			ch <- prometheus.MustNewConstMetric(uc.runningCpus, prometheus.GaugeValue, um[u].runningCpus, u)
+		}
+		if um[u].runningGPUs > 0 {
+			ch <- prometheus.MustNewConstMetric(uc.runningGPUs, prometheus.GaugeValue, um[u].runningGPUs, u)
 		}
 		if um[u].suspended > 0 {
 			ch <- prometheus.MustNewConstMetric(uc.suspended, prometheus.GaugeValue, um[u].suspended, u)

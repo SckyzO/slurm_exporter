@@ -1,0 +1,2 @@
+2   gpu:nvidia_gb200:4(S:0-3)  gpu:nvidia_gb200:1(IDX:0)
+1056gpu:nvidia_gb200:4(S:0-3)  gpu:nvidia_gb200:4(IDX:0-3)

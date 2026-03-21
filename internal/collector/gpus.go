@@ -191,19 +191,19 @@ func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
 
 // AllocatedGPUsData executes sinfo command to get allocated GPU information
 func AllocatedGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes: ,GresUsed:", "--state=allocated"}
+	args := []string{"-a", "-h", "--Format=Nodes:10 ,GresUsed:", "--state=allocated"}
 	return Execute(logger, "sinfo", args)
 }
 
 // IdleGPUsData executes sinfo command to get idle and allocated GPU information
 func IdleGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes: ,Gres: ,GresUsed:", "--state=idle,allocated"}
+	args := []string{"-a", "-h", "--Format=Nodes:10 ,Gres:50 ,GresUsed:50", "--state=idle,allocated"}
 	return Execute(logger, "sinfo", args)
 }
 
 // TotalGPUsData executes sinfo command to get total GPU information
 func TotalGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes: ,Gres:"}
+	args := []string{"-a", "-h", "--Format=Nodes:10 ,Gres:50"}
 	return Execute(logger, "sinfo", args)
 }
 

@@ -100,8 +100,9 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 	}
 	lines := strings.Split(string(input), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, ",") {
-			fields := strings.Split(line, ",")
+		if strings.Contains(line, "|") {
+			// SplitN with 5 keeps a reason field that may itself contain pipes
+			fields := strings.SplitN(line, "|", 5)
 			if len(fields) < 5 {
 				continue
 			}
@@ -109,8 +110,8 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 			state := fields[1]
 			coresI, _ := strconv.Atoi(fields[2])
 			cores := float64(coresI)
-			user := strings.TrimSpace(fields[4])
 			reason := fields[3]
+			user := strings.TrimSpace(fields[4])
 			switch state {
 			case "PENDING":
 				qm.pending.Incr2(reason, user, part, 1)
@@ -156,7 +157,7 @@ QueueData executes the squeue command to retrieve queue information.
 Expected squeue output format: "%P,%T,%C,%r,%u" (Partition,State,CPUs,Reason,User).
 */
 func QueueData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{"-h", "-o", "%P,%T,%C,%r,%u"})
+	return Execute(logger, "squeue", []string{"-h", "-o", "%P|%T|%C|%r|%u"})
 }
 
 /*
