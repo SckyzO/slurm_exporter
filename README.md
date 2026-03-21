@@ -69,6 +69,8 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 - ✅ OpenMetrics format supported (exemplars, newer Prometheus features).
 - ✅ Per-collector health metrics (`slurm_exporter_collector_success`, `slurm_exporter_collector_duration_seconds`).
 - ✅ Liveness probe at `/healthz` for orchestrators (Kubernetes, systemd).
+- ✅ GPU metrics per account and user (`slurm_account_gpus_running`, `slurm_user_gpus_running`).
+- ✅ Per-reservation node state metrics (`slurm_reservation_nodes_*`).
 - ✅ Ready-to-use Grafana dashboard.
 
 ---
@@ -155,8 +157,10 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--log.format` | Log format: `json`, `text` | `text` |
 | `--collector.<name>` | Enable the specified collector | `true` (all enabled by default) |
 | `--no-collector.<name>` | Disable the specified collector | (none) |
+| `--collector.nodes.feature-set` | Include `active_feature_set` label in `slurm_nodes_*` metrics | `true` |
+| `--web.disable-exporter-metrics` | Exclude Go runtime and process metrics from `/metrics` | `false` |
 
-**Available collectors:** `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `node`, `nodes`, `partitions`, `queue`, `reservations`, `scheduler`, `users`, `licenses`
+**Available collectors:** `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `node`, `nodes`, `partitions`, `queue`, `reservations`, `reservation_nodes`, `scheduler`, `users`, `licenses`
 
 ### Enabling and Disabling Collectors
 
@@ -287,7 +291,8 @@ Provides job statistics aggregated by Slurm account.
 |---|---|---|
 | `slurm_account_jobs_pending` | Pending jobs for account | `account` |
 | `slurm_account_jobs_running` | Running jobs for account | `account` |
-| `slurm_account_cpus_running` | Running cpus for account | `account` |
+| `slurm_account_cpus_running` | Running CPUs for account | `account` |
+| `slurm_account_gpus_running` | Running GPUs for account (from TRES) | `account` |
 | `slurm_account_jobs_suspended` | Suspended jobs for account | `account` |
 
 ### `cpus` Collector
@@ -350,6 +355,7 @@ Provides metrics on license counts and usage.
 | `slurm_license_total` | Total count for license | `license` |
 | `slurm_license_used` | Used count for license | `license` |
 | `slurm_license_free` | Free count for license | `license` |
+| `slurm_license_reserved` | Reserved count for license | `license` |
 
 ### `node` Collector
 
@@ -439,6 +445,27 @@ Provides metrics about active Slurm reservations.
 | `slurm_reservation_node_count` | The number of nodes allocated to the reservation | `reservation_name` |
 | `slurm_reservation_core_count` | The number of cores allocated to the reservation | `reservation_name` |
 
+### `reservation_nodes` Collector
+
+Provides per-reservation node state metrics, parsed from `scontrol show nodes -o`.
+Compound node states (e.g. `ALLOCATED+MAINTENANCE+RESERVED`) are categorized by
+primary state (token before the first `+`).
+
+- **Command:** `scontrol show nodes -o`
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_reservation_nodes_alloc` | Allocated nodes in reservation | `reservation` |
+| `slurm_reservation_nodes_idle` | Idle nodes in reservation | `reservation` |
+| `slurm_reservation_nodes_mix` | Mixed nodes in reservation | `reservation` |
+| `slurm_reservation_nodes_down` | Down nodes in reservation | `reservation` |
+| `slurm_reservation_nodes_drain` | Drained nodes in reservation | `reservation` |
+| `slurm_reservation_nodes_planned` | Planned nodes in reservation | `reservation` |
+| `slurm_reservation_nodes_other` | Nodes in other states | `reservation` |
+| `slurm_reservation_nodes_healthy` | Healthy nodes (alloc+idle+mix+planned) | `reservation` |
+
+---
+
 ### `scheduler` Collector
 
 Provides internal performance metrics from the `slurmctld` daemon.
@@ -464,7 +491,8 @@ Provides job statistics aggregated by user.
 |---|---|---|
 | `slurm_user_jobs_pending` | Pending jobs for user | `user` |
 | `slurm_user_jobs_running` | Running jobs for user | `user` |
-| `slurm_user_cpus_running` | Running cpus for user | `user` |
+| `slurm_user_cpus_running` | Running CPUs for user | `user` |
+| `slurm_user_gpus_running` | Running GPUs for user (from TRES) | `user` |
 | `slurm_user_jobs_suspended` | Suspended jobs for user | `user` |
 
 ---
