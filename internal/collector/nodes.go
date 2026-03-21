@@ -52,7 +52,7 @@ func NodesGetMetrics(logger *logger.Logger, part string) (*NodesMetrics, error) 
 	return ParseNodesMetrics(data), nil
 }
 
-func InitFeatureSet(nm *NodesMetrics, feature_set string) {
+func InitFeatureSet(nm *NodesMetrics, featureSet string) {
 	// This function is intentionally left empty.
 	// It was previously used to initialize map keys, but this is not necessary in Go.
 	// The linter correctly identified self-assignments here.
@@ -64,12 +64,12 @@ Expected input format: "%D|%T|%b" (Nodes|State|Features).
 */
 func ParseNodesMetrics(input []byte) *NodesMetrics {
 	var nm NodesMetrics
-	var feature_set string
+	var featureSet string
 	lines := strings.Split(string(input), "\n")
 
 	// Sort and remove all the duplicates from the 'sinfo' output
 	slices.Sort(lines)
-	lines_uniq := slices.Compact(lines)
+	linesUniq := slices.Compact(lines)
 
 	nm.alloc = make(map[string]float64)
 	nm.comp = make(map[string]float64)
@@ -86,7 +86,7 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 	nm.planned = make(map[string]float64)
 	nm.total = make(map[string]float64)
 
-	for _, line := range lines_uniq {
+	for _, line := range linesUniq {
 		if strings.Contains(line, "|") {
 			split := strings.Split(line, "|")
 			if len(split) < 3 {
@@ -96,38 +96,38 @@ func ParseNodesMetrics(input []byte) *NodesMetrics {
 			count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
 			features := strings.Split(split[2], ",")
 			slices.Sort(features)
-			feature_set = strings.Join(features, ",")
-			if feature_set == "(null)" {
-				feature_set = "null"
+			featureSet = strings.Join(features, ",")
+			if featureSet == "(null)" {
+				featureSet = "null"
 			}
-			InitFeatureSet(&nm, feature_set)
+			InitFeatureSet(&nm, featureSet)
 			switch {
 			case nodeStateAlloc.MatchString(state):
-				nm.alloc[feature_set] += count
+				nm.alloc[featureSet] += count
 			case nodeStateComp.MatchString(state):
-				nm.comp[feature_set] += count
+				nm.comp[featureSet] += count
 			case nodeStateDown.MatchString(state):
-				nm.down[feature_set] += count
+				nm.down[featureSet] += count
 			case nodeStateDrain.MatchString(state):
-				nm.drain[feature_set] += count
+				nm.drain[featureSet] += count
 			case nodeStateFail.MatchString(state):
-				nm.fail[feature_set] += count
+				nm.fail[featureSet] += count
 			case nodeStateErr.MatchString(state):
-				nm.err[feature_set] += count
+				nm.err[featureSet] += count
 			case nodeStateIdle.MatchString(state):
-				nm.idle[feature_set] += count
+				nm.idle[featureSet] += count
 			case nodeStateInval.MatchString(state):
-				nm.inval[feature_set] += count
+				nm.inval[featureSet] += count
 			case nodeStateMaint.MatchString(state):
-				nm.maint[feature_set] += count
+				nm.maint[featureSet] += count
 			case nodeStateMix.MatchString(state):
-				nm.mix[feature_set] += count
+				nm.mix[featureSet] += count
 			case nodeStateResv.MatchString(state):
-				nm.resv[feature_set] += count
+				nm.resv[featureSet] += count
 			case nodeStatePlanned.MatchString(state):
-				nm.planned[feature_set] += count
+				nm.planned[featureSet] += count
 			default:
-				nm.other[feature_set] += count
+				nm.other[featureSet] += count
 			}
 		}
 	}

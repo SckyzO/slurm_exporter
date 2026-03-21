@@ -11,13 +11,13 @@ import (
 )
 
 func TestGPUsMetrics(t *testing.T) {
-	test_data_paths, _ := filepath.Glob("../test_data/slurm-*")
-	for _, test_data_path := range test_data_paths {
-		slurm_version := strings.TrimPrefix(test_data_path, "../test_data/slurm-")
-		t.Logf("slurm-%s", slurm_version)
+	testDataPaths, _ := filepath.Glob("../test_data/slurm-*")
+	for _, testDataPath := range testDataPaths {
+		slurmVersion := strings.TrimPrefix(testDataPath, "../test_data/slurm-")
+		t.Logf("slurm-%s", slurmVersion)
 
 		// Read the input data from a file
-		file, err := os.Open(test_data_path + "/sinfo_gpus_allocated.txt")
+		file, err := os.Open(testDataPath + "/sinfo_gpus_allocated.txt")
 		if err != nil {
 			t.Fatalf("Can not open test data: %v", err)
 		}
@@ -26,7 +26,7 @@ func TestGPUsMetrics(t *testing.T) {
 		t.Logf("Allocated: %+v", metrics)
 
 		// Read the input data from a file
-		file, err = os.Open(test_data_path + "/sinfo_gpus_idle.txt")
+		file, err = os.Open(testDataPath + "/sinfo_gpus_idle.txt")
 		if err != nil {
 			t.Fatalf("Can not open test data: %v", err)
 		}
@@ -35,7 +35,7 @@ func TestGPUsMetrics(t *testing.T) {
 		t.Logf("Idle: %+v", metrics)
 
 		// Read the input data from a file
-		file, err = os.Open(test_data_path + "/sinfo_gpus_total.txt")
+		file, err = os.Open(testDataPath + "/sinfo_gpus_total.txt")
 		if err != nil {
 			t.Fatalf("Can not open test data: %v", err)
 		}
@@ -49,19 +49,19 @@ func TestGPUsGetMetrics(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
 
-	test_data_paths, _ := filepath.Glob("../../test_data/slurm-*")
-	for _, test_data_path := range test_data_paths {
-		slurm_version := strings.TrimPrefix(test_data_path, "../../test_data/slurm-")
-		t.Run(slurm_version, func(t *testing.T) {
+	testDataPaths, _ := filepath.Glob("../../test_data/slurm-*")
+	for _, testDataPath := range testDataPaths {
+		slurmVersion := strings.TrimPrefix(testDataPath, "../../test_data/slurm-")
+		t.Run(slurmVersion, func(t *testing.T) {
 			Execute = func(logger *logger.Logger, command string, args []string) ([]byte, error) {
 				var file string
 				switch {
 				case strings.Contains(args[2], "GresUsed:") && strings.Contains(args[2], "Gres:"):
-					file = filepath.Join(test_data_path, "sinfo_gpus_idle.txt")
+					file = filepath.Join(testDataPath, "sinfo_gpus_idle.txt")
 				case strings.Contains(args[2], "GresUsed:"):
-					file = filepath.Join(test_data_path, "sinfo_gpus_allocated.txt")
+					file = filepath.Join(testDataPath, "sinfo_gpus_allocated.txt")
 				case strings.Contains(args[2], "Gres:"):
-					file = filepath.Join(test_data_path, "sinfo_gpus_total.txt")
+					file = filepath.Join(testDataPath, "sinfo_gpus_total.txt")
 				}
 				data, err := os.ReadFile(file)
 				if err != nil {
@@ -75,7 +75,7 @@ func TestGPUsGetMetrics(t *testing.T) {
 			if err != nil {
 				t.Fatalf("GPUsGetMetrics() error: %v", err)
 			}
-			t.Logf("slurm-%s: %+v", slurm_version, metrics)
+			t.Logf("slurm-%s: %+v", slurmVersion, metrics)
 		})
 	}
 }

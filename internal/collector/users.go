@@ -26,10 +26,10 @@ func UsersData(logger *logger.Logger) ([]byte, error) {
 }
 
 type UserJobMetrics struct {
-	pending      float64
-	running      float64
-	running_cpus float64
-	suspended    float64
+	pending     float64
+	running     float64
+	runningCpus float64
+	suspended   float64
 }
 
 /*
@@ -62,7 +62,7 @@ func ParseUsersMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error
 				users[user].pending++
 			case userJobRunning.MatchString(state):
 				users[user].running++
-				users[user].running_cpus += cpus
+				users[user].runningCpus += cpus
 			case userJobSuspended.MatchString(state):
 				users[user].suspended++
 			}
@@ -72,28 +72,28 @@ func ParseUsersMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error
 }
 
 type UsersCollector struct {
-	pending      *prometheus.Desc
-	running      *prometheus.Desc
-	running_cpus *prometheus.Desc
-	suspended    *prometheus.Desc
-	logger       *logger.Logger
+	pending     *prometheus.Desc
+	running     *prometheus.Desc
+	runningCpus *prometheus.Desc
+	suspended   *prometheus.Desc
+	logger      *logger.Logger
 }
 
 func NewUsersCollector(logger *logger.Logger) *UsersCollector {
 	labels := []string{"user"}
 	return &UsersCollector{
-		pending:      prometheus.NewDesc("slurm_user_jobs_pending", "Pending jobs for user", labels, nil),
-		running:      prometheus.NewDesc("slurm_user_jobs_running", "Running jobs for user", labels, nil),
-		running_cpus: prometheus.NewDesc("slurm_user_cpus_running", "Running cpus for user", labels, nil),
-		suspended:    prometheus.NewDesc("slurm_user_jobs_suspended", "Suspended jobs for user", labels, nil),
-		logger:       logger,
+		pending:     prometheus.NewDesc("slurm_user_jobs_pending", "Pending jobs for user", labels, nil),
+		running:     prometheus.NewDesc("slurm_user_jobs_running", "Running jobs for user", labels, nil),
+		runningCpus: prometheus.NewDesc("slurm_user_cpus_running", "Running cpus for user", labels, nil),
+		suspended:   prometheus.NewDesc("slurm_user_jobs_suspended", "Suspended jobs for user", labels, nil),
+		logger:      logger,
 	}
 }
 
 func (uc *UsersCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- uc.pending
 	ch <- uc.running
-	ch <- uc.running_cpus
+	ch <- uc.runningCpus
 	ch <- uc.suspended
 }
 
@@ -110,8 +110,8 @@ func (uc *UsersCollector) Collect(ch chan<- prometheus.Metric) {
 		if um[u].running > 0 {
 			ch <- prometheus.MustNewConstMetric(uc.running, prometheus.GaugeValue, um[u].running, u)
 		}
-		if um[u].running_cpus > 0 {
-			ch <- prometheus.MustNewConstMetric(uc.running_cpus, prometheus.GaugeValue, um[u].running_cpus, u)
+		if um[u].runningCpus > 0 {
+			ch <- prometheus.MustNewConstMetric(uc.runningCpus, prometheus.GaugeValue, um[u].runningCpus, u)
 		}
 		if um[u].suspended > 0 {
 			ch <- prometheus.MustNewConstMetric(uc.suspended, prometheus.GaugeValue, um[u].suspended, u)
