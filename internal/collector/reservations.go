@@ -11,6 +11,9 @@ import (
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
+// reservationKVRe matches key=value pairs in scontrol show reservation output.
+var reservationKVRe = regexp.MustCompile(`(\w+)=([^ \n]+)`)
+
 const slurmTimeLayout = "2006-01-02T15:04:05"
 
 // ReservationInfo holds information about a single reservation.
@@ -127,9 +130,8 @@ func parseReservations(data []byte) ([]ReservationInfo, error) {
 		}
 
 		res := ReservationInfo{}
-		// Use a regex to find all key=value pairs.
-		re := regexp.MustCompile(`(\w+)=([^ \n]+)`)
-		matches := re.FindAllStringSubmatch(record, -1)
+		// Use the pre-compiled reservationKVRe to find all key=value pairs.
+		matches := reservationKVRe.FindAllStringSubmatch(record, -1)
 
 		for _, match := range matches {
 			key, value := match[1], match[2]
@@ -155,9 +157,9 @@ func parseReservations(data []byte) ([]ReservationInfo, error) {
 			case "CoreCnt":
 				res.CoreCount, _ = strconv.ParseFloat(value, 64)
 			case "StartTime":
-				res.StartTime, _ = time.Parse(slurmTimeLayout, value)
+				res.StartTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
 			case "EndTime":
-				res.EndTime, _ = time.Parse(slurmTimeLayout, value)
+				res.EndTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
 			}
 		}
 		reservations = append(reservations, res)
