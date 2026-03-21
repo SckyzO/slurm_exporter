@@ -67,94 +67,93 @@ func parseGpuCount(gpuSpec string, re *regexp.Regexp) float64 {
 	return 0.0
 }
 
-/*
-ParsePartitionsMetrics parses the output of sinfo and squeue for partition metrics.
-It combines CPU allocation data from sinfo ("%R,%C") with pending/running job counts from squeue ("%P,%T").
-*/
+// parsePartitionCPUs parses sinfo "%R,%C" output into the partitions map.
+func parsePartitionCPUs(data []byte, partitions map[string]*PartitionMetrics) {
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.Contains(line, ",") {
+			continue
+		}
+		splitLine := strings.Split(line, ",")
+		if len(splitLine) < 2 {
+			continue
+		}
+		partition := splitLine[0]
+		if _, exists := partitions[partition]; !exists {
+			partitions[partition] = &PartitionMetrics{}
+		}
+		statesSplit := strings.Split(splitLine[1], "/")
+		if len(statesSplit) < 4 {
+			continue
+		}
+		partitions[partition].cpuAllocated, _ = strconv.ParseFloat(statesSplit[0], 64)
+		partitions[partition].cpuIdle, _ = strconv.ParseFloat(statesSplit[1], 64)
+		partitions[partition].cpuOther, _ = strconv.ParseFloat(statesSplit[2], 64)
+		partitions[partition].cpuTotal, _ = strconv.ParseFloat(statesSplit[3], 64)
+	}
+}
+
+// parsePartitionGPUs parses sinfo "--Format=Nodes:,Partition:,Gres:,GresUsed:" output
+// into the partitions map. Initializes missing partitions (GPU-only nodes, issue #5).
+func parsePartitionGPUs(data []byte, partitions map[string]*PartitionMetrics) {
+	for _, line := range strings.Split(string(data), "\n") {
+		if len(line) == 0 || !strings.Contains(line, "gpu:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		numNodes, _ := strconv.ParseFloat(fields[0], 64)
+		partition := fields[1]
+		nodeGpus := parseGpuCount(fields[2], partitionGpuRe)
+		allocatedGpus := parseGpuCount(fields[3], partitionGpuRe)
+		if _, exists := partitions[partition]; !exists {
+			partitions[partition] = &PartitionMetrics{}
+		}
+		partitions[partition].gpuIdle += numNodes * (nodeGpus - allocatedGpus)
+		partitions[partition].gpuAllocated += numNodes * allocatedGpus
+	}
+}
+
+// parsePartitionJobs counts pending and running jobs per partition from squeue output.
+func parsePartitionJobs(pendingData, runningData []byte, partitions map[string]*PartitionMetrics) {
+	for _, partition := range strings.Split(string(pendingData), "\n") {
+		if _, exists := partitions[partition]; exists {
+			partitions[partition].jobPending++
+		}
+	}
+	for _, partition := range strings.Split(string(runningData), "\n") {
+		if _, exists := partitions[partition]; exists {
+			partitions[partition].jobRunning++
+		}
+	}
+}
+
+// ParsePartitionsMetrics collects CPU, GPU, and job metrics for all Slurm partitions.
 func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics, error) {
 	partitions := make(map[string]*PartitionMetrics)
-	// partition cpu usage
-	partitionsData, err := PartitionsData(logger)
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(string(partitionsData), "\n")
-	for _, line := range lines {
-		if strings.Contains(line, ",") {
-			splitLine := strings.Split(line, ",")
-			if len(splitLine) < 2 {
-				continue
-			}
-			partition := splitLine[0]
-			_, key := partitions[partition]
-			if !key {
-				partitions[partition] = &PartitionMetrics{}
-			}
-			states := splitLine[1]
-			statesSplit := strings.Split(states, "/")
-			if len(statesSplit) < 4 {
-				continue
-			}
-			allocated, _ := strconv.ParseFloat(statesSplit[0], 64)
-			idle, _ := strconv.ParseFloat(statesSplit[1], 64)
-			other, _ := strconv.ParseFloat(statesSplit[2], 64)
-			total, _ := strconv.ParseFloat(statesSplit[3], 64)
-			partitions[partition].cpuAllocated = allocated
-			partitions[partition].cpuIdle = idle
-			partitions[partition].cpuOther = other
-			partitions[partition].cpuTotal = total
-		}
-	}
-	// partition gpu usage
-	partitionsGPUData, err := PartitionsGpuData(logger)
-	if err != nil {
-		return nil, err
-	}
-	gpuLines := strings.Split(string(partitionsGPUData), "\n")
-	for _, line := range gpuLines {
-		if len(line) > 0 && strings.Contains(line, "gpu:") {
-			fields := strings.Fields(line)
-			if len(fields) < 4 {
-				continue
-			}
-			numNodes, _ := strconv.ParseFloat(fields[0], 64)
-			partition := fields[1]
-			nodeGpus := parseGpuCount(fields[2], partitionGpuRe)
-			allocatedGpus := parseGpuCount(fields[3], partitionGpuRe)
 
-			// Initialize the partition entry if it only appears in GPU data (not in CPU data).
-			// Without this guard, accessing a nil pointer causes a panic (issue #5).
-			if _, exists := partitions[partition]; !exists {
-				partitions[partition] = &PartitionMetrics{}
-			}
-			partitions[partition].gpuIdle += numNodes * (nodeGpus - allocatedGpus)
-			partitions[partition].gpuAllocated += numNodes * allocatedGpus
-		}
+	cpuData, err := PartitionsData(logger)
+	if err != nil {
+		return nil, err
 	}
+	parsePartitionCPUs(cpuData, partitions)
 
-	// partition jobs
-	pendingJobsData, err := PartitionsPendingJobsData(logger)
+	gpuData, err := PartitionsGpuData(logger)
 	if err != nil {
 		return nil, err
 	}
-	list := strings.Split(string(pendingJobsData), "\n")
-	for _, partition := range list {
-		_, key := partitions[partition]
-		if key {
-			partitions[partition].jobPending += 1
-		}
-	}
-	runningJobsData, err := PartitionsRunningJobsData(logger)
+	parsePartitionGPUs(gpuData, partitions)
+
+	pendingData, err := PartitionsPendingJobsData(logger)
 	if err != nil {
 		return nil, err
 	}
-	list = strings.Split(string(runningJobsData), "\n")
-	for _, partition := range list {
-		_, key := partitions[partition]
-		if key {
-			partitions[partition].jobRunning += 1
-		}
+	runningData, err := PartitionsRunningJobsData(logger)
+	if err != nil {
+		return nil, err
 	}
+	parsePartitionJobs(pendingData, runningData, partitions)
 
 	return partitions, nil
 }

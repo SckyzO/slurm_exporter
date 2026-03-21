@@ -36,13 +36,10 @@ type UserJobMetrics struct {
 ParseUsersMetrics parses the output of the squeue command for user-specific job metrics.
 It expects input in the format: "JobID|User|State|CPUs".
 */
-func ParseUsersMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error) {
+// ParseUsersMetrics parses raw squeue output into a map of user -> job metrics.
+func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 	users := make(map[string]*UserJobMetrics)
-	usersData, err := UsersData(logger)
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(string(usersData), "\n")
+	lines := strings.Split(string(input), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "|") {
 			fields := strings.Split(line, "|")
@@ -52,7 +49,7 @@ func ParseUsersMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error
 			user := fields[1]
 			_, key := users[user]
 			if !key {
-				users[user] = &UserJobMetrics{0, 0, 0, 0}
+				users[user] = &UserJobMetrics{}
 			}
 			state := fields[2]
 			state = strings.ToLower(state)
@@ -68,7 +65,16 @@ func ParseUsersMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error
 			}
 		}
 	}
-	return users, nil
+	return users
+}
+
+// UsersGetMetrics fetches and parses user job metrics.
+func UsersGetMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error) {
+	data, err := UsersData(logger)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUsersMetrics(data), nil
 }
 
 type UsersCollector struct {
@@ -98,7 +104,7 @@ func (uc *UsersCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (uc *UsersCollector) Collect(ch chan<- prometheus.Metric) {
-	um, err := ParseUsersMetrics(uc.logger)
+	um, err := UsersGetMetrics(uc.logger)
 	if err != nil {
 		uc.logger.Error("Failed to parse users metrics", "err", err)
 		return
