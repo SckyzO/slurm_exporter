@@ -99,5 +99,5 @@ GPU sinfo output format varies between Slurm versions. Each subdirectory contain
 | `slurm-21.08.5/` | 21.08.5 | IDX format |
 | `slurm-23.11.10/` | 23.11.10 | |
 | `slurm-23.11.10-2/` | 23.11.10 patch 2 | |
-| `slurm-25.05-bullsequana/` | 25.05.x (BullSequana) | `nvidia_gb200` GPU type; demonstrates column-overflow bug with 1056+ nodes and `--Format=Nodes: ,GresUsed:` |
+| `slurm-25.05/` | 25.05.x | `nvidia_gb200` GPU type; demonstrates column-overflow bug with 1056+ nodes and `--Format=Nodes: ,GresUsed:` |
 | `slurm-25.11.1-1/` | 25.11.1-1 | Latest; also contains partition test data |
