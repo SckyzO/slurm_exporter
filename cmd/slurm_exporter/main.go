@@ -45,19 +45,20 @@ var (
 
 // collectorConstructors maps collector names to their constructor functions
 var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Collector{
-	"accounts":     func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
-	"cpus":         func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
-	"nodes":        func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l) },
-	"node":         func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
-	"partitions":   func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
-	"queue":        func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l) },
-	"scheduler":    func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
-	"fairshare":    func(l *logger.Logger) prometheus.Collector { return collector.NewFairShareCollector(l) },
-	"users":        func(l *logger.Logger) prometheus.Collector { return collector.NewUsersCollector(l) },
-	"info":         func(l *logger.Logger) prometheus.Collector { return collector.NewSlurmInfoCollector(l) },
-	"gpus":         func(l *logger.Logger) prometheus.Collector { return collector.NewGPUsCollector(l) },
-	"reservations": func(l *logger.Logger) prometheus.Collector { return collector.NewReservationsCollector(l) },
-	"licenses":     func(l *logger.Logger) prometheus.Collector { return collector.NewLicensesCollector(l) },
+	"accounts":          func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
+	"cpus":              func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
+	"nodes":             func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l) },
+	"node":              func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
+	"partitions":        func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
+	"queue":             func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l) },
+	"scheduler":         func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
+	"fairshare":         func(l *logger.Logger) prometheus.Collector { return collector.NewFairShareCollector(l) },
+	"users":             func(l *logger.Logger) prometheus.Collector { return collector.NewUsersCollector(l) },
+	"info":              func(l *logger.Logger) prometheus.Collector { return collector.NewSlurmInfoCollector(l) },
+	"gpus":              func(l *logger.Logger) prometheus.Collector { return collector.NewGPUsCollector(l) },
+	"reservations":      func(l *logger.Logger) prometheus.Collector { return collector.NewReservationsCollector(l) },
+	"reservation_nodes": func(l *logger.Logger) prometheus.Collector { return collector.NewReservationNodesCollector(l) },
+	"licenses":          func(l *logger.Logger) prometheus.Collector { return collector.NewLicensesCollector(l) },
 }
 
 // indexHTML is the HTML content displayed on the root page
