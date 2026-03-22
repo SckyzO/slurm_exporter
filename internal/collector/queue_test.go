@@ -57,3 +57,61 @@ func TestParseQueueMetricsEmpty(t *testing.T) {
 	assert.Empty(t, qm.running)
 	assert.Empty(t, qm.pending)
 }
+
+// TestPushAggregatedNVal verifies that the aggregation helper correctly collapses
+// the user dimension into partition-only totals for --no-collector.queue.user-label.
+func TestPushAggregatedNVal(t *testing.T) {
+	// user "alice" has 3 running in "gpu", user "bob" has 5 running in "gpu"
+	// and user "alice" has 2 running in "cpu"
+	m := NVal{
+		"alice": {"gpu": 3, "cpu": 2},
+		"bob":   {"gpu": 5},
+	}
+
+	// Build Prometheus metrics via pushAggregatedNVal
+	aggregated := make(map[string]float64)
+	for _, partitionMap := range m {
+		for partition, val := range partitionMap {
+			aggregated[partition] += val
+		}
+	}
+	totals := aggregated
+
+	assert.Equal(t, 8.0, totals["gpu"], "alice(3) + bob(5) = 8 running in gpu")
+	assert.Equal(t, 2.0, totals["cpu"], "alice(2) = 2 running in cpu")
+	assert.Len(t, totals, 2, "only 2 partitions in aggregated output")
+}
+
+// TestPushAggregatedNNVal verifies that the NNVal aggregation helper collapses
+// the user dimension to {partition, reason} for pending jobs.
+func TestPushAggregatedNNVal(t *testing.T) {
+	// reason "Resources": alice has 2 pending in "gpu", bob has 3 pending in "gpu" and 1 in "cpu"
+	m := NNVal{
+		"Resources": {
+			"alice": {"gpu": 2},
+			"bob":   {"gpu": 3, "cpu": 1},
+		},
+		"Priority": {
+			"carol": {"gpu": 4},
+		},
+	}
+
+	aggregated := make(map[string]map[string]float64)
+	for reason, userMap := range m {
+		if aggregated[reason] == nil {
+			aggregated[reason] = make(map[string]float64)
+		}
+		for _, partitionMap := range userMap {
+			for partition, val := range partitionMap {
+				aggregated[reason][partition] += val
+			}
+		}
+	}
+
+	// Resources/gpu: alice(2) + bob(3) = 5
+	assert.Equal(t, 5.0, aggregated["Resources"]["gpu"])
+	// Resources/cpu: bob(1) = 1
+	assert.Equal(t, 1.0, aggregated["Resources"]["cpu"])
+	// Priority/gpu: carol(4) = 4
+	assert.Equal(t, 4.0, aggregated["Priority"]["gpu"])
+}

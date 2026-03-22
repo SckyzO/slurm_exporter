@@ -53,6 +53,13 @@ var (
 			"Disable on homogeneous clusters to reduce cardinality.",
 	).Default("true").Bool()
 
+	// queueUserLabel controls whether the user label is included in queue metrics.
+	queueUserLabel = kingpin.Flag(
+		"collector.queue.user-label",
+		"Include user label in slurm_queue_* and slurm_cores_* metrics. "+
+			"Disable on clusters with many users to reduce cardinality.",
+	).Default("true").Bool()
+
 	// slurmBinPath is the directory where Slurm binaries are looked up.
 	// Empty string (default) means binaries must be on the system $PATH.
 	slurmBinPath = kingpin.Flag(
@@ -73,7 +80,7 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"nodes":             func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l, *nodesFeatureSet) },
 	"node":              func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
 	"partitions":        func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
-	"queue":             func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l) },
+	"queue":             func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l, *queueUserLabel) },
 	"scheduler":         func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
 	"fairshare":         func(l *logger.Logger) prometheus.Collector { return collector.NewFairShareCollector(l) },
 	"users":             func(l *logger.Logger) prometheus.Collector { return collector.NewUsersCollector(l) },

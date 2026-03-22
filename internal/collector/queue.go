@@ -165,30 +165,42 @@ func QueueData(logger *logger.Logger) ([]byte, error) {
  * https://godoc.org/github.com/prometheus/client_golang/prometheus#Collector
  */
 
-func NewQueueCollector(logger *logger.Logger) *QueueCollector {
+// NewQueueCollector creates a queue metrics collector.
+// When withUserLabel is false, the user label is omitted and counts are
+// aggregated per partition only, reducing cardinality on large clusters.
+func NewQueueCollector(logger *logger.Logger, withUserLabel bool) *QueueCollector {
+	var labelsJob, labelsPending []string
+	if withUserLabel {
+		labelsJob = []string{"user", "partition"}
+		labelsPending = []string{"user", "partition", "reason"}
+	} else {
+		labelsJob = []string{"partition"}
+		labelsPending = []string{"partition", "reason"}
+	}
 	return &QueueCollector{
-		pending:          prometheus.NewDesc("slurm_queue_pending", "Pending jobs in queue", []string{"user", "partition", "reason"}, nil),
-		running:          prometheus.NewDesc("slurm_queue_running", "Running jobs in the cluster", []string{"user", "partition"}, nil),
-		suspended:        prometheus.NewDesc("slurm_queue_suspended", "Suspended jobs in the cluster", []string{"user", "partition"}, nil),
-		cancelled:        prometheus.NewDesc("slurm_queue_cancelled", "Cancelled jobs in the cluster", []string{"user", "partition"}, nil),
-		completing:       prometheus.NewDesc("slurm_queue_completing", "Completing jobs in the cluster", []string{"user", "partition"}, nil),
-		completed:        prometheus.NewDesc("slurm_queue_completed", "Completed jobs in the cluster", []string{"user", "partition"}, nil),
-		configuring:      prometheus.NewDesc("slurm_queue_configuring", "Configuring jobs in the cluster", []string{"user", "partition"}, nil),
-		failed:           prometheus.NewDesc("slurm_queue_failed", "Number of failed jobs", []string{"user", "partition"}, nil),
-		timeout:          prometheus.NewDesc("slurm_queue_timeout", "Jobs stopped by timeout", []string{"user", "partition"}, nil),
-		preempted:        prometheus.NewDesc("slurm_queue_preempted", "Number of preempted jobs", []string{"user", "partition"}, nil),
-		nodeFail:         prometheus.NewDesc("slurm_queue_node_fail", "Number of jobs stopped due to node fail", []string{"user", "partition"}, nil),
-		coresPending:     prometheus.NewDesc("slurm_cores_pending", "Pending cores in queue", []string{"user", "partition", "reason"}, nil),
-		coresRunning:     prometheus.NewDesc("slurm_cores_running", "Running cores in the cluster", []string{"user", "partition"}, nil),
-		coresSuspended:   prometheus.NewDesc("slurm_cores_suspended", "Suspended cores in the cluster", []string{"user", "partition"}, nil),
-		coresCancelled:   prometheus.NewDesc("slurm_cores_cancelled", "Cancelled cores in the cluster", []string{"user", "partition"}, nil),
-		coresCompleting:  prometheus.NewDesc("slurm_cores_completing", "Completing cores in the cluster", []string{"user", "partition"}, nil),
-		coresCompleted:   prometheus.NewDesc("slurm_cores_completed", "Completed cores in the cluster", []string{"user", "partition"}, nil),
-		coresConfiguring: prometheus.NewDesc("slurm_cores_configuring", "Configuring cores in the cluster", []string{"user", "partition"}, nil),
-		coresFailed:      prometheus.NewDesc("slurm_cores_failed", "Number of failed cores", []string{"user", "partition"}, nil),
-		coresTimeout:     prometheus.NewDesc("slurm_cores_timeout", "Cores stopped by timeout", []string{"user", "partition"}, nil),
-		coresPreempted:   prometheus.NewDesc("slurm_cores_preempted", "Number of preempted cores", []string{"user", "partition"}, nil),
-		coresNodeFail:    prometheus.NewDesc("slurm_cores_node_fail", "Number of cores stopped due to node fail", []string{"user", "partition"}, nil),
+		withUserLabel:    withUserLabel,
+		pending:          prometheus.NewDesc("slurm_queue_pending", "Pending jobs in queue", labelsPending, nil),
+		running:          prometheus.NewDesc("slurm_queue_running", "Running jobs in the cluster", labelsJob, nil),
+		suspended:        prometheus.NewDesc("slurm_queue_suspended", "Suspended jobs in the cluster", labelsJob, nil),
+		cancelled:        prometheus.NewDesc("slurm_queue_cancelled", "Cancelled jobs in the cluster", labelsJob, nil),
+		completing:       prometheus.NewDesc("slurm_queue_completing", "Completing jobs in the cluster", labelsJob, nil),
+		completed:        prometheus.NewDesc("slurm_queue_completed", "Completed jobs in the cluster", labelsJob, nil),
+		configuring:      prometheus.NewDesc("slurm_queue_configuring", "Configuring jobs in the cluster", labelsJob, nil),
+		failed:           prometheus.NewDesc("slurm_queue_failed", "Number of failed jobs", labelsJob, nil),
+		timeout:          prometheus.NewDesc("slurm_queue_timeout", "Jobs stopped by timeout", labelsJob, nil),
+		preempted:        prometheus.NewDesc("slurm_queue_preempted", "Number of preempted jobs", labelsJob, nil),
+		nodeFail:         prometheus.NewDesc("slurm_queue_node_fail", "Number of jobs stopped due to node fail", labelsJob, nil),
+		coresPending:     prometheus.NewDesc("slurm_cores_pending", "Pending cores in queue", labelsPending, nil),
+		coresRunning:     prometheus.NewDesc("slurm_cores_running", "Running cores in the cluster", labelsJob, nil),
+		coresSuspended:   prometheus.NewDesc("slurm_cores_suspended", "Suspended cores in the cluster", labelsJob, nil),
+		coresCancelled:   prometheus.NewDesc("slurm_cores_cancelled", "Cancelled cores in the cluster", labelsJob, nil),
+		coresCompleting:  prometheus.NewDesc("slurm_cores_completing", "Completing cores in the cluster", labelsJob, nil),
+		coresCompleted:   prometheus.NewDesc("slurm_cores_completed", "Completed cores in the cluster", labelsJob, nil),
+		coresConfiguring: prometheus.NewDesc("slurm_cores_configuring", "Configuring cores in the cluster", labelsJob, nil),
+		coresFailed:      prometheus.NewDesc("slurm_cores_failed", "Number of failed cores", labelsJob, nil),
+		coresTimeout:     prometheus.NewDesc("slurm_cores_timeout", "Cores stopped by timeout", labelsJob, nil),
+		coresPreempted:   prometheus.NewDesc("slurm_cores_preempted", "Number of preempted cores", labelsJob, nil),
+		coresNodeFail:    prometheus.NewDesc("slurm_cores_node_fail", "Number of cores stopped due to node fail", labelsJob, nil),
 		logger:           logger,
 	}
 }
@@ -216,6 +228,7 @@ type QueueCollector struct {
 	coresTimeout     *prometheus.Desc
 	coresPreempted   *prometheus.Desc
 	coresNodeFail    *prometheus.Desc
+	withUserLabel    bool
 	logger           *logger.Logger
 }
 
@@ -250,31 +263,92 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 		qc.logger.Error("Failed to get queue metrics", "err", err)
 		return
 	}
-	for reason, values := range qm.pending {
-		PushMetric(values, ch, qc.pending, reason)
+	if qc.withUserLabel {
+		for reason, values := range qm.pending {
+			PushMetric(values, ch, qc.pending, reason)
+		}
+		PushMetric(qm.running, ch, qc.running, "")
+		PushMetric(qm.cancelled, ch, qc.cancelled, "")
+		PushMetric(qm.completing, ch, qc.completing, "")
+		PushMetric(qm.completed, ch, qc.completed, "")
+		PushMetric(qm.configuring, ch, qc.configuring, "")
+		PushMetric(qm.failed, ch, qc.failed, "")
+		PushMetric(qm.timeout, ch, qc.timeout, "")
+		PushMetric(qm.preempted, ch, qc.preempted, "")
+		PushMetric(qm.nodeFail, ch, qc.nodeFail, "")
+		for reason, value := range qm.cPending {
+			PushMetric(value, ch, qc.coresPending, reason)
+		}
+		PushMetric(qm.cRunning, ch, qc.coresRunning, "")
+		PushMetric(qm.cCancelled, ch, qc.coresCancelled, "")
+		PushMetric(qm.cCompleting, ch, qc.coresCompleting, "")
+		PushMetric(qm.cCompleted, ch, qc.coresCompleted, "")
+		PushMetric(qm.cConfiguring, ch, qc.coresConfiguring, "")
+		PushMetric(qm.cFailed, ch, qc.coresFailed, "")
+		PushMetric(qm.cTimeout, ch, qc.coresTimeout, "")
+		PushMetric(qm.cPreempted, ch, qc.coresPreempted, "")
+		PushMetric(qm.cNodeFail, ch, qc.coresNodeFail, "")
+	} else {
+		// user label disabled: aggregate all users per partition
+		pushAggregatedNNVal(qm.pending, ch, qc.pending)
+		pushAggregatedNVal(qm.running, ch, qc.running, "")
+		pushAggregatedNVal(qm.cancelled, ch, qc.cancelled, "")
+		pushAggregatedNVal(qm.completing, ch, qc.completing, "")
+		pushAggregatedNVal(qm.completed, ch, qc.completed, "")
+		pushAggregatedNVal(qm.configuring, ch, qc.configuring, "")
+		pushAggregatedNVal(qm.failed, ch, qc.failed, "")
+		pushAggregatedNVal(qm.timeout, ch, qc.timeout, "")
+		pushAggregatedNVal(qm.preempted, ch, qc.preempted, "")
+		pushAggregatedNVal(qm.nodeFail, ch, qc.nodeFail, "")
+		pushAggregatedNNVal(qm.cPending, ch, qc.coresPending)
+		pushAggregatedNVal(qm.cRunning, ch, qc.coresRunning, "")
+		pushAggregatedNVal(qm.cCancelled, ch, qc.coresCancelled, "")
+		pushAggregatedNVal(qm.cCompleting, ch, qc.coresCompleting, "")
+		pushAggregatedNVal(qm.cCompleted, ch, qc.coresCompleted, "")
+		pushAggregatedNVal(qm.cConfiguring, ch, qc.coresConfiguring, "")
+		pushAggregatedNVal(qm.cFailed, ch, qc.coresFailed, "")
+		pushAggregatedNVal(qm.cTimeout, ch, qc.coresTimeout, "")
+		pushAggregatedNVal(qm.cPreempted, ch, qc.coresPreempted, "")
+		pushAggregatedNVal(qm.cNodeFail, ch, qc.coresNodeFail, "")
 	}
+}
 
-	PushMetric(qm.running, ch, qc.running, "")
-	PushMetric(qm.cancelled, ch, qc.cancelled, "")
-	PushMetric(qm.completing, ch, qc.completing, "")
-	PushMetric(qm.completed, ch, qc.completed, "")
-	PushMetric(qm.configuring, ch, qc.configuring, "")
-	PushMetric(qm.failed, ch, qc.failed, "")
-	PushMetric(qm.timeout, ch, qc.timeout, "")
-	PushMetric(qm.preempted, ch, qc.preempted, "")
-	PushMetric(qm.nodeFail, ch, qc.nodeFail, "")
-	for reason, value := range qm.cPending {
-		PushMetric(value, ch, qc.coresPending, reason)
+// pushAggregatedNVal aggregates NVal (user->partition->count) to {partition},
+// collapsing the user dimension. Used when --collector.queue.user-label=false.
+func pushAggregatedNVal(m NVal, ch chan<- prometheus.Metric, desc *prometheus.Desc, aLabel string) {
+	aggregated := make(map[string]float64)
+	for _, partitionMap := range m {
+		for partition, val := range partitionMap {
+			aggregated[partition] += val
+		}
 	}
-	PushMetric(qm.cRunning, ch, qc.coresRunning, "")
-	PushMetric(qm.cCancelled, ch, qc.coresCancelled, "")
-	PushMetric(qm.cCompleting, ch, qc.coresCompleting, "")
-	PushMetric(qm.cCompleted, ch, qc.coresCompleted, "")
-	PushMetric(qm.cConfiguring, ch, qc.coresConfiguring, "")
-	PushMetric(qm.cFailed, ch, qc.coresFailed, "")
-	PushMetric(qm.cTimeout, ch, qc.coresTimeout, "")
-	PushMetric(qm.cPreempted, ch, qc.coresPreempted, "")
-	PushMetric(qm.cNodeFail, ch, qc.coresNodeFail, "")
+	for partition, val := range aggregated {
+		if aLabel != "" {
+			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, val, partition, aLabel)
+		} else {
+			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, val, partition)
+		}
+	}
+}
+
+// pushAggregatedNNVal aggregates NNVal (reason->user->partition->count) to {partition, reason}.
+func pushAggregatedNNVal(m NNVal, ch chan<- prometheus.Metric, desc *prometheus.Desc) {
+	aggregated := make(map[string]map[string]float64)
+	for reason, userMap := range m {
+		if aggregated[reason] == nil {
+			aggregated[reason] = make(map[string]float64)
+		}
+		for _, partitionMap := range userMap {
+			for partition, val := range partitionMap {
+				aggregated[reason][partition] += val
+			}
+		}
+	}
+	for reason, partitionMap := range aggregated {
+		for partition, val := range partitionMap {
+			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, val, partition, reason)
+		}
+	}
 }
 
 func PushMetric(m map[string]map[string]float64, ch chan<- prometheus.Metric, coll *prometheus.Desc, aLabel string) {
