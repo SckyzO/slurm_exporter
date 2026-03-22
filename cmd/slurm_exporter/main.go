@@ -53,6 +53,15 @@ var (
 			"Disable on homogeneous clusters to reduce cardinality.",
 	).Default("true").Bool()
 
+	// slurmBinPath is the directory where Slurm binaries are looked up.
+	// Empty string (default) means binaries must be on the system $PATH.
+	slurmBinPath = kingpin.Flag(
+		"slurm.bin-path",
+		"Directory containing Slurm binaries (sinfo, squeue, sdiag, ...). "+
+			"Defaults to $PATH lookup. Required when running in a container "+
+			"where Slurm binaries are mounted from the host.",
+	).Default("").String()
+
 	// collectorState stores the enabled/disabled state of each collector
 	collectorState = make(map[string]*bool)
 )
@@ -117,6 +126,18 @@ func main() {
 	}
 
 	collector.SetCommandTimeout(*commandTimeout)
+
+	// Configure Slurm binary path and validate at startup.
+	collector.SetBinPath(*slurmBinPath)
+	if *slurmBinPath != "" {
+		log.Info("Using custom Slurm binary path", "path", *slurmBinPath)
+		if errs := collector.ValidateBinaries(log, collector.SlurmBinaries); len(errs) > 0 {
+			for _, err := range errs {
+				log.Error("Slurm binary validation failed", "err", err)
+			}
+			os.Exit(1)
+		}
+	}
 
 	// Create a custom registry to avoid global state and third-party metric pollution
 	reg := prometheus.NewRegistry()
