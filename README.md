@@ -281,6 +281,8 @@ make build GO_VERSION=1.22.2 OS=linux ARCH=amd64
 
 The exporter provides a wide range of metrics, each collected by a specific, toggleable collector.
 
+> For full Prometheus text-format output examples per collector, see **[docs/metrics-examples.md](docs/metrics-examples.md)**.
+
 ### `accounts` Collector
 
 Provides job statistics aggregated by Slurm account.
