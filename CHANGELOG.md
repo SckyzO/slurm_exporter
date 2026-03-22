@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-03-22
+
+### ✨ Features
+
+- **`--slurm.bin-path` flag:** Configure the directory where Slurm binaries (`sinfo`, `squeue`, `sdiag`, `scontrol`, `sshare`, etc.) are looked up. Defaults to empty (system `$PATH`). Required when running in environments where Slurm is not on `$PATH` (e.g. containers with host-mounted binaries, non-standard installations).
+
+  Fatal startup validation: when `--slurm.bin-path` is set, the exporter checks that every required binary exists and is executable at boot. Missing or non-executable binaries are reported individually and the process exits with code 1 — fail fast with a clear message rather than silently returning empty metrics.
+
+  ```bash
+  ./slurm_exporter --slurm.bin-path=/opt/slurm/bin
+  ```
+
+- **`--collector.queue.user-label` flag** (default `true`): Disable the `user` label on all `slurm_queue_*` and `slurm_cores_*` metrics. When disabled, job counts are aggregated per partition only. On clusters with many users this dramatically reduces cardinality: 1 000 users × 10 partitions × 22 metrics = ~220 000 series → ~220 series.
+
+- **Metrics output examples:** New [`docs/metrics-examples.md`](docs/metrics-examples.md) with representative Prometheus text-format output for all 14 collectors. Includes before/after comparisons for `--collector.nodes.feature-set`, `--collector.queue.user-label`, and `--web.disable-exporter-metrics`.
+
+### ⚙️ Technical Improvements
+
+- **CI upgraded to Node.js 24 actions** (ahead of the June 2, 2026 GitHub enforcement deadline):
+  - `actions/checkout` v4 → v6
+  - `actions/setup-go` v5 → v6
+  - `goreleaser/goreleaser-action` v6 → v7
+  - `golangci/golangci-lint-action` v8 → v9
+
+- **`--slurm.bin-path` test coverage:** 5 tests covering custom path execution, missing binary, non-executable binary, and the skip-validation behaviour when path is empty (fake shell scripts in `t.TempDir()`).
+
+- **Queue cardinality test coverage:** `TestPushAggregatedNVal` and `TestPushAggregatedNNVal` verify the aggregation logic for `--no-collector.queue.user-label`.
+
+---
+
 ## [1.4.0] - 2026-03-21
 
 ### ✨ Features
