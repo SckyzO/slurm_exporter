@@ -56,31 +56,24 @@ func (st *StatusTracker) Describe(ch chan<- *prometheus.Desc) {
 	ch <- st.duration
 }
 
-// Collect runs each inner collector, measures duration, and emits status metrics.
-// A panic in an inner collector is recovered and reported as a failure.
+// Collect runs each inner collector, measures its duration, and emits status metrics.
+// Each inner collector writes directly into ch — no intermediate channel or extra
+// goroutine. Panics are caught via defer/recover in the same goroutine, which is
+// standard Go and avoids any buffering overhead regardless of metric volume.
 func (st *StatusTracker) Collect(ch chan<- prometheus.Metric) {
 	for _, e := range st.entries {
 		start := time.Now()
 		succeeded := 1.0
 
-		buf := make(chan prometheus.Metric, 512)
-		done := make(chan struct{})
-		go func(entry statusEntry) {
+		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					st.logger.Error("Collector panicked", "collector", entry.name, "panic", r)
+					st.logger.Error("Collector panicked", "collector", e.name, "panic", r)
 					succeeded = 0
 				}
-				close(done)
 			}()
-			entry.collector.Collect(buf)
-		}(e)
-
-		<-done
-		close(buf)
-		for m := range buf {
-			ch <- m
-		}
+			e.collector.Collect(ch)
+		}()
 
 		elapsed := time.Since(start).Seconds()
 		ch <- prometheus.MustNewConstMetric(st.success, prometheus.GaugeValue, succeeded, e.name)
