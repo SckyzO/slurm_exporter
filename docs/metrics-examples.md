@@ -302,6 +302,40 @@ slurm_queue_running{partition="gpu"} 38
 slurm_queue_running{partition="cpu"} 274
 ```
 
+### Global totals (always present, both modes)
+
+These metrics have no labels and are always emitted even at 0.
+Use them for alerting on cluster state without risking "No Data" in PromQL.
+
+```
+# HELP slurm_jobs_pending Total pending jobs in the cluster
+# TYPE slurm_jobs_pending gauge
+slurm_jobs_pending 59
+
+# HELP slurm_jobs_running Total running jobs in the cluster
+# TYPE slurm_jobs_running gauge
+slurm_jobs_running 312
+
+# HELP slurm_jobs_failed Total failed jobs in the cluster
+# TYPE slurm_jobs_failed gauge
+slurm_jobs_failed 0
+
+# HELP slurm_jobs_cores_running Total cores used by running jobs
+# TYPE slurm_jobs_cores_running gauge
+slurm_jobs_cores_running 3744
+
+# HELP slurm_jobs_cores_pending Total cores requested by pending jobs
+# TYPE slurm_jobs_cores_pending gauge
+slurm_jobs_cores_pending 708
+```
+
+**PromQL example — alert when cluster has been idle for 10 minutes:**
+```promql
+slurm_jobs_running == 0
+```
+This works reliably because `slurm_jobs_running` is always present.
+With `sum(slurm_queue_running)`, PromQL returns "No Data" when there are no jobs.
+
 ---
 
 ## `reservation_nodes` collector

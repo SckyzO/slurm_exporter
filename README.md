@@ -419,17 +419,37 @@ Provides metrics on CPU usage and pending jobs for each partition.
 
 Provides detailed metrics on job states and resource usage.
 
-- **Command:** `squeue -h -o "%P,%T,%C,%r,%u"`
+- **Command:** `squeue -h -o "%P|%T|%C|%r|%u"`
+
+**Per-user/partition metrics** — only emitted when jobs exist in that state:
 
 | Metric | Description | Labels |
 |---|---|---|
-| `slurm_queue_pending` | Pending jobs in queue | `user`, `partition`, `reason` |
-| `slurm_queue_running` | Running jobs in the cluster | `user`, `partition` |
-| `slurm_queue_suspended` | Suspended jobs in the cluster | `user`, `partition` |
-| `slurm_cores_suspended` | Suspended cores in the cluster | `user`, `partition` |
-| `slurm_cores_pending` | Pending cores in queue | `user`, `partition`, `reason` |
-| `slurm_cores_running` | Running cores in the cluster | `user`, `partition` |
-| `...` | (and many other states: `completed`, `failed`, etc.) | `user`, `partition` |
+| `slurm_queue_pending` | Pending jobs | `user`, `partition`, `reason` |
+| `slurm_queue_running` | Running jobs | `user`, `partition` |
+| `slurm_queue_suspended` | Suspended jobs | `user`, `partition` |
+| `slurm_cores_pending` | Pending cores | `user`, `partition`, `reason` |
+| `slurm_cores_running` | Running cores | `user`, `partition` |
+| `slurm_cores_suspended` | Suspended cores | `user`, `partition` |
+| `...` | (cancelled, completing, completed, configuring, failed, timeout, preempted, node_fail) | `user`, `partition` |
+
+**Global totals** — always emitted even at 0, useful for alerting on empty cluster:
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_jobs_pending` | Total pending jobs cluster-wide | (none) |
+| `slurm_jobs_running` | Total running jobs cluster-wide | (none) |
+| `slurm_jobs_suspended` | Total suspended jobs | (none) |
+| `slurm_jobs_completing` | Total completing jobs | (none) |
+| `slurm_jobs_completed` | Total completed jobs | (none) |
+| `slurm_jobs_configuring` | Total configuring jobs | (none) |
+| `slurm_jobs_failed` | Total failed jobs | (none) |
+| `slurm_jobs_timeout` | Total timed-out jobs | (none) |
+| `slurm_jobs_preempted` | Total preempted jobs | (none) |
+| `slurm_jobs_node_fail` | Total jobs stopped by node fail | (none) |
+| `slurm_jobs_cancelled` | Total cancelled jobs | (none) |
+| `slurm_jobs_cores_running` | Total cores used by running jobs | (none) |
+| `slurm_jobs_cores_pending` | Total cores requested by pending jobs | (none) |
 
 ### `reservations` Collector
 

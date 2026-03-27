@@ -115,3 +115,66 @@ func TestPushAggregatedNNVal(t *testing.T) {
 	// Priority/gpu: carol(4) = 4
 	assert.Equal(t, 4.0, aggregated["Priority"]["gpu"])
 }
+
+// TestSumNVal verifies the global NVal aggregation helper.
+func TestSumNVal(t *testing.T) {
+	m := NVal{
+		"alice": {"gpu": 3, "cpu": 2},
+		"bob":   {"gpu": 5},
+	}
+	assert.Equal(t, 10.0, sumNVal(m), "3+2+5=10")
+	assert.Equal(t, 0.0, sumNVal(NVal{}), "empty map returns 0")
+}
+
+// TestSumNNVal verifies the global NNVal aggregation helper.
+func TestSumNNVal(t *testing.T) {
+	m := NNVal{
+		"Resources": {"alice": {"gpu": 2}, "bob": {"gpu": 3, "cpu": 1}},
+		"Priority":  {"carol": {"gpu": 4}},
+	}
+	assert.Equal(t, 10.0, sumNNVal(m), "2+3+1+4=10")
+	assert.Equal(t, 0.0, sumNNVal(NNVal{}), "empty map returns 0")
+}
+
+// TestGlobalQueueMetrics verifies the global totals using real test data.
+// These metrics must always be emitted even when 0.
+func TestGlobalQueueMetrics(t *testing.T) {
+	file, err := os.Open("../../test_data/squeue.txt")
+	require.NoError(t, err, "cannot open test data")
+	data, err := io.ReadAll(file)
+	require.NoError(t, err)
+
+	qm := ParseQueueMetrics(data)
+
+	// Running: 19 (foo) + 9 (bar) = 28 total
+	assert.Equal(t, 28.0, sumNVal(qm.running), "28 total running jobs")
+
+	// Pending: 4 jobs in bar with Licenses reason
+	assert.Equal(t, 4.0, sumNNVal(qm.pending), "4 total pending jobs")
+
+	// Cores running: 28 jobs × 12 cores = 336
+	assert.Equal(t, 336.0, sumNVal(qm.cRunning), "336 total running cores")
+
+	// Cores pending: 4 jobs × 12 cores = 48
+	assert.Equal(t, 48.0, sumNNVal(qm.cPending), "48 total pending cores")
+
+	// Single-job states
+	assert.Equal(t, 1.0, sumNVal(qm.suspended))
+	assert.Equal(t, 1.0, sumNVal(qm.cancelled))
+	assert.Equal(t, 1.0, sumNVal(qm.failed))
+	assert.Equal(t, 1.0, sumNVal(qm.timeout))
+	assert.Equal(t, 1.0, sumNVal(qm.preempted))
+	assert.Equal(t, 1.0, sumNVal(qm.nodeFail))
+	assert.Equal(t, 1.0, sumNVal(qm.completed))
+	assert.Equal(t, 2.0, sumNVal(qm.completing))
+	assert.Equal(t, 1.0, sumNVal(qm.configuring))
+}
+
+// TestGlobalQueueMetricsEmptyCluster verifies that global totals are 0 (not absent)
+// when the cluster has no jobs — this is the key behavior difference vs per-user metrics.
+func TestGlobalQueueMetricsEmptyCluster(t *testing.T) {
+	qm := ParseQueueMetrics([]byte(""))
+	assert.Equal(t, 0.0, sumNVal(qm.running), "running must be 0, not absent")
+	assert.Equal(t, 0.0, sumNNVal(qm.pending), "pending must be 0, not absent")
+	assert.Equal(t, 0.0, sumNVal(qm.cRunning), "cores_running must be 0, not absent")
+}

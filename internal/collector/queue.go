@@ -201,6 +201,20 @@ func NewQueueCollector(logger *logger.Logger, withUserLabel bool) *QueueCollecto
 		coresTimeout:     prometheus.NewDesc("slurm_cores_timeout", "Cores stopped by timeout", labelsJob, nil),
 		coresPreempted:   prometheus.NewDesc("slurm_cores_preempted", "Number of preempted cores", labelsJob, nil),
 		coresNodeFail:    prometheus.NewDesc("slurm_cores_node_fail", "Number of cores stopped due to node fail", labelsJob, nil),
+		// Global totals — no labels, always emitted even when 0
+		jobsPending:      prometheus.NewDesc("slurm_jobs_pending", "Total pending jobs in the cluster", nil, nil),
+		jobsRunning:      prometheus.NewDesc("slurm_jobs_running", "Total running jobs in the cluster", nil, nil),
+		jobsSuspended:    prometheus.NewDesc("slurm_jobs_suspended", "Total suspended jobs in the cluster", nil, nil),
+		jobsCompleting:   prometheus.NewDesc("slurm_jobs_completing", "Total completing jobs in the cluster", nil, nil),
+		jobsCompleted:    prometheus.NewDesc("slurm_jobs_completed", "Total completed jobs in the cluster", nil, nil),
+		jobsConfiguring:  prometheus.NewDesc("slurm_jobs_configuring", "Total configuring jobs in the cluster", nil, nil),
+		jobsFailed:       prometheus.NewDesc("slurm_jobs_failed", "Total failed jobs in the cluster", nil, nil),
+		jobsTimeout:      prometheus.NewDesc("slurm_jobs_timeout", "Total jobs stopped by timeout in the cluster", nil, nil),
+		jobsPreempted:    prometheus.NewDesc("slurm_jobs_preempted", "Total preempted jobs in the cluster", nil, nil),
+		jobsNodeFail:     prometheus.NewDesc("slurm_jobs_node_fail", "Total jobs stopped due to node fail in the cluster", nil, nil),
+		jobsCancelled:    prometheus.NewDesc("slurm_jobs_cancelled", "Total cancelled jobs in the cluster", nil, nil),
+		jobsCoresRunning: prometheus.NewDesc("slurm_jobs_cores_running", "Total cores used by running jobs", nil, nil),
+		jobsCoresPending: prometheus.NewDesc("slurm_jobs_cores_pending", "Total cores requested by pending jobs", nil, nil),
 		logger:           logger,
 	}
 }
@@ -229,6 +243,20 @@ type QueueCollector struct {
 	coresPreempted   *prometheus.Desc
 	coresNodeFail    *prometheus.Desc
 	withUserLabel    bool
+	// Global totals — no labels, always emitted even when 0
+	jobsPending      *prometheus.Desc
+	jobsRunning      *prometheus.Desc
+	jobsSuspended    *prometheus.Desc
+	jobsCompleting   *prometheus.Desc
+	jobsCompleted    *prometheus.Desc
+	jobsConfiguring  *prometheus.Desc
+	jobsFailed       *prometheus.Desc
+	jobsTimeout      *prometheus.Desc
+	jobsPreempted    *prometheus.Desc
+	jobsNodeFail     *prometheus.Desc
+	jobsCancelled    *prometheus.Desc
+	jobsCoresRunning *prometheus.Desc
+	jobsCoresPending *prometheus.Desc
 	logger           *logger.Logger
 }
 
@@ -255,12 +283,37 @@ func (qc *QueueCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- qc.coresTimeout
 	ch <- qc.coresPreempted
 	ch <- qc.coresNodeFail
+	ch <- qc.jobsPending
+	ch <- qc.jobsRunning
+	ch <- qc.jobsSuspended
+	ch <- qc.jobsCompleting
+	ch <- qc.jobsCompleted
+	ch <- qc.jobsConfiguring
+	ch <- qc.jobsFailed
+	ch <- qc.jobsTimeout
+	ch <- qc.jobsPreempted
+	ch <- qc.jobsNodeFail
+	ch <- qc.jobsCancelled
+	ch <- qc.jobsCoresRunning
+	ch <- qc.jobsCoresPending
 }
 
 func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 	qm, err := QueueGetMetrics(qc.logger)
 	if err != nil {
 		qc.logger.Error("Failed to get queue metrics", "err", err)
+		// Emit global totals at 0 so they remain present in Prometheus
+		// even when squeue is unavailable. Per-user metrics are omitted.
+		empty := &QueueMetrics{
+			pending: make(NNVal), running: make(NVal),
+			suspended: make(NVal), completing: make(NVal),
+			completed: make(NVal), configuring: make(NVal),
+			failed: make(NVal), timeout: make(NVal),
+			preempted: make(NVal), nodeFail: make(NVal),
+			cancelled: make(NVal),
+			cPending:  make(NNVal), cRunning: make(NVal),
+		}
+		qc.emitGlobalTotals(ch, empty)
 		return
 	}
 	if qc.withUserLabel {
@@ -311,6 +364,27 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 		pushAggregatedNVal(qm.cPreempted, ch, qc.coresPreempted, "")
 		pushAggregatedNVal(qm.cNodeFail, ch, qc.coresNodeFail, "")
 	}
+	// Global totals: always emitted even when 0, regardless of withUserLabel.
+	qc.emitGlobalTotals(ch, qm)
+}
+
+// emitGlobalTotals emits the 13 cluster-wide job/core metrics.
+// Called both on success and on squeue error (with empty metrics) so these
+// series are always present in Prometheus, enabling reliable alerting.
+func (qc *QueueCollector) emitGlobalTotals(ch chan<- prometheus.Metric, qm *QueueMetrics) {
+	ch <- prometheus.MustNewConstMetric(qc.jobsPending, prometheus.GaugeValue, sumNNVal(qm.pending))
+	ch <- prometheus.MustNewConstMetric(qc.jobsRunning, prometheus.GaugeValue, sumNVal(qm.running))
+	ch <- prometheus.MustNewConstMetric(qc.jobsSuspended, prometheus.GaugeValue, sumNVal(qm.suspended))
+	ch <- prometheus.MustNewConstMetric(qc.jobsCompleting, prometheus.GaugeValue, sumNVal(qm.completing))
+	ch <- prometheus.MustNewConstMetric(qc.jobsCompleted, prometheus.GaugeValue, sumNVal(qm.completed))
+	ch <- prometheus.MustNewConstMetric(qc.jobsConfiguring, prometheus.GaugeValue, sumNVal(qm.configuring))
+	ch <- prometheus.MustNewConstMetric(qc.jobsFailed, prometheus.GaugeValue, sumNVal(qm.failed))
+	ch <- prometheus.MustNewConstMetric(qc.jobsTimeout, prometheus.GaugeValue, sumNVal(qm.timeout))
+	ch <- prometheus.MustNewConstMetric(qc.jobsPreempted, prometheus.GaugeValue, sumNVal(qm.preempted))
+	ch <- prometheus.MustNewConstMetric(qc.jobsNodeFail, prometheus.GaugeValue, sumNVal(qm.nodeFail))
+	ch <- prometheus.MustNewConstMetric(qc.jobsCancelled, prometheus.GaugeValue, sumNVal(qm.cancelled))
+	ch <- prometheus.MustNewConstMetric(qc.jobsCoresRunning, prometheus.GaugeValue, sumNVal(qm.cRunning))
+	ch <- prometheus.MustNewConstMetric(qc.jobsCoresPending, prometheus.GaugeValue, sumNNVal(qm.cPending))
 }
 
 // pushAggregatedNVal aggregates NVal (user->partition->count) to {partition},
@@ -349,6 +423,30 @@ func pushAggregatedNNVal(m NNVal, ch chan<- prometheus.Metric, desc *prometheus.
 			ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, val, partition, reason)
 		}
 	}
+}
+
+// sumNVal sums all values in a NVal (user->partition->count) map.
+func sumNVal(m NVal) float64 {
+	var total float64
+	for _, partitionMap := range m {
+		for _, val := range partitionMap {
+			total += val
+		}
+	}
+	return total
+}
+
+// sumNNVal sums all values in a NNVal (reason->user->partition->count) map.
+func sumNNVal(m NNVal) float64 {
+	var total float64
+	for _, userMap := range m {
+		for _, partitionMap := range userMap {
+			for _, val := range partitionMap {
+				total += val
+			}
+		}
+	}
+	return total
 }
 
 func PushMetric(m map[string]map[string]float64, ch chan<- prometheus.Metric, coll *prometheus.Desc, aLabel string) {
