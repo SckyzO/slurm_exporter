@@ -310,15 +310,25 @@ Provides global statistics on CPU states for the entire cluster.
 | `slurm_cpus_other` | Mix CPUs | (none) |
 | `slurm_cpus_total` | Total CPUs | (none) |
 
-### `fairshare` Collector
+### `fairshare` collector
 
-Reports the calculated fairshare factor for each account.
+Reports the calculated fairshare factor, usage, and shares for each account and user.
 
-- **Command:** `sshare -n -P -o "account,fairshare"`
+- **Command:** `sshare -a -P -n -o Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare`
 
 | Metric | Description | Labels |
 |---|---|---|
-| `slurm_account_fairshare` | FairShare for account | `account` |
+| `slurm_account_fairshare` | FairShare factor for account | `account` |
+| `slurm_account_fairshare_raw_shares` | Raw shares for account | `account` |
+| `slurm_account_fairshare_norm_shares` | Normalized shares for account | `account` |
+| `slurm_account_fairshare_raw_usage` | Raw usage for account | `account` |
+| `slurm_account_fairshare_norm_usage` | Normalized usage for account | `account` |
+| `slurm_user_fairshare` | FairShare factor for user | `account`, `user` |
+| `slurm_user_fairshare_raw_shares` | Raw shares for user | `account`, `user` |
+| `slurm_user_fairshare_norm_shares` | Normalized shares for user | `account`, `user` |
+| `slurm_user_fairshare_raw_usage` | Raw usage for user | `account`, `user` |
+| `slurm_user_fairshare_norm_usage` | Normalized usage for user | `account`, `user` |
+
 
 ### `gpus` Collector
 

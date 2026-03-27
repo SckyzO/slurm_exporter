@@ -82,14 +82,34 @@ slurm_cpus_total 6636
 
 ## `fairshare` collector
 
-Command: `sshare -n -P -o account,fairshare`
+Command: `sshare -a -P -n -o Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare`
 
 ```
-# HELP slurm_account_fairshare FairShare for account
+# HELP slurm_account_fairshare FairShare factor for account
 # TYPE slurm_account_fairshare gauge
 slurm_account_fairshare{account="hpc_team"} 0.42
 slurm_account_fairshare{account="ml_lab"} 0.78
 slurm_account_fairshare{account="root"} 1
+
+# HELP slurm_account_fairshare_norm_shares Normalized shares for account
+# TYPE slurm_account_fairshare_norm_shares gauge
+slurm_account_fairshare_norm_shares{account="hpc_team"} 0.3
+slurm_account_fairshare_norm_shares{account="ml_lab"} 0.5
+
+# HELP slurm_account_fairshare_norm_usage Normalized usage for account
+# TYPE slurm_account_fairshare_norm_usage gauge
+slurm_account_fairshare_norm_usage{account="hpc_team"} 0.4
+slurm_account_fairshare_norm_usage{account="ml_lab"} 0.2
+
+# HELP slurm_user_fairshare FairShare factor for user
+# TYPE slurm_user_fairshare gauge
+slurm_user_fairshare{account="hpc_team",user="alice"} 0.85
+slurm_user_fairshare{account="ml_lab",user="bob"} 0.92
+
+# HELP slurm_user_fairshare_raw_usage Raw usage for user
+# TYPE slurm_user_fairshare_raw_usage gauge
+slurm_user_fairshare_raw_usage{account="hpc_team",user="alice"} 1.08933138e+08
+slurm_user_fairshare_raw_usage{account="ml_lab",user="bob"} 2.175631e+06
 ```
 
 ---
