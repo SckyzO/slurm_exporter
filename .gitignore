@@ -4,3 +4,23 @@ go/
 *.snap
 *.tar.gz*
 *.swp
+
+# Dev/test scripts (environment-specific, not committed)
+scripts/dev/
+
+# Screenshots: ignore all temporary ones, keep only documentation screenshots
+# (named <dashboard>-<N>.png, e.g. overview-1.png, jobs-2.png)
+dashboards_grafana/screenshots/*
+!dashboards_grafana/screenshots/overview-*.png
+!dashboards_grafana/screenshots/jobs-*.png
+!dashboards_grafana/screenshots/nodes-*.png
+!dashboards_grafana/screenshots/usage-*.png
+!dashboards_grafana/screenshots/scheduler-*.png
+!dashboards_grafana/screenshots/health-*.png
+!dashboards_grafana/screenshots/reservations-*.png
+
+# Claude instructions file
+CLAUDE.md
+
+# Local cluster config override (machine-specific)
+scripts/testing/cluster.local.conf

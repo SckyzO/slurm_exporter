@@ -6,6 +6,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/sckyzo/slurm_exporter)](https://goreportcard.com/report/github.com/sckyzo/slurm_exporter)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
+> 📸 **[View Dashboard Screenshots](#-screenshots)**
+
 Prometheus collector and exporter for metrics extracted from the [Slurm](https://slurm.schedmd.com/overview.html) resource scheduling system.
 
 > [!WARNING]
@@ -55,7 +57,8 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
     - [`users` Collector](#users-collector)
   - [📡 Prometheus Configuration](#-prometheus-configuration)
     - [Performance Considerations](#performance-considerations)
-  - [📈 Grafana Dashboard](#-grafana-dashboard)
+  - [📈 Grafana Dashboards](#-grafana-dashboards)
+  - [📸 Screenshots](#-screenshots)
   - [📜 License](#-license)
   - [🍴 About this fork](#-about-this-fork)
 
@@ -570,15 +573,120 @@ These allow per-collector alerting independently of the global Prometheus `scrap
 
 ---
 
-## 📈 Grafana Dashboard
+## 📈 Grafana Dashboards
 
-A [Grafana dashboard](https://grafana.com/dashboards/4323) is available:
+Eight ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
+All dashboards use a `$datasource` template variable and are compatible with Grafana 12+.
 
-![Node Status](images/Node_Status.png)
-![Job Status](images/Job_Status.png)
-![Scheduler Info](images/Scheduler_Info.png)
+| Dashboard | UID | Description |
+|-----------|-----|-------------|
+| **Cluster Overview** | `slurm-overview` | Global cluster health: CPU/GPU utilization, node states, job totals, partition summary |
+| **Jobs & Queue** | `slurm-jobs` | Job queue details by user, account, partition — pending reasons, top users |
+| **Node Detail** | `slurm-nodes` | Per-node CPU & memory table (filtered by partition), scalable to 100k+ nodes |
+| **Scheduler** | `slurm-scheduler` | slurmctld internals: cycle time, backfill, RPC statistics |
+| **Reservations & Licenses** | `slurm-reservations` | Active reservations, node states per reservation, license usage |
+| **Exporter Health** | `slurm-health` | Collector OK/FAIL status, scrape duration history, Slurm binary versions |
+| **Cluster Usage Statistics** | `slurm-usage` | CPU/GPU utilization gauges, fairshare per account, top users by CPU |
+| **All Metrics Reference** | `slurm-all-metrics` | Exhaustive reference panel for every exported metric |
+
+### Import to Grafana
+
+**Option 1 — Copy JSON files** to your Grafana provisioning directory:
+
+```bash
+cp dashboards_grafana/*.json /etc/grafana/provisioning/dashboards/
+```
+
+**Option 2 — Import via API:**
+
+```bash
+for f in dashboards_grafana/*.json; do
+  curl -s -X POST http://admin:password@grafana-host:3000/api/dashboards/db \
+    -H "Content-Type: application/json" \
+    -d "{\"dashboard\": $(cat $f), \"overwrite\": true, \"folderId\": 0}"
+done
+```
+
+> **Scale note (Node Detail dashboard):** The per-node table is filtered by the `$partition` variable.
+> On clusters with 100k+ nodes, always select a specific partition to avoid loading excessive data.
+> The partition summary and problem nodes panels are always scalable regardless of cluster size.
 
 ---
+
+## 📸 Screenshots
+
+> Screenshots taken on a 20-node test cluster (alice/bob/carol/dave/eve/frank, multiple accounts and partitions).
+> Click any thumbnail to open the full-size image. See [`dashboards_grafana/README.md`](dashboards_grafana/README.md) for the full dashboard documentation.
+
+<table>
+<tr>
+<td align="center" width="33%">
+
+**Cluster Overview**<br>
+<a href="dashboards_grafana/screenshots/overview-1.png">
+  <img src="dashboards_grafana/screenshots/overview-1.png" width="100%" alt="Cluster Overview">
+</a>
+
+</td>
+<td align="center" width="33%">
+
+**Jobs & Queue**<br>
+<a href="dashboards_grafana/screenshots/jobs-1.png">
+  <img src="dashboards_grafana/screenshots/jobs-1.png" width="100%" alt="Jobs & Queue">
+</a>
+
+</td>
+<td align="center" width="33%">
+
+**Node Detail** *(scalable 100k+ nodes)*<br>
+<a href="dashboards_grafana/screenshots/nodes-1.png">
+  <img src="dashboards_grafana/screenshots/nodes-1.png" width="100%" alt="Node Detail">
+</a>
+
+</td>
+</tr>
+<tr>
+<td align="center" width="33%">
+
+**Cluster Usage Statistics**<br>
+<a href="dashboards_grafana/screenshots/usage-1.png">
+  <img src="dashboards_grafana/screenshots/usage-1.png" width="100%" alt="Cluster Usage Statistics">
+</a>
+
+</td>
+<td align="center" width="33%">
+
+**Scheduler**<br>
+<a href="dashboards_grafana/screenshots/scheduler-1.png">
+  <img src="dashboards_grafana/screenshots/scheduler-1.png" width="100%" alt="Scheduler">
+</a>
+
+</td>
+<td align="center" width="33%">
+
+**Exporter Health**<br>
+<a href="dashboards_grafana/screenshots/health-1.png">
+  <img src="dashboards_grafana/screenshots/health-1.png" width="100%" alt="Exporter Health">
+</a>
+
+</td>
+</tr>
+<tr>
+<td align="center" width="33%">
+
+**Reservations & Licenses**<br>
+<a href="dashboards_grafana/screenshots/reservations-1.png">
+  <img src="dashboards_grafana/screenshots/reservations-1.png" width="100%" alt="Reservations & Licenses">
+</a>
+
+</td>
+<td align="center" colspan="2">
+
+*All 8 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
+
+</td>
+</tr>
+</table>
 
 ## 📜 License
 

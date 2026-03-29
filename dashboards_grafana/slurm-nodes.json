@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "Per-node CPU and memory utilization, node state table.",
+  "description": "Per-node CPU and memory utilization by partition. Designed to scale from small clusters to 100k+ nodes.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -117,7 +117,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "green",
                 "value": null
               }
             ]
@@ -385,7 +385,7 @@
     {
       "type": "row",
       "id": 101,
-      "title": "CPU & Memory Utilization per Node",
+      "title": "Node Distribution by Partition",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -399,13 +399,229 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "type": "table",
-      "id": 10,
-      "title": "Node CPU & Memory Detail",
+      "type": "barchart",
+      "id": 11,
+      "title": "Node States per Partition",
+      "description": "Distribution of node states per partition. Scalable \u2014 based on aggregate metrics.",
       "gridPos": {
-        "h": 12,
-        "w": 24,
+        "h": 8,
+        "w": 14,
         "x": 0,
+        "y": 6
+      },
+      "options": {
+        "barWidth": 0.7,
+        "fillOpacity": 80,
+        "gradientMode": "none",
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "stacking": "normal",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "xTickLabelMaxLength": 20,
+        "xTickLabelRotation": 0,
+        "xField": "Partition"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Alloc"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Idle"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mixed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Down"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Drain"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "active_feature_set": true,
+              "__name__": true
+            },
+            "renameByName": {
+              "partition": "Partition",
+              "Value #A": "Alloc",
+              "Value #B": "Idle",
+              "Value #C": "Mixed",
+              "Value #D": "Down",
+              "Value #E": "Drain"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_alloc)",
+          "legendFormat": "{{partition}}",
+          "refId": "A",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_idle)",
+          "legendFormat": "{{partition}}",
+          "refId": "B",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_mix)",
+          "legendFormat": "{{partition}}",
+          "refId": "C",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_down)",
+          "legendFormat": "{{partition}}",
+          "refId": "D",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_drain)",
+          "legendFormat": "{{partition}}",
+          "refId": "E",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "table",
+      "id": 12,
+      "title": "Partition Summary",
+      "description": "Per-partition node state counts. Always scalable.",
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 14,
         "y": 6
       },
       "options": {
@@ -413,7 +629,379 @@
         "footer": {
           "show": false
         },
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Alloc"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Down"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Drain"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "purple",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "active_feature_set": true,
+              "__name__": true
+            },
+            "renameByName": {
+              "partition": "Partition",
+              "Value #A": "Alloc",
+              "Value #B": "Idle",
+              "Value #C": "Mixed",
+              "Value #D": "Down",
+              "Value #E": "Drain"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_alloc)",
+          "legendFormat": "{{partition}}",
+          "refId": "A",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_idle)",
+          "legendFormat": "{{partition}}",
+          "refId": "B",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_mix)",
+          "legendFormat": "{{partition}}",
+          "refId": "C",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_down)",
+          "legendFormat": "{{partition}}",
+          "refId": "D",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (partition) (slurm_nodes_drain)",
+          "legendFormat": "{{partition}}",
+          "refId": "E",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 102,
+      "title": "Problem Nodes (Down / Drain)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "table",
+      "id": 13,
+      "title": "Down & Drain Nodes",
+      "description": "Nodes in degraded state. Scalable to any cluster size \u2014 only shows problematic nodes. Empty table = healthy cluster.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Status"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "down": {
+                        "color": "red",
+                        "text": "down"
+                      },
+                      "drain": {
+                        "color": "purple",
+                        "text": "drain"
+                      },
+                      "drained": {
+                        "color": "purple",
+                        "text": "drained"
+                      },
+                      "fail": {
+                        "color": "dark-red",
+                        "text": "fail"
+                      },
+                      "unknown": {
+                        "color": "gray",
+                        "text": "unknown"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "Value": true,
+              "__name__": true
+            },
+            "renameByName": {
+              "node": "Node",
+              "partition": "Partition",
+              "status": "Status"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_node_status{status=~\"down|drain|drained|fail|unknown\"}",
+          "legendFormat": "{{node}}",
+          "refId": "A",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 103,
+      "title": "Node CPU & Memory Detail \u2014 Partition: $partition",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      }
+    },
+    {
+      "type": "text",
+      "id": 14,
+      "title": "",
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "options": {
+        "content": "> **Scale note:** Select a specific partition above to view per-node CPU and memory detail. For clusters with **100k+ nodes**, always filter by partition to limit data.",
+        "mode": "markdown"
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "table",
+      "id": 10,
+      "title": "Node CPU & Memory Detail (partition: $partition)",
+      "description": "Per-node CPU allocation and memory usage. Filter by partition. For large clusters, always select a specific partition.",
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "CPU %"
+          }
+        ]
       },
       "fieldConfig": {
         "defaults": {
@@ -464,6 +1052,10 @@
                 "value": 100
               },
               {
+                "id": "min",
+                "value": 0
+              },
+              {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
@@ -509,6 +1101,10 @@
               {
                 "id": "max",
                 "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
               },
               {
                 "id": "thresholds",
@@ -572,6 +1168,7 @@
                 "id": "mappings",
                 "value": [
                   {
+                    "type": "value",
                     "options": {
                       "mixed": {
                         "color": "yellow",
@@ -585,16 +1182,23 @@
                         "color": "orange",
                         "text": "alloc"
                       },
+                      "alloc": {
+                        "color": "orange",
+                        "text": "alloc"
+                      },
                       "down": {
                         "color": "red",
                         "text": "down"
+                      },
+                      "drain": {
+                        "color": "purple",
+                        "text": "drain"
                       },
                       "reserved": {
                         "color": "blue",
                         "text": "resv"
                       }
-                    },
-                    "type": "value"
+                    }
                   }
                 ]
               }
@@ -613,7 +1217,8 @@
             "excludeByName": {
               "Time": true,
               "instance": true,
-              "job": true
+              "job": true,
+              "__name__": true
             },
             "renameByName": {
               "node": "Node",
@@ -624,19 +1229,7 @@
               "Value #C": "CPU %",
               "Value #D": "Mem Alloc (GB)",
               "Value #E": "Mem Total (GB)",
-              "Value #F": "Mem %",
-              "Value #G": "Up"
-            },
-            "indexByName": {
-              "Node": 0,
-              "Partition": 1,
-              "Status": 2,
-              "CPU Alloc": 3,
-              "CPU Total": 4,
-              "CPU %": 5,
-              "Mem Alloc (GB)": 6,
-              "Mem Total (GB)": 7,
-              "Mem %": 8
+              "Value #F": "Mem %"
             }
           }
         }
@@ -647,7 +1240,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_cpu_alloc",
+          "expr": "slurm_node_cpu_alloc{partition=~\"${partition:regex}\"}",
           "legendFormat": "{{node}}",
           "refId": "A",
           "instant": true,
@@ -658,7 +1251,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_cpu_total",
+          "expr": "slurm_node_cpu_total{partition=~\"${partition:regex}\"}",
           "legendFormat": "{{node}}",
           "refId": "B",
           "instant": true,
@@ -669,7 +1262,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_cpu_alloc / slurm_node_cpu_total * 100",
+          "expr": "slurm_node_cpu_alloc{partition=~\"${partition:regex}\"} / slurm_node_cpu_total{partition=~\"${partition:regex}\"} * 100",
           "legendFormat": "{{node}}",
           "refId": "C",
           "instant": true,
@@ -680,7 +1273,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_mem_alloc / 1024",
+          "expr": "slurm_node_mem_alloc{partition=~\"${partition:regex}\"} / 1024",
           "legendFormat": "{{node}}",
           "refId": "D",
           "instant": true,
@@ -691,7 +1284,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_mem_total / 1024",
+          "expr": "slurm_node_mem_total{partition=~\"${partition:regex}\"} / 1024",
           "legendFormat": "{{node}}",
           "refId": "E",
           "instant": true,
@@ -702,20 +1295,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_mem_alloc / slurm_node_mem_total * 100",
+          "expr": "slurm_node_mem_alloc{partition=~\"${partition:regex}\"} / slurm_node_mem_total{partition=~\"${partition:regex}\"} * 100",
           "legendFormat": "{{node}}",
           "refId": "F",
-          "instant": true,
-          "format": "table"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "slurm_node_status",
-          "legendFormat": "{{node}}",
-          "refId": "G",
           "instant": true,
           "format": "table"
         }
@@ -723,14 +1305,14 @@
     },
     {
       "type": "row",
-      "id": 102,
-      "title": "Node State History",
+      "id": 104,
+      "title": "Node History \u2014 Partition: $partition",
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 40
       }
     },
     {
@@ -745,7 +1327,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 41
       },
       "options": {
         "legend": {
@@ -789,8 +1371,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, slurm_node_cpu_alloc)",
-          "legendFormat": "{{node}}/{{partition}}",
+          "expr": "topk(10, slurm_node_cpu_alloc{partition=~\"${partition:regex}\"})",
+          "legendFormat": "{{node}} ({{partition}})",
           "refId": "A"
         }
       ]
@@ -802,12 +1384,12 @@
       },
       "type": "timeseries",
       "id": 21,
-      "title": "Memory Allocated per Node (top 10 GB)",
+      "title": "Memory Allocated per Node (top 10, GB)",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 41
       },
       "options": {
         "legend": {
@@ -841,7 +1423,7 @@
               "mode": "none"
             }
           },
-          "unit": "GB"
+          "unit": "decgbytes"
         },
         "overrides": []
       },
@@ -851,8 +1433,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, slurm_node_mem_alloc / 1024)",
-          "legendFormat": "{{node}}/{{partition}}",
+          "expr": "topk(10, slurm_node_mem_alloc{partition=~\"${partition:regex}\"} / 1024)",
+          "legendFormat": "{{node}} ({{partition}})",
           "refId": "A"
         }
       ]
@@ -878,6 +1460,29 @@
         "refresh": 1,
         "regex": "",
         "type": "datasource"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(slurm_node_cpu_alloc, partition)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "Partition",
+        "multi": false,
+        "name": "partition",
+        "options": [],
+        "query": {
+          "query": "label_values(slurm_node_cpu_alloc, partition)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
       }
     ]
   },

@@ -1261,6 +1261,14 @@
                 }
               },
               {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
@@ -1279,17 +1287,13 @@
                     }
                   ]
                 }
-              },
-              {
-                "id": "max",
-                "value": 100
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Jobs Running"
+              "options": "Running Jobs"
             },
             "properties": [
               {
@@ -1297,13 +1301,29 @@
                 "value": {
                   "type": "color-background"
                 }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    }
+                  ]
+                }
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Jobs Pending"
+              "options": "Pending Jobs"
             },
             "properties": [
               {
@@ -1357,7 +1377,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "CPU Alloc %"
+            "displayName": "Running Jobs"
           }
         ]
       },
@@ -1372,16 +1392,16 @@
           "options": {
             "excludeByName": {
               "Time": true,
-              "instance": true,
-              "job": true
+              "__name__": true
             },
             "renameByName": {
               "partition": "Partition",
               "Value #A": "CPU Alloc",
               "Value #B": "CPU Total",
               "Value #C": "CPU Alloc %",
-              "Value #D": "Jobs Running",
-              "Value #E": "Jobs Pending"
+              "Value #D": "Running Jobs",
+              "Value #E": "Pending Jobs",
+              "Value #F": "CPU Idle"
             }
           }
         }
@@ -1393,50 +1413,66 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_partition_cpus_allocated",
+          "refId": "A",
           "instant": true,
-          "legendFormat": "{{partition}}",
-          "refId": "A"
+          "format": "table",
+          "expr": "sum by(partition) (slurm_partition_cpus_allocated)",
+          "legendFormat": "{{partition}}"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_partition_cpus_total",
+          "refId": "B",
           "instant": true,
-          "legendFormat": "{{partition}}",
-          "refId": "B"
+          "format": "table",
+          "expr": "sum by(partition) (slurm_partition_cpus_total)",
+          "legendFormat": "{{partition}}"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_partition_cpus_allocated / slurm_partition_cpus_total * 100",
+          "refId": "C",
           "instant": true,
-          "legendFormat": "{{partition}}",
-          "refId": "C"
+          "format": "table",
+          "expr": "sum by(partition) (slurm_partition_cpus_allocated) / clamp_min(sum by(partition) (slurm_partition_cpus_total), 1) * 100",
+          "legendFormat": "{{partition}}"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_partition_jobs_running",
+          "refId": "D",
           "instant": true,
-          "legendFormat": "{{partition}}",
-          "refId": "D"
+          "format": "table",
+          "expr": "sum by(partition) (slurm_partition_jobs_running)",
+          "legendFormat": "{{partition}}"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_partition_jobs_pending",
+          "refId": "E",
           "instant": true,
-          "legendFormat": "{{partition}}",
-          "refId": "E"
+          "format": "table",
+          "expr": "sum by(partition) (slurm_partition_jobs_pending) or (sum by(partition) (slurm_partition_jobs_running) * 0)",
+          "legendFormat": "{{partition}}"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "F",
+          "instant": true,
+          "format": "table",
+          "expr": "sum by(partition) (slurm_partition_cpus_idle)",
+          "legendFormat": "{{partition}}"
         }
       ]
     },

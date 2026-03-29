@@ -122,7 +122,8 @@
               "Time": true,
               "instance": true,
               "job": true,
-              "Value #A": false
+              "Value #A": false,
+              "__name__": true
             },
             "renameByName": {
               "reservation_name": "Reservation",
@@ -772,7 +773,8 @@
           "legendFormat": "Reserved {{license}}",
           "refId": "D"
         }
-      ]
+      ],
+      "description": "License metrics (slurm_license_*) are only emitted when Slurm licenses are configured (scontrol show licenses). Empty = no licenses configured."
     },
     {
       "datasource": {
@@ -850,7 +852,8 @@
           "refId": "C",
           "instant": true
         }
-      ]
+      ],
+      "description": "License metrics (slurm_license_*) are only emitted when Slurm licenses are configured (scontrol show licenses). Empty = no licenses configured."
     }
   ],
   "refresh": "30s",
