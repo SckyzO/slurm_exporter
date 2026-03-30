@@ -3040,6 +3040,136 @@
           "refId": "B"
         }
       ]
+    },
+    {
+      "type": "row",
+      "id": 209,
+      "title": "User FairShare (new in v1.7.0)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 138
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 210,
+      "title": "User FairShare Over Time",
+      "description": "FairShare factor per user (0=lowest priority, 1=highest). Requires --collector.fairshare.user-metrics=true (default).",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 139
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare{instance=~\"$instance\"}",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 211,
+      "title": "User Normalized Usage Over Time",
+      "description": "Fraction of total cluster usage consumed by each user (decay-weighted CPU-seconds). Higher = lower priority.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 139
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_norm_usage{instance=~\"$instance\"} > 0",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "refresh": "30s",

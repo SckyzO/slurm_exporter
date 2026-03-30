@@ -4435,8 +4435,8 @@
     },
     {
       "type": "row",
-      "id": 82,
-      "title": "\u2500\u2500 Partitions (slurm_partition_*) \u2500\u2500",
+      "id": 110,
+      "title": "slurm_user_fairshare_* \u2014 User FairShare (v1.7.0)",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -4451,13 +4451,379 @@
         "uid": "${datasource}"
       },
       "type": "timeseries",
+      "id": 111,
+      "title": "slurm_user_fairshare \u2014 FairShare factor per user",
+      "description": "Requires --collector.fairshare.user-metrics=true (default).",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 138
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 112,
+      "title": "slurm_user_fairshare_norm_usage \u2014 Normalized usage per user",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 138
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_norm_usage",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 113,
+      "title": "slurm_user_fairshare_raw_usage_cpu_seconds \u2014 CPU-seconds per user",
+      "description": "Decay-weighted historical CPU usage in seconds.",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 144
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_raw_usage_cpu_seconds",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 114,
+      "title": "slurm_account_fairshare_raw_usage_cpu_seconds \u2014 CPU-seconds per account",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 144
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare_raw_usage_cpu_seconds{account!~\"none|root\"}",
+          "legendFormat": "{{account}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 115,
+      "title": "slurm_user_fairshare_norm_shares \u2014 Normalized shares per user",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 150
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_norm_shares",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 116,
+      "title": "slurm_account_fairshare_norm_shares / norm_usage \u2014 Account shares vs usage",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 150
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare_norm_shares{account!~\"none|root\"}",
+          "legendFormat": "shares: {{account}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare_norm_usage{account!~\"none|root\"}",
+          "legendFormat": "usage: {{account}}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 82,
+      "title": "\u2500\u2500 Partitions (slurm_partition_*) \u2500\u2500",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 162
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
       "id": 83,
       "title": "slurm_partition_cpus_allocated",
       "gridPos": {
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 138
+        "y": 163
       },
       "options": {
         "legend": {
@@ -4514,7 +4880,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 138
+        "y": 163
       },
       "options": {
         "legend": {
@@ -4571,7 +4937,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 138
+        "y": 163
       },
       "options": {
         "legend": {
@@ -4637,7 +5003,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 138
+        "y": 163
       },
       "options": {
         "legend": {
@@ -4700,7 +5066,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 145
+        "y": 170
       }
     },
     {
@@ -4715,7 +5081,7 @@
         "h": 3,
         "w": 4,
         "x": 0,
-        "y": 146
+        "y": 171
       },
       "options": {
         "colorMode": "background",
@@ -4773,7 +5139,7 @@
         "h": 3,
         "w": 4,
         "x": 4,
-        "y": 146
+        "y": 171
       },
       "options": {
         "colorMode": "background",
@@ -4831,7 +5197,7 @@
         "h": 3,
         "w": 4,
         "x": 8,
-        "y": 146
+        "y": 171
       },
       "options": {
         "colorMode": "background",
@@ -4889,7 +5255,7 @@
         "h": 3,
         "w": 4,
         "x": 12,
-        "y": 146
+        "y": 171
       },
       "options": {
         "colorMode": "background",
@@ -4947,7 +5313,7 @@
         "h": 3,
         "w": 4,
         "x": 16,
-        "y": 146
+        "y": 171
       },
       "options": {
         "colorMode": "background",
@@ -5005,7 +5371,7 @@
         "h": 3,
         "w": 4,
         "x": 20,
-        "y": 146
+        "y": 171
       },
       "options": {
         "colorMode": "background",
@@ -5063,7 +5429,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 149
+        "y": 174
       },
       "options": {
         "legend": {
@@ -5129,7 +5495,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 149
+        "y": 174
       },
       "options": {
         "legend": {
@@ -5195,7 +5561,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 149
+        "y": 174
       },
       "options": {
         "legend": {
@@ -5279,7 +5645,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 156
+        "y": 181
       },
       "options": {
         "displayMode": "gradient",
@@ -5336,7 +5702,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 156
+        "y": 181
       },
       "options": {
         "displayMode": "gradient",
@@ -5390,7 +5756,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 164
+        "y": 189
       }
     },
     {
@@ -5405,7 +5771,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 165
+        "y": 190
       },
       "options": {
         "legend": {
@@ -5462,7 +5828,7 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 165
+        "y": 190
       },
       "options": {
         "legend": {
@@ -5519,7 +5885,7 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 165
+        "y": 190
       },
       "options": {
         "legend": {
@@ -5600,7 +5966,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 172
+        "y": 197
       }
     },
     {
@@ -5615,7 +5981,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 173
+        "y": 198
       },
       "options": {
         "legend": {
@@ -5697,7 +6063,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 180
+        "y": 205
       }
     },
     {
@@ -5712,7 +6078,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 181
+        "y": 206
       },
       "options": {
         "colorMode": "background",
@@ -5791,7 +6157,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 187
+        "y": 212
       },
       "options": {
         "legend": {
@@ -5845,7 +6211,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 195
+        "y": 220
       }
     },
     {
@@ -5860,7 +6226,7 @@
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 196
+        "y": 221
       },
       "options": {
         "colorMode": "value",

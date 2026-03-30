@@ -150,6 +150,7 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--collector.<name>` | Enable the specified collector | `true` (all enabled by default) |
 | `--no-collector.<name>` | Disable the specified collector | (none) |
 | `--collector.nodes.feature-set` | Include `active_feature_set` label in `slurm_nodes_*` metrics | `true` |
+| `--collector.fairshare.user-metrics` | Collect per-user fairshare metrics (`slurm_user_fairshare_*`). Disable on clusters with many users to reduce cardinality. | `true` |
 | `--web.disable-exporter-metrics` | Exclude Go runtime and process metrics from `/metrics` | `false` |
 
 **Available collectors:** `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `node`, `nodes`, `partitions`, `queue`, `reservations`, `reservation_nodes`, `scheduler`, `users`, `licenses`
@@ -564,7 +565,7 @@ These allow per-collector alerting independently of the global Prometheus `scrap
 
 ## 📈 Grafana Dashboards
 
-Eight ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
+Nine ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
 All dashboards use a `$datasource` template variable and are compatible with Grafana 12+.
 
 | Dashboard | UID | Description |
@@ -577,6 +578,7 @@ All dashboards use a `$datasource` template variable and are compatible with Gra
 | **Exporter Health** | `slurm-health` | Collector OK/FAIL status, scrape duration history, Slurm binary versions |
 | **Cluster Usage Statistics** | `slurm-usage` | CPU/GPU utilization gauges, fairshare per account, top users by CPU |
 | **All Metrics Reference** | `slurm-all-metrics` | Exhaustive reference panel for every exported metric |
+| **Accounting** | `slurm-accounting` | User/account consumption, FairShare analysis, top consumers, priority diagnostics |
 
 ### Import to Grafana
 
@@ -669,9 +671,17 @@ done
 </a>
 
 </td>
-<td align="center" colspan="2">
+<td align="center" width="33%">
 
-*All 8 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
+**Accounting** *(new in v1.7.0)*<br>
+<a href="dashboards_grafana/screenshots/accounting-1.png">
+  <img src="dashboards_grafana/screenshots/accounting-1.png" width="100%" alt="Accounting">
+</a>
+
+</td>
+<td align="center" width="33%">
+
+*All 9 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
 
 </td>
 </tr>

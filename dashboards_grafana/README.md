@@ -231,7 +231,36 @@ License panels show "No data" when no licenses are configured — this is expect
 
 ---
 
-### 8. All Metrics Reference
+### 8. Accounting *(new in v1.7.0)*
+
+**File:** `slurm-accounting.json` | **UID:** `slurm-accounting`
+
+Dedicated HPC accounting dashboard. Answers the key question:
+**"Why is this user's priority low?"** — by exposing FairShare components
+(`NormUsage`, `NormShares`) and their ratio directly in Grafana.
+
+Requires `--collector.fairshare.user-metrics=true` (default) for user-level panels.
+Filter by `$account` and `$user` template variables.
+
+| Panel | Type | Description |
+|-------|------|-------------|
+| Running / Pending / CPUs / Active Users & Accounts | stat | Current cluster snapshot |
+| Top Users — Running Jobs / CPUs | bargauge | `topk(15, slurm_user_jobs_running/cpus_running)` |
+| Top Accounts — Running CPUs | bargauge | `topk(10, slurm_account_cpus_running)` |
+| User FairShare Summary | table | user · account · FairShare · NormShares · NormUsage · Usage/Shares ratio · CPU-seconds |
+| Users by FairShare (ascending) | bargauge | Lowest priority users at the top |
+| Account Summary | table | FairShare · NormShares · NormUsage · CPU-seconds per account |
+| FairShare per Account Over Time | timeseries | Account priority trend |
+| Running Jobs / CPUs per User | timeseries | User activity history |
+| Running Jobs per Account | timeseries | Account activity history |
+| User FairShare Over Time | timeseries | Tracks priority evolution — declining = overusing share |
+
+![Accounting — top](screenshots/accounting-1.png)
+![Accounting — FairShare table](screenshots/accounting-2.png)
+
+---
+
+### 9. All Metrics Reference
 
 **File:** `slurm-all-metrics.json` | **UID:** `slurm-all-metrics`
 

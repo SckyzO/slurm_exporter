@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-03-30
+
+### ✨ Features
+
+- **Enhanced `fairshare` collector** (from community PR #6 by @franky920920, improved):
+  - New per-user metrics: `slurm_user_fairshare{account,user}`, `slurm_user_fairshare_raw_shares`, `slurm_user_fairshare_norm_shares`, `slurm_user_fairshare_raw_usage_cpu_seconds`, `slurm_user_fairshare_norm_usage`
+  - New per-account metrics: `slurm_account_fairshare_raw_shares`, `slurm_account_fairshare_norm_shares`, `slurm_account_fairshare_raw_usage_cpu_seconds`, `slurm_account_fairshare_norm_usage`
+  - Enables answering "Why is this user's priority low?" directly in Grafana by comparing `norm_usage` vs `norm_shares`
+  - `RawUsage` metric renamed to `raw_usage_cpu_seconds` for clarity (CPU-seconds, decay-weighted)
+
+- **`--collector.fairshare.user-metrics` flag** (default `true`): Disable per-user fairshare metrics on clusters with many users to control cardinality. Each user generates 5 additional time series.
+
+- **New `slurm-accounting` Grafana dashboard:** Dedicated HPC accounting dashboard with:
+  - User FairShare summary table (FairShare factor, NormShares, NormUsage, Usage/Shares ratio, CPU-seconds)
+  - Top consumers by running jobs, CPUs, and accounts
+  - Priority ranking: users sorted by FairShare ascending (lowest priority first)
+  - Account summary table with historical CPU usage
+  - Usage trends: running jobs and CPUs per user and account over time
+  - FairShare evolution timeseries per user and account
+  - Filterable by `$account` and `$user` variables
+
+- **`slurm-usage` dashboard updated** with two new user-level FairShare panels.
+
+### 🧪 Tests & Quality
+
+- **Coverage: 41% → 57%** — 6 new test files added:
+  - `fairshare_test.go`: 15 tests — parser edge cases (empty account, parent skip, indented lines), Execute mock, full Collect/Describe coverage, deduplication guard, error handling, user-metrics flag
+  - `users_test.go`: parser + collector tests (previously 0% coverage)
+  - `status_test.go`: StatusTracker Add/Collect/Describe/panic-recovery (previously 0%)
+  - `accounts_collector_test.go`, `licenses_collector_test.go`, `cpus_collector_test.go`: collector-level tests via Execute mock
+  - `test_data/sshare_users.txt`: anonymized `sshare -a` fixture
+
+- **Lint:** 0 issues (gofmt, goimports, golangci-lint v2)
+
+---
+
+## [1.6.0] - 2026-03-22
+
+### ✨ Features
+
+- **Global job metrics always present:** All `slurm_jobs_*` cluster-wide counters (`slurm_jobs_running`, `slurm_jobs_pending`, `slurm_jobs_completing`, `slurm_jobs_failed`, `slurm_jobs_timeout`, `slurm_jobs_cancelled`, `slurm_jobs_preempted`, `slurm_jobs_node_fail`, `slurm_jobs_suspended`, `slurm_jobs_cores_running`, `slurm_jobs_cores_pending`) are now **always emitted** — even when the cluster has zero jobs — so alerting rules never encounter missing time series.
+
+### 🐛 Bug Fixes
+
+- **StatusTracker deadlock on large clusters:** The previous implementation used a 512-slot intermediate channel between the inner collector and the Prometheus registry. On clusters with high metric cardinality (200+ nodes × partitions × metrics > 512), the inner collector blocked waiting for channel capacity while the goroutine draining the channel was waiting for it to finish — a classic deadlock. Fixed by writing directly to the Prometheus channel inside the collector goroutine, eliminating the intermediate buffer entirely.
+
+---
+
 ## [1.5.0] - 2026-03-22
 
 ### ✨ Features
