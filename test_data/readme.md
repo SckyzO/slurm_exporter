@@ -18,7 +18,11 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/fairshare.go`
 
-- `sshare -n -P -o account,fairshare`: fair share factor by account.
+- `sshare -a -P -n -o Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare`: fairshare factor, shares and decay-weighted usage per account and user.
+  - Test file: **`sshare_users.txt`**
+  - Lines with `RawShares=parent` are skipped (inherit from parent account).
+  - Lines with an empty Account field are skipped.
+  - User-level metrics require `--collector.fairshare.user-metrics=true` (default).
 
 ## `collector/gpus.go`
 

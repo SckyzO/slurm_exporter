@@ -82,16 +82,64 @@ slurm_cpus_total 6636
 
 ## `fairshare` collector
 
-Command: `sshare -n -P -o account,fairshare`
+Command: `sshare -a -P -n -o Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare`
+
+Lines with `parent` RawShares are skipped. Use `--no-collector.fairshare.user-metrics`
+to disable per-user metrics on large clusters (reduces cardinality by 5 × N_users).
 
 ```
-# HELP slurm_account_fairshare FairShare for account
+# HELP slurm_account_fairshare FairShare factor for account (0=lowest, 1=highest priority)
 # TYPE slurm_account_fairshare gauge
-slurm_account_fairshare{account="hpc_team"} 0.42
-slurm_account_fairshare{account="ml_lab"} 0.78
-slurm_account_fairshare{account="root"} 1
-```
+slurm_account_fairshare{account="account_a"} 0.6
+slurm_account_fairshare{account="account_b"} 0
+slurm_account_fairshare{account="account_c"} 0
 
+# HELP slurm_account_fairshare_raw_shares Raw shares allocated to account
+# TYPE slurm_account_fairshare_raw_shares gauge
+slurm_account_fairshare_raw_shares{account="account_a"} 1
+slurm_account_fairshare_raw_shares{account="account_b"} 1000
+slurm_account_fairshare_raw_shares{account="account_c"} 1
+
+# HELP slurm_account_fairshare_norm_shares Normalized shares for account
+# TYPE slurm_account_fairshare_norm_shares gauge
+slurm_account_fairshare_norm_shares{account="account_a"} 0.5
+slurm_account_fairshare_norm_shares{account="account_b"} 0.25
+
+# HELP slurm_account_fairshare_raw_usage_cpu_seconds Raw CPU-seconds usage for account (decay-weighted)
+# TYPE slurm_account_fairshare_raw_usage_cpu_seconds gauge
+slurm_account_fairshare_raw_usage_cpu_seconds{account="account_a"} 100000
+slurm_account_fairshare_raw_usage_cpu_seconds{account="account_b"} 50000
+
+# HELP slurm_account_fairshare_norm_usage Normalized usage for account
+# TYPE slurm_account_fairshare_norm_usage gauge
+slurm_account_fairshare_norm_usage{account="account_a"} 0.2
+slurm_account_fairshare_norm_usage{account="account_b"} 0.1
+
+# HELP slurm_user_fairshare FairShare factor for user
+# TYPE slurm_user_fairshare gauge
+slurm_user_fairshare{account="account_a",user="user2"} 0.8
+slurm_user_fairshare{account="account_b",user="user4"} 0.9
+
+# HELP slurm_user_fairshare_raw_shares Raw shares for user
+# TYPE slurm_user_fairshare_raw_shares gauge
+slurm_user_fairshare_raw_shares{account="account_a",user="user2"} 1
+slurm_user_fairshare_raw_shares{account="account_b",user="user4"} 1
+
+# HELP slurm_user_fairshare_norm_shares Normalized shares for user
+# TYPE slurm_user_fairshare_norm_shares gauge
+slurm_user_fairshare_norm_shares{account="account_a",user="user2"} 0.5
+slurm_user_fairshare_norm_shares{account="account_b",user="user4"} 0.25
+
+# HELP slurm_user_fairshare_raw_usage_cpu_seconds Raw CPU-seconds usage for user (decay-weighted)
+# TYPE slurm_user_fairshare_raw_usage_cpu_seconds gauge
+slurm_user_fairshare_raw_usage_cpu_seconds{account="account_a",user="user2"} 50000
+slurm_user_fairshare_raw_usage_cpu_seconds{account="account_b",user="user4"} 10000
+
+# HELP slurm_user_fairshare_norm_usage Normalized usage for user
+# TYPE slurm_user_fairshare_norm_usage gauge
+slurm_user_fairshare_norm_usage{account="account_a",user="user2"} 0.1
+slurm_user_fairshare_norm_usage{account="account_b",user="user4"} 0.02
+```
 ---
 
 ## `gpus` collector

@@ -103,8 +103,8 @@ func TestParseFairShareMetrics_FromTestData(t *testing.T) {
 	data, err := os.ReadFile("../../test_data/sshare_users.txt")
 	require.NoError(t, err)
 	metrics := ParseFairShareMetrics(data)
-	// sshare_users.txt has 7 lines, 1 parent (ci-bot) → 6 entries
-	assert.Len(t, metrics, 6)
+	// sshare_users.txt: 10 lines, 2 parent lines (ci-bot, user3) → 8 entries
+	assert.Len(t, metrics, 8)
 	// Accounts must not be empty
 	for _, m := range metrics {
 		assert.NotEmpty(t, m.Account)
@@ -127,7 +127,7 @@ func TestFairShareGetMetrics_ViaExecuteMock(t *testing.T) {
 	log := logger.NewLogger("error")
 	metrics, err := FairShareGetMetrics(log)
 	require.NoError(t, err)
-	assert.Len(t, metrics, 6)
+	assert.Len(t, metrics, 8)
 }
 
 // ── FairShareCollector — account metrics ──────────────────────────────────────
