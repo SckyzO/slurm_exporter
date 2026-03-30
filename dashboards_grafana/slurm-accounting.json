@@ -630,7 +630,7 @@
               },
               {
                 "id": "decimals",
-                "value": 3
+                "value": 1
               },
               {
                 "id": "custom.cellOptions",
@@ -845,7 +845,7 @@
           "unit": "percentunit",
           "min": 0,
           "max": 1,
-          "decimals": 3,
+          "decimals": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -953,7 +953,7 @@
               },
               {
                 "id": "decimals",
-                "value": 3
+                "value": 1
               },
               {
                 "id": "custom.cellOptions",
@@ -1125,7 +1125,8 @@
           },
           "unit": "percentunit",
           "min": 0,
-          "max": 1
+          "max": 1,
+          "decimals": 1
         },
         "overrides": []
       },
@@ -1371,7 +1372,8 @@
           },
           "unit": "percentunit",
           "min": 0,
-          "max": 1
+          "max": 1,
+          "decimals": 1
         },
         "overrides": []
       },
