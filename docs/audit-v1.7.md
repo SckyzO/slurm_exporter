@@ -210,3 +210,186 @@ No regressions from 23.x to 25.11 detected.
 ---
 
 *Next: Axe 2 (missing metrics — sstat, sacct efficiency) + Axe 4 (dashboard PromQL review)*
+
+---
+
+## Axe 2 — Missing Metrics (High Value)
+
+### `sstat` — Real-time job resource usage
+
+`sstat` provides live CPU/memory/I/O stats for **running** job steps.
+
+**Available fields (Slurm 25.11):**
+
+| Field | Description | Unit |
+|-------|-------------|------|
+| `AveCPU` | Average CPU time per task | HH:MM:SS |
+| `AveRSS` | Average resident set size | KB |
+| `AveVMSize` | Average virtual memory size | KB |
+| `AveDiskRead` | Average bytes read from disk | bytes |
+| `AveDiskWrite` | Average bytes written to disk | bytes |
+| `MaxRSS` | Peak RSS across all tasks | KB |
+| `ConsumedEnergyRaw` | Energy consumed (if IPMI/cgroup) | joules |
+| `TRESUsageInTot` | TRES usage totals (CPU, mem, GPU) | various |
+| `NTasks` | Number of tasks | — |
+
+**Assessment:** `sstat` requires a call per job (or batch of job IDs via `-j id1,id2,...`).
+The two-step approach (squeue → sstat) is valid but adds significant cost on large clusters.
+`sleep`-based jobs return empty steps (no step registered), so sstat only works for real
+computation jobs with `srun` steps.
+
+> **Verdict: Medium priority.** Useful for `slurm_job_cpu_efficiency` metric but requires
+> careful design to avoid O(running_jobs) cost. Better suited for a separate, opt-in
+> collector with configurable sampling: `--collector.sstat.enabled=false` (default).
+
+---
+
+### `sacct` — Job efficiency metrics
+
+`sacct` exposes post-completion job accounting. Key efficiency fields:
+
+| Field | Description | Derivation |
+|-------|-------------|-----------|
+| `TotalCPU` | Actual CPU time used (user+system) | direct |
+| `CPUTime` | Allocated CPU time (AllocCPUS × Elapsed) | direct |
+| `CPUTimeRAW` | CPUTime in seconds | direct |
+| **CPU Efficiency** | `TotalCPU / CPUTime × 100` | **computed** |
+| `MaxRSS` | Peak memory per job | direct |
+| `ReqMem` | Requested memory | direct |
+| **Mem Efficiency** | `MaxRSS / ReqMem × 100` | **computed** |
+| `ConsumedEnergyRaw` | Energy in joules | direct |
+| `Elapsed` | Wall-clock time | direct |
+| `TimelimitRaw` | Requested time limit in seconds | direct |
+
+**Confirmed working in 25.11:** `sacct -X -P -n --format=JobID,User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,State`
+
+**Practical constraint:** sacct hits the SlurmDBD. The performance depends on the
+accounting window. Using `--state=COMPLETED` with a rolling window (e.g., last 24h)
+is manageable. Aggregating by user/account (not per-job) reduces cardinality drastically.
+
+**Proposed metrics:**
+
+```
+slurm_job_cpu_efficiency_avg{account, user}   # avg(TotalCPU/CPUTime) last 24h
+slurm_job_mem_efficiency_avg{account, user}   # avg(MaxRSS/ReqMem) last 24h
+slurm_job_count_completed{account, user}      # jobs completed in window
+```
+
+> **Verdict: High priority for v1.8.** This is the most actionable new collector —
+> "your jobs are only using 12% of the CPUs you requested" is directly addressable.
+> Requires a new `sacct_efficiency` collector with a configurable lookback window
+> (`--collector.sacct.lookback=24h`) and aggregation by account/user.
+
+---
+
+### `sinfo %E %H` — Node drain/down reason and timestamp
+
+Both fields confirmed working in 25.11:
+```
+%E → "audit-test disk-slow"
+%H → "2026-03-31T22:11:03"
+```
+
+**Proposed improvement:** Enrich the "Problem Nodes" table in `slurm-nodes.json`
+and the "Down & Drain Nodes" panel with reason and timestamp.
+
+Currently: `slurm_node_status{node, partition, status}` — no reason field.
+
+Option A: Add a new metric `slurm_node_drain_reason_info{node, partition, reason}` (gauge=1, info-style).
+Option B: Add `reason` label to `slurm_node_status` — but this creates cardinality issues
+          if reasons change frequently (free-text field).
+
+> **Verdict: Medium priority.** Option A (info metric) is the right design.
+> Low cardinality, no churn. Very useful for the Problem Nodes dashboard panel.
+
+---
+
+### `sshare LevelFS + TRESRunMins`
+
+- `LevelFS`: FairShare computed at each level of the account hierarchy (not just leaf).
+  Useful for understanding fairshare in multi-tenant, hierarchical account structures.
+- `TRESRunMins`: Running minutes by TRES type (cpu, mem, gres/gpu, ...).
+  More granular than RawUsage — shows GPU-minutes separately.
+
+> **Verdict: Low priority.** LevelFS is niche (multi-tier HPC centers only).
+> TRESRunMins becomes interesting once GPU accounting is common.
+
+---
+
+### `sdiag` — Jobs submitted/started/completed counters
+
+From the Axe 1 audit, these counters exist and are not collected:
+- `Jobs submitted`, `Jobs started`, `Jobs completed`, `Jobs canceled`
+
+These are **rate metrics** (counters since last stats reset) — suitable as Prometheus counters.
+Rate = `increase(metric[5m])` in Grafana.
+
+> **Verdict: High priority.** Easy to add (already in sdiag output, parser just needs
+> 4 new regex patterns + 4 new prometheus.CounterValue metrics).
+
+---
+
+## Axe 4 — Dashboard PromQL Review
+
+### Confirmed issues
+
+| # | Dashboard | Panel | Issue | Severity |
+|---|-----------|-------|-------|----------|
+| 1 | `slurm-all-metrics.json` | P8, P17 | `slurm_cpus_alloc / slurm_cpus_total` — theoretical div0 if cluster unreachable | 🟡 Low (safe in practice) |
+| 2 | `slurm-usage.json` | P1, P10, P12, P20 | Same as above — already has `$instance` filter | 🟡 Low |
+| 3 | `slurm-overview.json` | P5, P10 | `slurm_cpus_alloc / slurm_cpus_total` — same | 🟡 Low |
+| 4 | All GPU panels | multiple | `slurm_gpus_alloc / slurm_gpus_total` → ✅ **already fixed** with `clamp_min` | ✅ Fixed |
+| 5 | `slurm-accounting.json` | P4, P5 | `count(... > 0)` → ✅ **already fixed** with `or vector(0)` | ✅ Fixed |
+
+### No real issues found
+
+After detailed analysis:
+
+- **All `slurm_queue_*` usages are correct**: `sum by(reason)`, `sum by(partition)` aggregation
+  properly used in jobs/all-metrics dashboards. Flagged "issues" were scanner false positives.
+- **Memory expressions are correct**: `slurm_node_mem_alloc / 1024` for GB columns,
+  `mem_alloc / mem_total * 100` for % columns. No unit errors.
+- **No deprecated metrics** found anywhere.
+- **topk() calls** are all legitimate and scoped (bargauge top-N, filtered by partition in nodes).
+- **All avg_over_time() subqueries** already use `[Nh:5m]` notation — fixed previously.
+- **Label mismatches** flagged by scanner are false positives: `slurm_cpus_alloc{instance,job}`
+  and `slurm_cpus_total{instance,job}` have identical label sets — division works correctly.
+
+### Minor observation
+
+`slurm_partition_cpus_allocated / slurm_partition_cpus_total` in `slurm-overview.json`
+(Partitions table) could theoretically return NaN for a GPU-only partition with 0 CPUs.
+Confirmed: `partition=gpu` returns `NaN` in our test cluster.
+
+**Fix:**
+
+```promql
+# Replace in slurm-overview.json P31 refId=C
+sum by(partition) (slurm_partition_cpus_allocated) / 
+  clamp_min(sum by(partition) (slurm_partition_cpus_total), 1) * 100
+```
+
+---
+
+## Updated Backlog for v1.8
+
+### Implement (confirmed value + feasible)
+
+| Priority | Feature | Effort |
+|----------|---------|--------|
+| 🔴 High | `sdiag` jobs counters (submitted/started/completed/canceled) as `CounterValue` | Low — 4 regex + 4 descriptors |
+| 🔴 High | `sacct_efficiency` collector — CPU/mem efficiency aggregated by user+account | Medium — new collector, rolling window |
+| 🟠 Medium | `slurm_node_drain_reason_info{node,partition,reason}` via `sinfo %N %E %H` | Low — new metric in node.go |
+| 🟠 Medium | Fix `slurm_partition_cpus_total=0` NaN in overview Partitions table | Trivial — add clamp_min |
+
+### Discuss first
+
+| Feature | Why discuss |
+|---------|-------------|
+| `sstat` collector | Cost model on large clusters — needs opt-in by default |
+| `sshare LevelFS` | Only relevant for multi-tier account hierarchies |
+| `sshare TRESRunMins` | Wait until GPU accounting is more common in user base |
+
+---
+
+*Audit complete. See also: [Axe 1 & 3 findings above](#axe-1--command--format-validation)*
