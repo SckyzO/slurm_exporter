@@ -60,6 +60,14 @@ var (
 			"Disable on clusters with many users to reduce cardinality.",
 	).Default("true").Bool()
 
+	// fairshareUserMetrics controls whether per-user fairshare metrics are collected.
+	fairshareUserMetrics = kingpin.Flag(
+		"collector.fairshare.user-metrics",
+		"Collect per-user fairshare metrics (slurm_user_fairshare_*). "+
+			"Disable on clusters with many users to reduce cardinality "+
+			"(each user generates 5 additional time series).",
+	).Default("true").Bool()
+
 	// slurmBinPath is the directory where Slurm binaries are looked up.
 	// Empty string (default) means binaries must be on the system $PATH.
 	slurmBinPath = kingpin.Flag(
@@ -75,14 +83,16 @@ var (
 
 // collectorConstructors maps collector names to their constructor functions
 var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Collector{
-	"accounts":          func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
-	"cpus":              func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
-	"nodes":             func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l, *nodesFeatureSet) },
-	"node":              func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
-	"partitions":        func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
-	"queue":             func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l, *queueUserLabel) },
-	"scheduler":         func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
-	"fairshare":         func(l *logger.Logger) prometheus.Collector { return collector.NewFairShareCollector(l) },
+	"accounts":   func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
+	"cpus":       func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
+	"nodes":      func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l, *nodesFeatureSet) },
+	"node":       func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
+	"partitions": func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
+	"queue":      func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l, *queueUserLabel) },
+	"scheduler":  func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
+	"fairshare": func(l *logger.Logger) prometheus.Collector {
+		return collector.NewFairShareCollector(l, *fairshareUserMetrics)
+	},
 	"users":             func(l *logger.Logger) prometheus.Collector { return collector.NewUsersCollector(l) },
 	"info":              func(l *logger.Logger) prometheus.Collector { return collector.NewSlurmInfoCollector(l) },
 	"gpus":              func(l *logger.Logger) prometheus.Collector { return collector.NewGPUsCollector(l) },
