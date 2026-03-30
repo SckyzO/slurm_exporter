@@ -1,193 +1,1467 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "description": "HPC accounting: user and account resource consumption, FairShare analysis, top consumers, and priority diagnostics.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
   "panels": [
-    { "type": "row", "id": 100, "title": "Current Activity", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "stat", "id": 1, "title": "Running Jobs",
-      "gridPos": { "h": 3, "w": 4, "x": 0, "y": 1 },
-      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_jobs_running", "legendFormat": "Running", "refId": "A", "instant": true }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "stat", "id": 2, "title": "Pending Jobs",
-      "gridPos": { "h": 3, "w": 4, "x": 4, "y": 1 },
-      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 5 }, { "color": "red", "value": 50 }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_jobs_pending", "legendFormat": "Pending", "refId": "A", "instant": true }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "stat", "id": 3, "title": "CPUs Running",
-      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 1 },
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_jobs_cores_running", "legendFormat": "CPUs", "refId": "A", "instant": true }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "stat", "id": 4, "title": "Active Users",
-      "description": "Number of users with at least one running job.",
-      "gridPos": { "h": 3, "w": 4, "x": 12, "y": 1 },
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "purple" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(slurm_user_jobs_running > 0)", "legendFormat": "Active Users", "refId": "A", "instant": true }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "stat", "id": 5, "title": "Active Accounts",
-      "description": "Number of accounts with at least one running job.",
-      "gridPos": { "h": 3, "w": 4, "x": 16, "y": 1 },
-      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "cyan" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "cyan", "value": null }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "count(slurm_account_jobs_running{account!~\"none|root\"} > 0)", "legendFormat": "Active Accounts", "refId": "A", "instant": true }] },
-    { "type": "row", "id": 101, "title": "Top Consumers (current jobs)", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 } },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "bargauge", "id": 10, "title": "Top Users — Running Jobs",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 5 },
-      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "valueMode": "color" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "topk(15, slurm_user_jobs_running)", "legendFormat": "{{user}}", "refId": "A", "instant": true }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "bargauge", "id": 11, "title": "Top Users — Running CPUs",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 5 },
-      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "valueMode": "color" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }, { "color": "orange", "value": 64 }, { "color": "red", "value": 256 }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "topk(15, slurm_user_cpus_running)", "legendFormat": "{{user}}", "refId": "A", "instant": true }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "bargauge", "id": 12, "title": "Top Accounts — Running CPUs",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
-      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "valueMode": "color" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }, { "color": "orange", "value": 128 }, { "color": "red", "value": 512 }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "topk(10, slurm_account_cpus_running{account!~\"none|root\"})", "legendFormat": "{{account}}", "refId": "A", "instant": true }] },
-    { "type": "row", "id": 102, "title": "FairShare Analysis — Why is my priority low?", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 } },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "text", "id": 20,
-      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 14 },
-      "options": { "content": "> **FairShare** (0–1): lower = lower priority. Determined by `NormUsage / NormShares`. **Usage/Shares ratio > 1** means a user consumed more than their allocation → expect declining priority. **< 1** means underused → priority increasing.", "mode": "markdown" } },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "table", "id": 21, "title": "User FairShare Summary",
-      "description": "FairShare factor, shares allocation and historical CPU usage per user. Filter by account using the variable above.",
-      "gridPos": { "h": 10, "w": 14, "x": 0, "y": 16 },
-      "options": { "cellHeight": "sm", "footer": { "show": false }, "showHeader": true, "sortBy": [{ "desc": false, "displayName": "FairShare" }] },
-      "fieldConfig": {
-        "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "FairShare" }, "properties": [
-            { "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 3 },
-            { "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "gauge" } },
-            { "id": "max", "value": 1 }, { "id": "min", "value": 0 },
-            { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.3 }, { "color": "green", "value": 0.7 }] } }
-          ]},
-          { "matcher": { "id": "byName", "options": "NormUsage/NormShares" }, "properties": [
-            { "id": "decimals", "value": 2 },
-            { "id": "custom.cellOptions", "value": { "type": "color-background" } },
-            { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.8 }, { "color": "red", "value": 1.2 }] } }
-          ]},
-          { "matcher": { "id": "byName", "options": "CPU-seconds (hist.)" }, "properties": [
-            { "id": "unit", "value": "s" }, { "id": "decimals", "value": 0 }
-          ]}
-        ]
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Current Activity",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
-      "transformations": [
-        { "id": "merge", "options": {} },
-        { "id": "organize", "options": {
-          "excludeByName": { "Time": true, "instance": true, "job": true, "__name__": true },
-          "renameByName": {
-            "user": "User", "account": "Account",
-            "Value #A": "FairShare",
-            "Value #B": "NormShares",
-            "Value #C": "NormUsage",
-            "Value #D": "NormUsage/NormShares",
-            "Value #E": "CPU-seconds (hist.)"
+      "type": "stat",
+      "id": 1,
+      "title": "Running Jobs",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
           }
-        }}
-      ],
+        },
+        "overrides": []
+      },
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_fairshare{account=~\"${account:regex}\"}", "legendFormat": "{{user}}", "refId": "A", "instant": true, "format": "table" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_fairshare_norm_shares{account=~\"${account:regex}\"}", "legendFormat": "{{user}}", "refId": "B", "instant": true, "format": "table" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_fairshare_norm_usage{account=~\"${account:regex}\"}", "legendFormat": "{{user}}", "refId": "C", "instant": true, "format": "table" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_fairshare_norm_usage{account=~\"${account:regex}\"} / clamp_min(slurm_user_fairshare_norm_shares{account=~\"${account:regex}\"}, 0.0001)", "legendFormat": "{{user}}", "refId": "D", "instant": true, "format": "table" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_fairshare_raw_usage_cpu_seconds{account=~\"${account:regex}\"}", "legendFormat": "{{user}}", "refId": "E", "instant": true, "format": "table" }
-      ] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "bargauge", "id": 22, "title": "Users by FairShare (lowest = most deprived)",
-      "description": "Sorted ascending — users at the top have the lowest priority. A low FairShare means they have consumed more than their allocated share.",
-      "gridPos": { "h": 10, "w": 10, "x": 14, "y": 16 },
-      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "valueMode": "color" },
-      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "percentunit", "min": 0, "max": 1, "decimals": 3,
-        "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.3 }, { "color": "green", "value": 0.7 }] } }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sort(slurm_user_fairshare{account=~\"${account:regex}\"})", "legendFormat": "{{user}} ({{account}})", "refId": "A", "instant": true }] },
-    { "type": "row", "id": 103, "title": "Account Accounting", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 } },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "table", "id": 30, "title": "Account Summary",
-      "description": "FairShare, shares and historical CPU usage per account.",
-      "gridPos": { "h": 8, "w": 14, "x": 0, "y": 27 },
-      "options": { "cellHeight": "sm", "footer": { "show": false }, "showHeader": true, "sortBy": [{ "desc": false, "displayName": "FairShare" }] },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_jobs_running",
+          "legendFormat": "Running",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "stat",
+      "id": 2,
+      "title": "Pending Jobs",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" } }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_jobs_pending",
+          "legendFormat": "Pending",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "stat",
+      "id": 3,
+      "title": "CPUs Running",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_jobs_cores_running",
+          "legendFormat": "CPUs",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "stat",
+      "id": 4,
+      "title": "Active Users",
+      "description": "Number of users with at least one running job.",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "count(slurm_user_jobs_running > 0) or vector(0)",
+          "legendFormat": "Active Users",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "stat",
+      "id": 5,
+      "title": "Active Accounts",
+      "description": "Number of accounts with at least one running job.",
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "cyan"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "cyan",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "count(slurm_account_jobs_running{account!~\"none|root\"} > 0) or vector(0)",
+          "legendFormat": "Active Accounts",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "Top Consumers (current jobs)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "bargauge",
+      "id": 10,
+      "title": "Top Users \u2014 Running Jobs",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "topk(15, slurm_user_jobs_running)",
+          "legendFormat": "{{user}}",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "bargauge",
+      "id": 11,
+      "title": "Top Users \u2014 Running CPUs",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 64
+              },
+              {
+                "color": "red",
+                "value": 256
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "topk(15, slurm_user_cpus_running)",
+          "legendFormat": "{{user}}",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "bargauge",
+      "id": 12,
+      "title": "Top Accounts \u2014 Running CPUs",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 128
+              },
+              {
+                "color": "red",
+                "value": 512
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "topk(10, slurm_account_cpus_running{account!~\"none|root\"})",
+          "legendFormat": "{{account}}",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 102,
+      "title": "FairShare Analysis \u2014 Why is my priority low?",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "text",
+      "id": 20,
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "options": {
+        "content": "> **FairShare** (0\u20131): lower = lower priority. Determined by `NormUsage / NormShares`. **Usage/Shares ratio > 1** means a user consumed more than their allocation \u2192 expect declining priority. **< 1** means underused \u2192 priority increasing.",
+        "mode": "markdown"
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "table",
+      "id": 21,
+      "title": "User FairShare Summary",
+      "description": "FairShare factor, shares allocation and historical CPU usage per user. Filter by account using the variable above.",
+      "gridPos": {
+        "h": 10,
+        "w": 14,
+        "x": 0,
+        "y": 16
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "FairShare"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
         "overrides": [
-          { "matcher": { "id": "byName", "options": "FairShare" }, "properties": [
-            { "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 3 },
-            { "id": "custom.cellOptions", "value": { "mode": "gradient", "type": "gauge" } },
-            { "id": "max", "value": 1 }, { "id": "min", "value": 0 },
-            { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.3 }, { "color": "green", "value": 0.7 }] } }
-          ]},
-          { "matcher": { "id": "byName", "options": "CPU-seconds (hist.)" }, "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 0 }] }
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FairShare"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "gauge"
+                }
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.7
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NormUsage/NormShares"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "red",
+                      "value": 1.2
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU-seconds (hist.)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
         ]
       },
       "transformations": [
-        { "id": "merge", "options": {} },
-        { "id": "organize", "options": {
-          "excludeByName": { "Time": true, "instance": true, "job": true, "__name__": true, "active_feature_set": true },
-          "renameByName": { "account": "Account", "Value #A": "FairShare", "Value #B": "NormShares", "Value #C": "NormUsage", "Value #D": "CPU-seconds (hist.)" }
-        }}
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true
+            },
+            "renameByName": {
+              "user": "User",
+              "account": "Account",
+              "Value #A": "FairShare",
+              "Value #B": "NormShares",
+              "Value #C": "NormUsage",
+              "Value #D": "NormUsage/NormShares",
+              "Value #E": "CPU-seconds (hist.)"
+            }
+          }
+        }
       ],
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_account_fairshare{account!~\"none|root\"}", "legendFormat": "{{account}}", "refId": "A", "instant": true, "format": "table" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_account_fairshare_norm_shares{account!~\"none|root\"}", "legendFormat": "{{account}}", "refId": "B", "instant": true, "format": "table" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_account_fairshare_norm_usage{account!~\"none|root\"}", "legendFormat": "{{account}}", "refId": "C", "instant": true, "format": "table" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_account_fairshare_raw_usage_cpu_seconds{account!~\"none|root\"}", "legendFormat": "{{account}}", "refId": "D", "instant": true, "format": "table" }
-      ] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "timeseries", "id": 31, "title": "FairShare per Account Over Time",
-      "gridPos": { "h": 8, "w": 10, "x": 14, "y": 27 },
-      "options": { "legend": { "calcs": ["last"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "asc" } },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_account_fairshare{account!~\"none|root\"}", "legendFormat": "{{account}}", "refId": "A" }] },
-    { "type": "row", "id": 104, "title": "Usage Trends", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 } },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "timeseries", "id": 40, "title": "Running Jobs per User",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
-      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "short" }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_jobs_running{user=~\"${user:regex}\"} > 0", "legendFormat": "{{user}}", "refId": "A" }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "timeseries", "id": 41, "title": "CPUs Allocated per User",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
-      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "short" }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_cpus_running{user=~\"${user:regex}\"} > 0", "legendFormat": "{{user}}", "refId": "A" }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "timeseries", "id": 42, "title": "Running Jobs per Account",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
-      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "short" }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_account_jobs_running{account=~\"${account:regex}\",account!~\"none|root\"} > 0", "legendFormat": "{{account}}", "refId": "A" }] },
-    { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "type": "timeseries", "id": 43, "title": "User FairShare Over Time",
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare{account=~\"${account:regex}\"}",
+          "legendFormat": "{{user}}",
+          "refId": "A",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_norm_shares{account=~\"${account:regex}\"}",
+          "legendFormat": "{{user}}",
+          "refId": "B",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_norm_usage{account=~\"${account:regex}\"}",
+          "legendFormat": "{{user}}",
+          "refId": "C",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_norm_usage{account=~\"${account:regex}\"} / clamp_min(slurm_user_fairshare_norm_shares{account=~\"${account:regex}\"}, 0.0001)",
+          "legendFormat": "{{user}}",
+          "refId": "D",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare_raw_usage_cpu_seconds{account=~\"${account:regex}\"}",
+          "legendFormat": "{{user}}",
+          "refId": "E",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "bargauge",
+      "id": 22,
+      "title": "Users by FairShare (lowest = most deprived)",
+      "description": "Sorted ascending \u2014 users at the top have the lowest priority. A low FairShare means they have consumed more than their allocated share.",
+      "gridPos": {
+        "h": 10,
+        "w": 10,
+        "x": 14,
+        "y": 16
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.3
+              },
+              {
+                "color": "green",
+                "value": 0.7
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sort(slurm_user_fairshare{account=~\"${account:regex}\"})",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 103,
+      "title": "Account Accounting",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "table",
+      "id": 30,
+      "title": "Account Summary",
+      "description": "FairShare, shares and historical CPU usage per account.",
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 0,
+        "y": 27
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "FairShare"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FairShare"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "gauge"
+                }
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.3
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.7
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU-seconds (hist.)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true,
+              "__name__": true,
+              "active_feature_set": true
+            },
+            "renameByName": {
+              "account": "Account",
+              "Value #A": "FairShare",
+              "Value #B": "NormShares",
+              "Value #C": "NormUsage",
+              "Value #D": "CPU-seconds (hist.)"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare{account!~\"none|root\"}",
+          "legendFormat": "{{account}}",
+          "refId": "A",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare_norm_shares{account!~\"none|root\"}",
+          "legendFormat": "{{account}}",
+          "refId": "B",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare_norm_usage{account!~\"none|root\"}",
+          "legendFormat": "{{account}}",
+          "refId": "C",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare_raw_usage_cpu_seconds{account!~\"none|root\"}",
+          "legendFormat": "{{account}}",
+          "refId": "D",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 31,
+      "title": "FairShare per Account Over Time",
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 14,
+        "y": 27
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_fairshare{account!~\"none|root\"}",
+          "legendFormat": "{{account}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 104,
+      "title": "Usage Trends",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 40,
+      "title": "Running Jobs per User",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_jobs_running{user=~\"${user:regex}\"} > 0",
+          "legendFormat": "{{user}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 41,
+      "title": "CPUs Allocated per User",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_cpus_running{user=~\"${user:regex}\"} > 0",
+          "legendFormat": "{{user}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 42,
+      "title": "Running Jobs per Account",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_account_jobs_running{account=~\"${account:regex}\",account!~\"none|root\"} > 0",
+          "legendFormat": "{{account}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "type": "timeseries",
+      "id": 43,
+      "title": "User FairShare Over Time",
       "description": "Tracks how user FairShare evolves. Declining = consuming more than share. Rising = underusing.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
-      "options": { "legend": { "calcs": ["last"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "asc" } },
-      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_user_fairshare{user=~\"${user:regex}\",account=~\"${account:regex}\"}", "legendFormat": "{{user}} ({{account}})", "refId": "A" }] }
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "asc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "slurm_user_fairshare{user=~\"${user:regex}\",account=~\"${account:regex}\"}",
+          "legendFormat": "{{user}} ({{account}})",
+          "refId": "A"
+        }
+      ]
+    }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["slurm", "hpc", "accounting"],
+  "tags": [
+    "slurm",
+    "hpc",
+    "accounting"
+  ],
   "templating": {
     "list": [
-      { "current": {}, "hide": 0, "includeAll": false, "label": "Data Source", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "type": "datasource" },
       {
-        "current": {}, "datasource": { "type": "prometheus", "uid": "${datasource}" },
-        "definition": "label_values(slurm_account_fairshare, account)",
-        "hide": 0, "includeAll": true, "allValue": ".+", "label": "Account",
-        "multi": false, "name": "account", "options": [],
-        "query": { "query": "label_values(slurm_account_fairshare, account)", "refId": "StandardVariableQuery" },
-        "refresh": 2, "regex": "/^(?!root|none).*/", "sort": 1, "type": "query"
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Data Source",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
       },
       {
-        "current": {}, "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(slurm_account_fairshare, account)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "Account",
+        "multi": false,
+        "name": "account",
+        "options": [],
+        "query": {
+          "query": "label_values(slurm_account_fairshare, account)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/^(?!root|none).*/",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
         "definition": "label_values(slurm_user_fairshare, user)",
-        "hide": 0, "includeAll": true, "allValue": ".+", "label": "User",
-        "multi": false, "name": "user", "options": [],
-        "query": { "query": "label_values(slurm_user_fairshare, user)", "refId": "StandardVariableQuery" },
-        "refresh": 2, "regex": "", "sort": 1, "type": "query"
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".+",
+        "label": "User",
+        "multi": false,
+        "name": "user",
+        "options": [],
+        "query": {
+          "query": "label_values(slurm_user_fairshare, user)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
       }
     ]
   },
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "Slurm - Accounting",
