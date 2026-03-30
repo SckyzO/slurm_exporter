@@ -15,7 +15,7 @@ import (
 var (
 	schedulerPatternThreads     = regexp.MustCompile(`^Server thread`)
 	schedulerPatternQueue       = regexp.MustCompile(`^Agent queue`)
-	schedulerPatternDBD         = regexp.MustCompile(`^DBD Agent`)
+	schedulerPatternDBD         = regexp.MustCompile(`^DBD Agent queue size`)
 	schedulerPatternLastCycle   = regexp.MustCompile(`^[\s]+Last cycle$`)
 	schedulerPatternMeanCycle   = regexp.MustCompile(`^[\s]+Mean cycle$`)
 	schedulerPatternCyclesPer   = regexp.MustCompile(`^[\s]+Cycles per`)
