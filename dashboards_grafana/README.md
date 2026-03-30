@@ -270,7 +270,7 @@ Slurm Exporter, organized by collector. Useful for:
 - Debugging queries
 - Validating that all collectors are working
 
-108 panels covering all 14 collectors:
+115 panels covering all 14 collectors:
 `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `licenses`, `node`, `nodes`,
 `partitions`, `queue`, `reservation_nodes`, `reservations`, `scheduler`, `users`
 
