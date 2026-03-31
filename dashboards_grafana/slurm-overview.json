@@ -6,7 +6,20 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "links": [],
+  "links": [
+    {
+      "title": "slurm_exporter on GitHub",
+      "url": "https://github.com/SckyzO/slurm_exporter",
+      "type": "link",
+      "icon": "external link",
+      "tooltip": "View source, docs and dashboards on GitHub",
+      "targetBlank": true,
+      "tags": [],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false
+    }
+  ],
   "panels": [
     {
       "collapsed": false,
