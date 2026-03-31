@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-03-31
+
+### 🐛 Bug Fixes
+
+- **`slurm-accounting` dashboard — Active Users/Accounts "No data":** `count(metric > 0)` returns an empty result set in PromQL when no series match, causing stat panels to show "No data" instead of `0`. Fixed with `or vector(0)` fallback.
+- **Dashboards — percentage formatting:** All `percent`/`percentunit` panels without explicit decimal settings now display 1 decimal place (e.g. `87.5%` instead of `87.54321%`). FairShare panels reduced from 3 to 1 decimal. 21 fixes across `slurm-accounting`, `slurm-all-metrics` and `slurm-usage` dashboards.
+- **`accounts.go` / TRES GPU regex:** Extended char class from `[:/]` to `[:/=]` to handle the rare `gres/gpu=N` format (equals sign instead of colon).
+- **`scheduler.go` — DBD Agent regex:** Tightened `^DBD Agent` to `^DBD Agent queue size` to prevent future sdiag fields from accidentally overwriting the queue size value.
+
+### 📋 Documentation
+
+- **`docs/audit-v1.7.md`:** Full audit report (395 lines) covering all 4 axes — command/format validation against Slurm 25.11, parser quality, missing metrics analysis (sacct efficiency, sstat, sinfo %E/%H), and PromQL review of all 9 dashboards. No breaking issues found. v1.8 backlog defined.
+- Dashboard screenshots refreshed on 20-node live cluster with real user activity.
+
+---
+
 ## [1.7.0] - 2026-03-30
 
 ### ✨ Features
