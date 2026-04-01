@@ -24,28 +24,41 @@ var (
 	schedulerPatternTotalCycle  = regexp.MustCompile(`^[\s]+Total backfilled jobs \(since last stats cycle start\)`)
 	schedulerPatternTotalHetero = regexp.MustCompile(`^[\s]+Total backfilled heterogeneous job components`)
 	schedulerRPCLineRe          = regexp.MustCompile(`^\s*([A-Za-z0-9_]*).*count:([0-9]*)\s*ave_time:([0-9]*)\s\s*total_time:([0-9]*)\s*$`)
+
+	// Job counters (sdiag "Jobs submitted/started/completed/canceled/failed")
+	schedulerPatternJobsSubmitted = regexp.MustCompile(`^Jobs submitted`)
+	schedulerPatternJobsStarted   = regexp.MustCompile(`^Jobs started`)
+	schedulerPatternJobsCompleted = regexp.MustCompile(`^Jobs completed`)
+	schedulerPatternJobsCanceled  = regexp.MustCompile(`^Jobs canceled`)
+	schedulerPatternJobsFailed    = regexp.MustCompile(`^Jobs failed`)
 )
 
 // SchedulerMetrics holds performance statistics from the Slurm scheduler daemon
 type SchedulerMetrics struct {
-	threads                       float64            // Number of scheduler threads
-	queueSize                     float64            // Length of the scheduler queue
-	dbdQueueSize                  float64            // Length of the DBD agent queue
-	lastCycle                     float64            // Last scheduler cycle time (microseconds)
-	meanCycle                     float64            // Mean scheduler cycle time (microseconds)
-	cyclePerMinute                float64            // Number of scheduler cycles per minute
-	backfillLastCycle             float64            // Last backfill cycle time (microseconds)
-	backfillMeanCycle             float64            // Mean backfill cycle time (microseconds)
-	backfillDepthMean             float64            // Mean backfill depth
-	totalBackfilledJobsSinceStart float64            // Total backfilled jobs since Slurm start
-	totalBackfilledJobsSinceCycle float64            // Total backfilled jobs since stats cycle start
-	totalBackfilledHeterogeneous  float64            // Total backfilled heterogeneous job components
-	rpcStatsCount                 map[string]float64 // RPC call counts by operation
-	rpcStatsAvgTime               map[string]float64 // RPC average times by operation
-	rpcStatsTotalTime             map[string]float64 // RPC total times by operation
-	userRPCStatsCount             map[string]float64 // RPC call counts by user
-	userRPCStatsAvgTime           map[string]float64 // RPC average times by user
-	userRPCStatsTotalTime         map[string]float64 // RPC total times by user
+	threads                       float64 // Number of scheduler threads
+	queueSize                     float64 // Length of the scheduler queue
+	dbdQueueSize                  float64 // Length of the DBD agent queue
+	lastCycle                     float64 // Last scheduler cycle time (microseconds)
+	meanCycle                     float64 // Mean scheduler cycle time (microseconds)
+	cyclePerMinute                float64 // Number of scheduler cycles per minute
+	backfillLastCycle             float64 // Last backfill cycle time (microseconds)
+	backfillMeanCycle             float64 // Mean backfill cycle time (microseconds)
+	backfillDepthMean             float64 // Mean backfill depth
+	totalBackfilledJobsSinceStart float64 // Total backfilled jobs since Slurm start
+	totalBackfilledJobsSinceCycle float64 // Total backfilled jobs since stats cycle start
+	totalBackfilledHeterogeneous  float64 // Total backfilled heterogeneous job components
+	// Job lifecycle counters (since last stats reset)
+	jobsSubmitted         float64            // Jobs submitted since last stats reset
+	jobsStarted           float64            // Jobs started (dispatched) since last stats reset
+	jobsCompleted         float64            // Jobs completed since last stats reset
+	jobsCanceled          float64            // Jobs canceled since last stats reset
+	jobsFailed            float64            // Jobs failed since last stats reset
+	rpcStatsCount         map[string]float64 // RPC call counts by operation
+	rpcStatsAvgTime       map[string]float64 // RPC average times by operation
+	rpcStatsTotalTime     map[string]float64 // RPC total times by operation
+	userRPCStatsCount     map[string]float64 // RPC call counts by user
+	userRPCStatsAvgTime   map[string]float64 // RPC average times by user
+	userRPCStatsTotalTime map[string]float64 // RPC total times by user
 }
 
 // SchedulerData executes the sdiag command to retrieve scheduler statistics
@@ -111,6 +124,16 @@ func ParseSchedulerMetrics(input []byte) *SchedulerMetrics {
 			sm.totalBackfilledJobsSinceCycle = floatValue
 		case schedulerPatternTotalHetero.MatchString(key):
 			sm.totalBackfilledHeterogeneous = floatValue
+		case schedulerPatternJobsSubmitted.MatchString(key):
+			sm.jobsSubmitted = floatValue
+		case schedulerPatternJobsStarted.MatchString(key):
+			sm.jobsStarted = floatValue
+		case schedulerPatternJobsCompleted.MatchString(key):
+			sm.jobsCompleted = floatValue
+		case schedulerPatternJobsCanceled.MatchString(key):
+			sm.jobsCanceled = floatValue
+		case schedulerPatternJobsFailed.MatchString(key):
+			sm.jobsFailed = floatValue
 		}
 	}
 
@@ -199,6 +222,11 @@ type SchedulerCollector struct {
 	totalBackfilledJobsSinceStart *prometheus.Desc
 	totalBackfilledJobsSinceCycle *prometheus.Desc
 	totalBackfilledHeterogeneous  *prometheus.Desc
+	jobsSubmitted                 *prometheus.Desc
+	jobsStarted                   *prometheus.Desc
+	jobsCompleted                 *prometheus.Desc
+	jobsCanceled                  *prometheus.Desc
+	jobsFailed                    *prometheus.Desc
 	rpcStatsCount                 *prometheus.Desc
 	rpcStatsAvgTime               *prometheus.Desc
 	rpcStatsTotalTime             *prometheus.Desc
@@ -209,6 +237,11 @@ type SchedulerCollector struct {
 }
 
 func (sc *SchedulerCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- sc.jobsSubmitted
+	ch <- sc.jobsStarted
+	ch <- sc.jobsCompleted
+	ch <- sc.jobsCanceled
+	ch <- sc.jobsFailed
 	ch <- sc.threads
 	ch <- sc.queueSize
 	ch <- sc.dbdQueueSize
@@ -235,6 +268,11 @@ func (sc *SchedulerCollector) Collect(ch chan<- prometheus.Metric) {
 		sc.logger.Error("Failed to get scheduler metrics", "err", err)
 		return
 	}
+	ch <- prometheus.MustNewConstMetric(sc.jobsSubmitted, prometheus.CounterValue, sm.jobsSubmitted)
+	ch <- prometheus.MustNewConstMetric(sc.jobsStarted, prometheus.CounterValue, sm.jobsStarted)
+	ch <- prometheus.MustNewConstMetric(sc.jobsCompleted, prometheus.CounterValue, sm.jobsCompleted)
+	ch <- prometheus.MustNewConstMetric(sc.jobsCanceled, prometheus.CounterValue, sm.jobsCanceled)
+	ch <- prometheus.MustNewConstMetric(sc.jobsFailed, prometheus.CounterValue, sm.jobsFailed)
 	ch <- prometheus.MustNewConstMetric(sc.threads, prometheus.GaugeValue, sm.threads)
 	ch <- prometheus.MustNewConstMetric(sc.queueSize, prometheus.GaugeValue, sm.queueSize)
 	ch <- prometheus.MustNewConstMetric(sc.dbdQueueSize, prometheus.GaugeValue, sm.dbdQueueSize)
@@ -272,6 +310,26 @@ func NewSchedulerCollector(logger *logger.Logger) *SchedulerCollector {
 	rpcLabels := []string{"operation"}
 	userRPCLabels := []string{"user"}
 	return &SchedulerCollector{
+		jobsSubmitted: prometheus.NewDesc(
+			"slurm_scheduler_jobs_submitted_total",
+			"Total jobs submitted to the scheduler since last stats reset (sdiag)",
+			nil, nil),
+		jobsStarted: prometheus.NewDesc(
+			"slurm_scheduler_jobs_started_total",
+			"Total jobs started (dispatched) since last stats reset (sdiag)",
+			nil, nil),
+		jobsCompleted: prometheus.NewDesc(
+			"slurm_scheduler_jobs_completed_total",
+			"Total jobs completed since last stats reset (sdiag)",
+			nil, nil),
+		jobsCanceled: prometheus.NewDesc(
+			"slurm_scheduler_jobs_canceled_total",
+			"Total jobs canceled since last stats reset (sdiag)",
+			nil, nil),
+		jobsFailed: prometheus.NewDesc(
+			"slurm_scheduler_jobs_failed_total",
+			"Total jobs failed since last stats reset (sdiag)",
+			nil, nil),
 		threads: prometheus.NewDesc(
 			"slurm_scheduler_threads",
 			"Number of scheduler threads reported by sdiag",

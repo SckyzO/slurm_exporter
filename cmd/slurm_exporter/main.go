@@ -83,13 +83,14 @@ var (
 
 // collectorConstructors maps collector names to their constructor functions
 var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Collector{
-	"accounts":   func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
-	"cpus":       func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
-	"nodes":      func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l, *nodesFeatureSet) },
-	"node":       func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
-	"partitions": func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
-	"queue":      func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l, *queueUserLabel) },
-	"scheduler":  func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
+	"accounts":     func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
+	"cpus":         func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
+	"nodes":        func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l, *nodesFeatureSet) },
+	"node":         func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
+	"drain_reason": func(l *logger.Logger) prometheus.Collector { return collector.NewDrainReasonCollector(l) },
+	"partitions":   func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
+	"queue":        func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l, *queueUserLabel) },
+	"scheduler":    func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
 	"fairshare": func(l *logger.Logger) prometheus.Collector {
 		return collector.NewFairShareCollector(l, *fairshareUserMetrics)
 	},
