@@ -159,6 +159,9 @@ func main() {
 	// Create a custom registry to avoid global state and third-party metric pollution
 	reg := prometheus.NewRegistry()
 
+	// Register internal Execute() performance metrics (duration histogram + error counter)
+	collector.RegisterExecMetrics(reg)
+
 	// Always register build info; Go runtime and process collectors are optional.
 	reg.MustRegister(collectors.NewBuildInfoCollector())
 	if !*disableExporterMetrics {

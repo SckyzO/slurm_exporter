@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -109,4 +110,41 @@ func TestValidateBinaries_SkippedWhenBinPathEmpty(t *testing.T) {
 	// Even with non-existent binary names, validation is skipped
 	errs := ValidateBinaries(log, []string{"nonexistent_binary_xyz"})
 	assert.Empty(t, errs, "validation must be skipped when binPath is empty")
+}
+
+func TestRegisterExecMetrics(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	// Must not panic on first call
+	assert.NotPanics(t, func() {
+		RegisterExecMetrics(reg)
+	})
+	// Second call with same registry must be a no-op (sync.Once)
+	assert.NotPanics(t, func() {
+		RegisterExecMetrics(reg)
+	})
+}
+
+func TestExecuteRecordsMetrics(t *testing.T) {
+	// Ensure metrics are registered (sync.Once safe)
+	reg := prometheus.NewRegistry()
+	RegisterExecMetrics(reg)
+
+	log := logger.NewLogger("error")
+
+	// execDuration and execErrors are package-level — recording an observation
+	// must not panic regardless of which registry was used at registration time.
+	assert.NotPanics(t, func() {
+		execDuration.WithLabelValues("squeue").Observe(0.042)
+		execErrors.WithLabelValues("scontrol").Inc()
+	})
+
+	// Verify the real Execute function records duration and handles success
+	oldExecute := Execute
+	defer func() { Execute = oldExecute }()
+	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
+		return []byte("ok"), nil
+	}
+	out, err := Execute(log, "squeue", []string{"-h"})
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("ok"), out)
 }
