@@ -1,0 +1,157 @@
+{
+  "annotations": { "list": [] },
+  "description": "Internal performance dashboard for slurm_exporter: command durations, cache freshness, error rates, and scrape health. Use this to validate optimisations and detect slowdowns before they cause scrape failures.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "slurm_exporter on GitHub",
+      "url": "https://github.com/SckyzO/slurm_exporter",
+      "type": "link",
+      "icon": "external link",
+      "tooltip": "View source, docs and dashboards on GitHub",
+      "targetBlank": true,
+      "tags": [],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false
+    }
+  ],
+  "panels": [
+    { "type": "row", "id": 100, "title": "Exporter Health", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 } },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat", "id": 1, "title": "Collectors OK",
+      "description": "Number of collectors that succeeded on last scrape.",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 14 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(slurm_exporter_collector_success)", "legendFormat": "OK", "refId": "A", "instant": true }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat", "id": 2, "title": "Collectors FAIL",
+      "description": "Number of collectors that failed on last scrape. Should always be 0.",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(1 - slurm_exporter_collector_success)", "legendFormat": "FAIL", "refId": "A", "instant": true }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat", "id": 3, "title": "Total Command Errors",
+      "description": "Total Slurm CLI command errors since exporter start.",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(slurm_exporter_command_errors_total)", "legendFormat": "Errors", "refId": "A", "instant": true }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat", "id": 4, "title": "scontrol Cache Age",
+      "description": "Age of scontrol show nodes -o cache in seconds. Should be < 25s (TTL). -1 means not yet populated.",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "s", "decimals": 1,
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 20 }, { "color": "red", "value": 26 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_exporter_cache_age_seconds{cache=\"scontrol_nodes\"}", "legendFormat": "Cache Age", "refId": "A", "instant": true }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat", "id": 5, "title": "sacct Last Refresh",
+      "description": "Time since last sacct_efficiency refresh. Alert if > 2× interval. Shows 'N/A' if sacct_efficiency is disabled.",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "s", "decimals": 0, "noValue": "disabled",
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 600 }, { "color": "red", "value": 1200 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "time() - slurm_sacct_last_refresh_timestamp_seconds", "legendFormat": "Age", "refId": "A", "instant": true }]
+    },
+    { "type": "row", "id": 101, "title": "Command Durations", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 } },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "bargauge", "id": 10, "title": "Avg Duration per Command (last 5 min)",
+      "description": "Average execution time per Slurm command. High values indicate slurmctld load or network issues.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "valueMode": "color" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "s", "decimals": 3, "min": 0,
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 5 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sort_desc(rate(slurm_exporter_command_duration_seconds_sum[5m]) / rate(slurm_exporter_command_duration_seconds_count[5m]))", "legendFormat": "{{command}}", "refId": "A", "instant": true }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "bargauge", "id": 11, "title": "Call Count per Command (last 5 min)",
+      "description": "Number of Slurm CLI executions per command. sinfo should be ~1/scrape after Axe 2 optimisation.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "options": { "displayMode": "gradient", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showUnfilled": true, "valueMode": "color" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "unit": "short", "decimals": 0, "min": 0,
+        "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 30 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sort_desc(rate(slurm_exporter_command_duration_seconds_count[5m]) * 300)", "legendFormat": "{{command}}", "refId": "A", "instant": true }]
+    },
+    { "type": "row", "id": 102, "title": "Command Duration History", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 } },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "timeseries", "id": 20, "title": "Command Duration p99 Over Time",
+      "description": "99th percentile execution time per command. Spikes indicate slurmctld overload or network issues. Alert threshold: 5s.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 5 }] } }, "overrides": [] },
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.99, rate(slurm_exporter_command_duration_seconds_bucket[5m]))", "legendFormat": "{{command}} p99", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "rate(slurm_exporter_command_duration_seconds_sum[5m]) / rate(slurm_exporter_command_duration_seconds_count[5m])", "legendFormat": "{{command}} avg", "refId": "B" }
+      ]
+    },
+    { "type": "row", "id": 103, "title": "Error Rates", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 } },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "timeseries", "id": 30, "title": "Command Error Rate",
+      "description": "Errors per second per command. Any value > 0 indicates a failed Slurm CLI call. Check slurmctld logs if persistent.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "ops" }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "rate(slurm_exporter_command_errors_total[5m]) > 0", "legendFormat": "{{command}}", "refId": "A" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "timeseries", "id": 31, "title": "Collector Scrape Duration",
+      "description": "Wall time per collector per scrape. Alert if any collector approaches scrape_timeout (default 25s).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] } }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sort_desc(slurm_exporter_collector_duration_seconds)", "legendFormat": "{{collector}}", "refId": "A" }]
+    },
+    { "type": "row", "id": 104, "title": "Cache & Refresh", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 } },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "timeseries", "id": 40, "title": "scontrol Cache Age Over Time",
+      "description": "Age of scontrol show nodes -o cache. Should oscillate between 0 and TTL (25s). Flat line at TTL = cache never refreshing.",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 33 },
+      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "blue" }, "custom": { "drawStyle": "line", "fillOpacity": 20, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "s", "decimals": 1 }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "slurm_exporter_cache_age_seconds", "legendFormat": "{{cache}}", "refId": "A" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "timeseries", "id": 41, "title": "sacct_efficiency Refresh Age",
+      "description": "Time since last sacct refresh. Flat beyond 2× interval = sacct failing. Panel empty if collector disabled.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 33 },
+      "options": { "legend": { "calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "orange" }, "custom": { "drawStyle": "line", "fillOpacity": 20, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false }, "unit": "s", "decimals": 0, "noValue": "disabled" }, "overrides": [] },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "time() - slurm_sacct_last_refresh_timestamp_seconds", "legendFormat": "sacct age", "refId": "A" }]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["slurm", "hpc", "exporter", "performance"],
+  "templating": {
+    "list": [
+      { "current": {}, "hide": 0, "includeAll": false, "label": "Data Source", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "type": "datasource" }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Slurm - Exporter Performance",
+  "uid": "slurm-exporter-perf",
+  "version": 1
+}

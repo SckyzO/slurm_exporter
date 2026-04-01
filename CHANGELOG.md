@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-04-01
+
+### ✨ Features
+
+- **`sacct_efficiency` collector** (disabled by default — opt-in):
+  - `slurm_job_cpu_efficiency_avg{account,user}` — avg(TotalCPU/CPUTime×100) over lookback window
+  - `slurm_job_mem_efficiency_avg{account,user}` — avg(MaxRSS/ReqMem×100) over lookback window
+  - `slurm_job_count_completed{account,user}` — jobs in lookback window
+  - `slurm_job_cpu_hours_allocated{account,user}` — allocated CPU-hours in lookback window
+  - `slurm_sacct_last_refresh_timestamp_seconds` — unix ts for staleness alerting
+  - Background goroutine + RWMutex cache: Collect() is non-blocking, zero scrape timeout risk
+  - Flags: `--collector.sacct_efficiency`, `--collector.sacct.interval=5m`, `--collector.sacct.lookback=1h`
+  - Requires `JobAcctGatherType=jobacct_gather/linux|cgroup` in slurm.conf for CPU/mem data
+
+- **sdiag job lifecycle counters** (zero extra RPC cost — already calling sdiag):
+  - `slurm_scheduler_jobs_submitted_total`, `_started_total`, `_completed_total`, `_canceled_total`, `_failed_total`
+  - Rate metric: `rate(slurm_scheduler_jobs_submitted_total[5m])` = scheduler throughput
+
+- **`slurm_node_drain_reason_info{node,reason,since}`** — info-style metric for degraded nodes.
+  Only emitted for drain/down nodes with an admin-set reason (not "none"/"not responding").
+  Zero cardinality on healthy clusters.
+
+- **New `slurm-exporter-perf` dashboard** (10th dashboard):
+  Command duration p99/avg, call counts, error rates, scontrol cache age, sacct refresh age.
+  Use to validate Axe 2 optimisations and detect slurmctld load.
+
+### ⚡ Performance
+
+- **sinfo: N per-partition calls → 1 global call** (`sinfo -h -o "%R|%D|%T|%b"`):
+  Measured reduction: 112 → 10 calls per scrape window on a 4-partition cluster.
+  On a 50-partition cluster: 50× less sinfo RPCs per scrape.
+
+- **scontrol show nodes -o: 2 calls → 1 cached call**:
+  nodes.go and reservation_nodes.go now share a `timedCache` (TTL=25s).
+  `slurm_exporter_cache_age_seconds{cache="scontrol_nodes"}` reports freshness.
+
+### 📊 New internal metrics
+
+- `slurm_exporter_command_duration_seconds{command}` — histogram (11 buckets)
+- `slurm_exporter_command_errors_total{command}` — error counter per CLI command
+- `slurm_exporter_cache_age_seconds{cache}` — cache freshness gauge
+- `slurm_sacct_last_refresh_timestamp_seconds` — sacct background refresh timestamp
+
+### 🧪 Tests & Quality
+
+- **Coverage: 57% → 81%** (+24 points):
+  - gpus, nodes, scheduler, reservation_nodes, queue collectors fully covered
+  - cache_test.go: 5 tests including concurrent access test
+  - sacct_efficiency_test.go: 14 tests covering parsers, aggregation, collector lifecycle
+  - node_drain_test.go: 6 tests
+  - `test_data/sacct_efficiency.txt` fixture added
+- **`CONTRIBUTING.md`**: full 10-step Definition of Done protocol for all PRs
+- **Package comments** (`doc.go`): collector and cmd packages documented
+- **`disabledByDefault` map** in main.go for future opt-in collectors
+
+### 📋 Documentation
+
+- `README.md`: 10 dashboards, new flags, new metrics documented
+- `dashboards_grafana/README.md`: slurm-exporter-perf section added
+- `test_data/readme.md`: sacct_efficiency and node_drain documented
+
+---
+
 ## [1.7.1] - 2026-03-31
 
 ### 🐛 Bug Fixes

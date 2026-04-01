@@ -270,7 +270,7 @@ Slurm Exporter, organized by collector. Useful for:
 - Debugging queries
 - Validating that all collectors are working
 
-115 panels covering all 14 collectors:
+115 panels covering all 14 collectors (+ new v1.8 metrics):
 `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `licenses`, `node`, `nodes`,
 `partitions`, `queue`, `reservation_nodes`, `reservations`, `scheduler`, `users`
 
@@ -278,6 +278,26 @@ Slurm Exporter, organized by collector. Useful for:
 > daily monitoring. This one is a reference/debug tool.
 
 ---
+
+### 10. Exporter Performance *(new in v1.8.0)*
+
+**File:** `slurm-exporter-perf.json` | **UID:** `slurm-exporter-perf`
+
+Internal performance dashboard for the exporter itself. Use this to validate
+that optimisations work and to detect slowdowns before they cause scrape failures.
+
+| Panel | Type | Description |
+|-------|------|-------------|
+| Collectors OK / FAIL / Total Errors | stat | Scrape health indicators |
+| scontrol Cache Age | stat | Should oscillate 0-25s — flat at TTL = problem |
+| sacct Last Refresh | stat | Age since last sacct_efficiency refresh |
+| Avg Duration per Command | bargauge | Which commands are slowest? |
+| Call Count per Command | bargauge | sinfo should be ~1/scrape after Axe 2 |
+| Command Duration p99 + avg | timeseries | Latency spikes = slurmctld overload |
+| Command Error Rate | timeseries | Any > 0 = CLI failures |
+| Collector Scrape Duration | timeseries | Alert if approaching scrape_timeout |
+| scontrol Cache Age Over Time | timeseries | Cache hit/miss pattern |
+| sacct Refresh Age | timeseries | sacct_efficiency staleness |
 
 ## Generating Screenshots
 

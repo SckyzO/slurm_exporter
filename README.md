@@ -567,7 +567,7 @@ These allow per-collector alerting independently of the global Prometheus `scrap
 
 ## 📈 Grafana Dashboards
 
-Nine ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
+Ten ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
 All dashboards use a `$datasource` template variable and are compatible with Grafana 12+.
 
 | Dashboard | UID | Description |
@@ -581,6 +581,7 @@ All dashboards use a `$datasource` template variable and are compatible with Gra
 | **Cluster Usage Statistics** | `slurm-usage` | CPU/GPU utilization gauges, fairshare per account, top users by CPU |
 | **All Metrics Reference** | `slurm-all-metrics` | Exhaustive reference panel for every exported metric |
 | **Accounting** | `slurm-accounting` | User/account consumption, FairShare analysis, top consumers, priority diagnostics |
+| **Exporter Performance** | `slurm-exporter-perf` | Command durations, cache freshness, error rates, scrape health (new in v1.8.0) |
 
 ### Import to Grafana
 
@@ -683,7 +684,7 @@ done
 </td>
 <td align="center" width="33%">
 
-*All 9 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
+*All 10 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
 
 </td>
 </tr>
