@@ -16,6 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"time"
@@ -68,6 +69,21 @@ var (
 			"(each user generates 5 additional time series).",
 	).Default("true").Bool()
 
+	// sacctEfficiencyInterval controls how often the sacct_efficiency collector
+	// refreshes its cache in the background. Set to a high value on busy clusters.
+	sacctEfficiencyInterval = kingpin.Flag(
+		"collector.sacct.interval",
+		"Background refresh interval for the sacct_efficiency collector. "+
+			"sacct is never called more frequently than this regardless of scrape interval.",
+	).Default("5m").Duration()
+
+	// sacctEfficiencyLookback controls the time window for sacct queries.
+	sacctEfficiencyLookback = kingpin.Flag(
+		"collector.sacct.lookback",
+		"Time window for sacct_efficiency queries (how far back to look for completed jobs). "+
+			"Shorter windows reduce DB load; longer windows give better statistics.",
+	).Default("1h").Duration()
+
 	// slurmBinPath is the directory where Slurm binaries are looked up.
 	// Empty string (default) means binaries must be on the system $PATH.
 	slurmBinPath = kingpin.Flag(
@@ -100,6 +116,11 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"reservations":      func(l *logger.Logger) prometheus.Collector { return collector.NewReservationsCollector(l) },
 	"reservation_nodes": func(l *logger.Logger) prometheus.Collector { return collector.NewReservationNodesCollector(l) },
 	"licenses":          func(l *logger.Logger) prometheus.Collector { return collector.NewLicensesCollector(l) },
+	"sacct_efficiency": func(l *logger.Logger) prometheus.Collector {
+		c := collector.NewSacctEfficiencyCollector(l, *sacctEfficiencyInterval, *sacctEfficiencyLookback)
+		c.Start(context.Background())
+		return c
+	},
 }
 
 // indexHTML is the HTML content displayed on the root page
@@ -128,8 +149,22 @@ func registerCollectors(reg *prometheus.Registry, log *logger.Logger) {
 }
 
 func main() {
+	// Collectors that are disabled by default (opt-in) because they are expensive
+	// or have side effects that require explicit configuration.
+	disabledByDefault := map[string]bool{
+		"sacct_efficiency": true,
+	}
+
 	for name := range collectorConstructors {
-		collectorState[name] = kingpin.Flag("collector."+name, "Enable the "+name+" collector.").Default("true").Bool()
+		defaultVal := "true"
+		if disabledByDefault[name] {
+			defaultVal = "false"
+		}
+		help := "Enable the " + name + " collector."
+		if name == "sacct_efficiency" {
+			help = "Enable the sacct_efficiency collector (disabled by default — sacct queries SlurmDBD, use --collector.sacct.interval and --collector.sacct.lookback to tune)."
+		}
+		collectorState[name] = kingpin.Flag("collector."+name, help).Default(defaultVal).Bool()
 	}
 
 	kingpin.Version(version.Print("slurm_exporter"))

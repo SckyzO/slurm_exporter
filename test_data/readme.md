@@ -85,6 +85,18 @@ and reservation names have been replaced with generic equivalents).
 - `scontrol show licenses -o`: license total/used/free/reserved counts.
   - Test file: **`slicense.txt`**
 
+## `collector/sacct_efficiency.go`
+
+- `sacct -X -P -n --starttime <window> --format User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED`: job efficiency data.
+  - Test file: **`sacct_efficiency.txt`**
+  - Requires `JobAcctGatherType=jobacct_gather/linux` (or similar) in slurm.conf to populate TotalCPU/MaxRSS.
+  - Disabled by default (`--collector.sacct_efficiency` to enable).
+
+## `collector/node_drain.go`
+
+- `sinfo -h -N -o "%N|%E|%H|%T"`: node drain/down reason and timestamp.
+  - No dedicated test file (data varies by cluster state, tested with inline fixtures).
+
 ## `collector/users.go`
 
 - `squeue -a -r -h -o "%A|%u|%T|%D|%C|%b"`: job/CPU/GPU counts by user.
