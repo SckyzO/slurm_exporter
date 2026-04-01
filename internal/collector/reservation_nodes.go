@@ -85,9 +85,15 @@ func ParseReservationNodesMetrics(input []byte) map[string]*ReservationNodesMetr
 	return reservations
 }
 
-// ReservationNodesData runs scontrol to get all nodes with their state and reservation.
-func ReservationNodesData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "scontrol", []string{"show", "nodes", "-o"})
+// ReservationNodesData returns the output of scontrol show nodes -o.
+// Uses scontrolNodesCache so that when both the nodes and reservation_nodes
+// collectors run in the same scrape cycle, the scontrol RPC is only sent once.
+func ReservationNodesData(log *logger.Logger) ([]byte, error) {
+	data, err := scontrolNodesCache.GetOrFetch(func() ([]byte, error) {
+		return Execute(log, "scontrol", []string{"show", "nodes", "-o"})
+	})
+	updateCacheAge()
+	return data, err
 }
 
 // ReservationNodesGetMetrics fetches and parses per-reservation node state metrics.

@@ -139,12 +139,116 @@ func NodesData(logger *logger.Logger, part string) ([]byte, error) {
 	return Execute(logger, "sinfo", []string{"-h", "-o", "%D|%T|%b", "-p", part})
 }
 
+// NodesDataGlobal executes a single sinfo call for ALL partitions at once.
+// Format: "%R|%D|%T|%b" (Partition|Nodes|State|Features).
+// This replaces N per-partition calls with one RPC, significantly reducing
+// load on slurmctld on clusters with many partitions.
+func NodesDataGlobal(log *logger.Logger) ([]byte, error) {
+	return Execute(log, "sinfo", []string{"-h", "-o", "%R|%D|%T|%b"})
+}
+
+// ParseNodesMetricsGlobal parses the global sinfo output (with partition column)
+// into a map of partition name → NodesMetrics.
+// Input format: "%R|%D|%T|%b" (Partition|Nodes|State|Features).
+func ParseNodesMetricsGlobal(input []byte) map[string]*NodesMetrics {
+	result := make(map[string]*NodesMetrics)
+
+	lines := strings.Split(string(input), "\n")
+	slices.Sort(lines)
+	linesUniq := slices.Compact(lines)
+
+	for _, line := range linesUniq {
+		if !strings.Contains(line, "|") {
+			continue
+		}
+		split := strings.Split(line, "|")
+		if len(split) < 4 {
+			continue
+		}
+		// Strip the default partition marker (*) for consistent partition names
+		part := strings.TrimRight(strings.TrimSpace(split[0]), "*")
+		count, _ := strconv.ParseFloat(strings.TrimSpace(split[1]), 64)
+		state := split[2]
+		features := strings.Split(split[3], ",")
+		slices.Sort(features)
+		featureSet := strings.Join(features, ",")
+		if featureSet == "(null)" {
+			featureSet = "null"
+		}
+
+		if _, ok := result[part]; !ok {
+			result[part] = &NodesMetrics{
+				alloc:   make(map[string]float64),
+				comp:    make(map[string]float64),
+				down:    make(map[string]float64),
+				drain:   make(map[string]float64),
+				err:     make(map[string]float64),
+				fail:    make(map[string]float64),
+				idle:    make(map[string]float64),
+				inval:   make(map[string]float64),
+				maint:   make(map[string]float64),
+				mix:     make(map[string]float64),
+				resv:    make(map[string]float64),
+				other:   make(map[string]float64),
+				planned: make(map[string]float64),
+				total:   make(map[string]float64),
+			}
+		}
+		nm := result[part]
+
+		switch {
+		case nodeStateAlloc.MatchString(state):
+			nm.alloc[featureSet] += count
+		case nodeStateComp.MatchString(state):
+			nm.comp[featureSet] += count
+		case nodeStateDown.MatchString(state):
+			nm.down[featureSet] += count
+		case nodeStateDrain.MatchString(state):
+			nm.drain[featureSet] += count
+		case nodeStateFail.MatchString(state):
+			nm.fail[featureSet] += count
+		case nodeStateErr.MatchString(state):
+			nm.err[featureSet] += count
+		case nodeStateIdle.MatchString(state):
+			nm.idle[featureSet] += count
+		case nodeStateInval.MatchString(state):
+			nm.inval[featureSet] += count
+		case nodeStateMaint.MatchString(state):
+			nm.maint[featureSet] += count
+		case nodeStateMix.MatchString(state):
+			nm.mix[featureSet] += count
+		case nodeStateResv.MatchString(state):
+			nm.resv[featureSet] += count
+		case nodeStatePlanned.MatchString(state):
+			nm.planned[featureSet] += count
+		default:
+			nm.other[featureSet] += count
+		}
+	}
+	return result
+}
+
+// NodesGetMetricsGlobal fetches and parses node metrics for all partitions
+// in a single sinfo call.
+func NodesGetMetricsGlobal(log *logger.Logger) (map[string]*NodesMetrics, error) {
+	data, err := NodesDataGlobal(log)
+	if err != nil {
+		return nil, err
+	}
+	return ParseNodesMetricsGlobal(data), nil
+}
+
 /*
 SlurmGetTotal retrieves the total number of nodes from scontrol.
 Expected scontrol output format: one line per node.
+Uses scontrolNodesCache to avoid redundant fetches when both the nodes and
+reservation_nodes collectors run in the same scrape cycle.
 */
-func SlurmGetTotal(logger *logger.Logger) (float64, error) {
-	out, err := Execute(logger, "scontrol", []string{"show", "nodes", "-o"})
+func SlurmGetTotal(log *logger.Logger) (float64, error) {
+	out, err := scontrolNodesCache.GetOrFetch(func() ([]byte, error) {
+		return Execute(log, "scontrol", []string{"show", "nodes", "-o"})
+	})
+	updateCacheAge()
 	if err != nil {
 		return 0, err
 	}
@@ -270,22 +374,13 @@ func SendFeatureSetMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, va
 }
 
 func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
-	partitions, err := SlurmGetPartitions(nc.logger)
+	// Single global sinfo call for all partitions — replaces N per-partition calls.
+	allPartitions, err := NodesGetMetricsGlobal(nc.logger)
 	if err != nil {
-		nc.logger.Error("Failed to get partitions", "err", err)
+		nc.logger.Error("Failed to get global nodes metrics", "err", err)
 		return
 	}
-	for _, part := range partitions {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		nm, err := NodesGetMetrics(nc.logger, part)
-		if err != nil {
-			nc.logger.Error("Failed to get nodes metrics", "partition", part, "err", err)
-			continue
-		}
-
+	for part, nm := range allPartitions {
 		// Create a slice of all the metric maps
 		allMaps := []map[string]float64{
 			nm.alloc, nm.comp, nm.down, nm.drain, nm.err, nm.fail,

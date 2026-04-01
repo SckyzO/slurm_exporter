@@ -45,3 +45,46 @@ func TestSumMapAggregation(t *testing.T) {
 	// planned: feature_a=3, feature_b=5 → total=8
 	assert.Equal(t, 8.0, sumMap(nm.planned))
 }
+
+func TestParseNodesMetricsGlobal(t *testing.T) {
+	// Format: %R|%D|%T|%b  (Partition*|Count|State|Features)
+	input := []byte(`cpu*|4|mixed|cpu
+cpu*|10|idle|cpu
+gpu|0|n/a|(null)
+debug|2|idle|cpu
+high|1|allocated|cpu
+high|2|idle|cpu
+`)
+
+	result := ParseNodesMetricsGlobal(input)
+
+	// Partition asterisk stripped
+	require.Contains(t, result, "cpu")
+	assert.NotContains(t, result, "cpu*", "trailing * must be stripped")
+	require.Contains(t, result, "gpu")
+	require.Contains(t, result, "debug")
+	require.Contains(t, result, "high")
+
+	// cpu partition: 4 mixed + 10 idle
+	assert.Equal(t, float64(4), result["cpu"].mix["cpu"])
+	assert.Equal(t, float64(10), result["cpu"].idle["cpu"])
+
+	// high partition: 1 alloc + 2 idle
+	assert.Equal(t, float64(1), result["high"].alloc["cpu"])
+	assert.Equal(t, float64(2), result["high"].idle["cpu"])
+}
+
+func TestParseNodesMetricsGlobal_Empty(t *testing.T) {
+	assert.Empty(t, ParseNodesMetricsGlobal([]byte("")))
+	assert.Empty(t, ParseNodesMetricsGlobal([]byte("\n\n")))
+}
+
+func TestParseNodesMetricsGlobal_MalformedLines(t *testing.T) {
+	input := []byte(`only-two-fields|10
+cpu|4|idle|cpu
+`)
+	result := ParseNodesMetricsGlobal(input)
+	// Only the valid line should be parsed
+	require.Contains(t, result, "cpu")
+	assert.Len(t, result, 1)
+}

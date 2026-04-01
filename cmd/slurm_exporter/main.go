@@ -162,6 +162,9 @@ func main() {
 	// Register internal Execute() performance metrics (duration histogram + error counter)
 	collector.RegisterExecMetrics(reg)
 
+	// Register internal cache age metrics
+	collector.RegisterCacheMetrics(reg)
+
 	// Always register build info; Go runtime and process collectors are optional.
 	reg.MustRegister(collectors.NewBuildInfoCollector())
 	if !*disableExporterMetrics {
