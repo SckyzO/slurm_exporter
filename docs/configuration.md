@@ -35,19 +35,37 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--command.timeout` | Timeout for executing Slurm commands | `5s` |
 | `--log.level` | Log level: `debug`, `info`, `warn`, `error` | `info` |
 | `--log.format` | Log format: `json`, `text` | `text` |
-| `--collector.<name>` | Enable the specified collector | `true` (all enabled by default) |
-| `--no-collector.<name>` | Disable the specified collector | (none) |
+| `--[no-]collector.<name>` | Enable or disable a collector (kingpin boolean flag). Most collectors default to enabled; `sacct_efficiency` defaults to disabled. | see below |
 | `--collector.nodes.feature-set` | Include `active_feature_set` label in `slurm_nodes_*` metrics | `true` |
 | `--collector.fairshare.user-metrics` | Collect per-user fairshare metrics (`slurm_user_fairshare_*`). Disable on clusters with many users to reduce cardinality. | `true` |
 | `--web.disable-exporter-metrics` | Exclude Go runtime and process metrics from `/metrics` | `false` |
 
-**Available collectors:** `accounts`, `cpus`, `fairshare`, `gpus`, `info`, `node`, `nodes`, `partitions`, `queue`, `reservations`, `reservation_nodes`, `scheduler`, `users`, `licenses`
+**Available collectors:**
+
+| Collector | Default | Description |
+|-----------|---------|-------------|
+| `accounts` | enabled | Job stats by Slurm account |
+| `cpus` | enabled | Cluster-wide CPU states |
+| `drain_reason` | enabled | Node drain/down reason and timestamp |
+| `fairshare` | enabled | Fairshare factor per account and user |
+| `gpus` | enabled | Cluster-wide GPU states |
+| `info` | enabled | Slurm binary versions |
+| `licenses` | enabled | License counts |
+| `node` | enabled | Per-node CPU and memory detail |
+| `nodes` | enabled | Aggregated node states by partition |
+| `partitions` | enabled | CPU states and jobs per partition |
+| `queue` | enabled | Job states and core counts by user/partition |
+| `reservation_nodes` | enabled | Node states per reservation |
+| `reservations` | enabled | Active reservation details |
+| `sacct_efficiency` | **disabled** | CPU/mem job efficiency via sacct (queries SlurmDBD) |
+| `scheduler` | enabled | slurmctld internals and RPC stats |
+| `users` | enabled | Job stats by user |
 
 ### Enabling and Disabling Collectors
 
-By default, all collectors are **enabled**.
+Most collectors are **enabled** by default. The `sacct_efficiency` collector is **disabled** by default because it queries SlurmDBD and can be expensive — enable it explicitly with `--collector.sacct_efficiency`.
 
-You can control which collectors are active using the `--collector.<name>` and `--no-collector.<name>` flags.
+Use `--[no-]collector.<name>` (kingpin boolean syntax) to enable or disable individual collectors.
 
 **Example: Disable the `scheduler` and `partitions` collectors**
 
