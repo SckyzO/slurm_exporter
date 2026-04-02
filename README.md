@@ -684,6 +684,16 @@ done
 </td>
 <td align="center" width="33%">
 
+**Exporter Performance** *(new in v1.8.0)*<br>
+<a href="dashboards_grafana/screenshots/exporter-perf-1.png">
+  <img src="dashboards_grafana/screenshots/exporter-perf-1.png" width="100%" alt="Exporter Performance">
+</a>
+
+</td>
+</tr>
+<tr>
+<td align="center" colspan="3">
+
 *All 10 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
 
 </td>

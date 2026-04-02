@@ -19,6 +19,7 @@ dashboards_grafana/screenshots/*
 !dashboards_grafana/screenshots/scheduler-*.png
 !dashboards_grafana/screenshots/health-*.png
 !dashboards_grafana/screenshots/reservations-*.png
+!dashboards_grafana/screenshots/exporter-perf-*.png
 
 # Claude instructions file
 CLAUDE.md
