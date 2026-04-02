@@ -38,6 +38,11 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--[no-]collector.<name>` | Enable or disable a collector (kingpin boolean flag). Most collectors default to enabled; `sacct_efficiency` defaults to disabled. | see below |
 | `--collector.nodes.feature-set` | Include `active_feature_set` label in `slurm_nodes_*` metrics | `true` |
 | `--collector.fairshare.user-metrics` | Collect per-user fairshare metrics (`slurm_user_fairshare_*`). Disable on clusters with many users to reduce cardinality. | `true` |
+| `--collector.queue.user-label` | Include `user` label in `slurm_queue_*` metrics. Disable on clusters with many users to reduce cardinality. | `true` |
+| `--collector.sacct_efficiency` | Enable the sacct_efficiency collector (disabled by default — queries SlurmDBD). | `false` |
+| `--collector.sacct.interval` | Background refresh interval for sacct_efficiency. | `5m` |
+| `--collector.sacct.lookback` | Time window for sacct_efficiency queries. | `1h` |
+| `--slurm.bin-path` | Directory containing Slurm binaries. Defaults to `$PATH`. Required when running in containers with host-mounted binaries. | (empty) |
 | `--web.disable-exporter-metrics` | Exclude Go runtime and process metrics from `/metrics` | `false` |
 
 **Available collectors:**

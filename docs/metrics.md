@@ -6,7 +6,7 @@
 
 The exporter provides a wide range of metrics, each collected by a specific, toggleable collector.
 
-> For full Prometheus text-format output examples per collector, see **[docs/metrics-examples.md](docs/metrics-examples.md)**.
+> For full Prometheus text-format output examples per collector, see **[docs/metrics-examples.md](metrics-examples.md)**.
 
 ### `accounts` Collector
 
@@ -244,3 +244,48 @@ Provides job statistics aggregated by user.
 
 ---
 
+---
+
+### `drain_reason` Collector
+
+Provides the drain/down reason for degraded nodes. Only emits metrics when
+nodes are in `drain` or `down` state with an admin-set reason.
+Zero cardinality overhead on healthy clusters.
+
+- **Command:** `sinfo -h -N -o "%N|%E|%H|%T"`
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_node_drain_reason_info` | Always 1 — use labels for the reason and timestamp | `node`, `reason`, `since` |
+
+---
+
+### `sacct_efficiency` Collector
+
+Aggregated job efficiency metrics from `sacct`. **Disabled by default.**
+Enable with `--collector.sacct_efficiency`.
+Requires `JobAcctGatherType=jobacct_gather/linux|cgroup` in `slurm.conf`.
+
+- **Command:** `sacct -X -P -n --starttime <lookback> --format User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED`
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_job_cpu_efficiency_avg` | Avg CPU efficiency (TotalCPU/CPUTime×100) over lookback window | `account`, `user` |
+| `slurm_job_mem_efficiency_avg` | Avg memory efficiency (MaxRSS/ReqMem×100) over lookback window | `account`, `user` |
+| `slurm_job_count_completed` | Jobs completed in lookback window | `account`, `user` |
+| `slurm_job_cpu_hours_allocated` | Allocated CPU-hours in lookback window | `account`, `user` |
+| `slurm_sacct_last_refresh_timestamp_seconds` | Unix timestamp of last sacct refresh | (none) |
+
+---
+
+### Internal Exporter Metrics
+
+Self-monitoring metrics exposed by the exporter itself.
+
+| Metric | Type | Description | Labels |
+|---|---|---|---|
+| `slurm_exporter_command_duration_seconds` | histogram | Duration of each Slurm CLI command | `command` |
+| `slurm_exporter_command_errors_total` | counter | CLI command execution errors | `command` |
+| `slurm_exporter_cache_age_seconds` | gauge | Age of internal caches (scontrol) | `cache` |
+| `slurm_exporter_collector_success` | gauge | 1=OK, 0=FAIL per collector | `collector` |
+| `slurm_exporter_collector_duration_seconds` | gauge | Last scrape duration per collector | `collector` |
