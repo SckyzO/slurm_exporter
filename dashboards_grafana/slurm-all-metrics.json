@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "All metrics exposed by slurm_exporter \u2014 reference dashboard for admins/users to copy panels into their own dashboards. GPU panels included (show 0 if no GPUs).",
+  "description": "All metrics exposed by slurm_exporter — reference dashboard for admins/users to copy panels into their own dashboards. GPU panels included (show 0 if no GPUs).",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -24,7 +24,7 @@
     {
       "type": "row",
       "id": 2,
-      "title": "\u2500\u2500 Cluster Overview \u2500\u2500",
+      "title": "── Cluster Overview ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -396,7 +396,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_cpus_alloc / slurm_cpus_total * 100",
+          "expr": "slurm_cpus_alloc / clamp_min(slurm_cpus_total, 1) * 100",
           "legendFormat": "%",
           "refId": "A"
         }
@@ -699,7 +699,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_down)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"down.*\"}))",
           "legendFormat": "",
           "refId": "A"
         }
@@ -761,7 +761,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_drain)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"drain.*\"}))",
           "legendFormat": "",
           "refId": "A"
         }
@@ -770,7 +770,7 @@
     {
       "type": "row",
       "id": 15,
-      "title": "\u2500\u2500 CPU \u2500\u2500",
+      "title": "── CPU ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -786,7 +786,7 @@
       },
       "type": "timeseries",
       "id": 16,
-      "title": "slurm_cpus_alloc \u2014 Allocated CPUs",
+      "title": "slurm_cpus_alloc — Allocated CPUs",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -870,7 +870,7 @@
       },
       "type": "timeseries",
       "id": 17,
-      "title": "slurm_cpus_alloc/total \u2014 CPU Utilization %",
+      "title": "slurm_cpus_alloc/total — CPU Utilization %",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -915,7 +915,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_cpus_alloc / slurm_cpus_total * 100",
+          "expr": "slurm_cpus_alloc / clamp_min(slurm_cpus_total, 1) * 100",
           "legendFormat": "CPU %",
           "refId": "A"
         }
@@ -928,7 +928,7 @@
       },
       "type": "timeseries",
       "id": 18,
-      "title": "slurm_partition_cpus_allocated \u2014 CPU alloc per partition",
+      "title": "slurm_partition_cpus_allocated — CPU alloc per partition",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -985,7 +985,7 @@
       },
       "type": "timeseries",
       "id": 19,
-      "title": "slurm_partition_cpus_idle \u2014 CPU idle per partition",
+      "title": "slurm_partition_cpus_idle — CPU idle per partition",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -1042,7 +1042,7 @@
       },
       "type": "timeseries",
       "id": 20,
-      "title": "slurm_partition_cpus_total \u2014 CPU total per partition",
+      "title": "slurm_partition_cpus_total — CPU total per partition",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -1095,7 +1095,7 @@
     {
       "type": "row",
       "id": 21,
-      "title": "\u2500\u2500 Memory (per-node) \u2500\u2500",
+      "title": "── Memory (per-node) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -1111,7 +1111,7 @@
       },
       "type": "timeseries",
       "id": 22,
-      "title": "slurm_node_mem_alloc \u2014 Memory allocated per node (top 10)",
+      "title": "slurm_node_mem_alloc — Memory allocated per node (top 10)",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -1155,7 +1155,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum by(node) (slurm_node_mem_alloc)) / 1024",
+          "expr": "topk(10, max by(node) (slurm_node_mem_alloc)) / 1024",
           "legendFormat": "{{node}}",
           "refId": "A"
         }
@@ -1168,7 +1168,7 @@
       },
       "type": "timeseries",
       "id": 23,
-      "title": "slurm_node_mem_total \u2014 Memory total per node (top 10)",
+      "title": "slurm_node_mem_total — Memory total per node (top 10)",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -1212,7 +1212,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum by(node) (slurm_node_mem_total)) / 1024",
+          "expr": "topk(10, max by(node) (slurm_node_mem_total)) / 1024",
           "legendFormat": "{{node}}",
           "refId": "A"
         }
@@ -1270,7 +1270,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum by(node) (slurm_node_mem_alloc) / sum by(node) (slurm_node_mem_total) * 100)",
+          "expr": "topk(10, max by(node) (slurm_node_mem_alloc) / clamp_min(max by(node) (slurm_node_mem_total), 1) * 100)",
           "legendFormat": "{{node}}",
           "refId": "A"
         }
@@ -1279,7 +1279,7 @@
     {
       "type": "row",
       "id": 25,
-      "title": "\u2500\u2500 GPU \u2500\u2500",
+      "title": "── GPU ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -1295,7 +1295,7 @@
       },
       "type": "timeseries",
       "id": 26,
-      "title": "slurm_gpus_total/alloc/idle/other \u2014 Cluster GPU states",
+      "title": "slurm_gpus_total/alloc/idle/other — Cluster GPU states",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -1379,7 +1379,7 @@
       },
       "type": "timeseries",
       "id": 27,
-      "title": "slurm_gpus_utilization \u2014 GPU utilization ratio",
+      "title": "slurm_gpus_utilization — GPU utilization ratio",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -1437,7 +1437,7 @@
       },
       "type": "timeseries",
       "id": 28,
-      "title": "slurm_partition_gpus_allocated/idle \u2014 GPU per partition",
+      "title": "slurm_partition_gpus_allocated/idle — GPU per partition",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -1503,7 +1503,7 @@
       },
       "type": "timeseries",
       "id": 29,
-      "title": "slurm_account_gpus_running \u2014 GPU running per account",
+      "title": "slurm_account_gpus_running — GPU running per account",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -1560,7 +1560,7 @@
       },
       "type": "timeseries",
       "id": 30,
-      "title": "slurm_user_gpus_running \u2014 GPU running per user",
+      "title": "slurm_user_gpus_running — GPU running per user",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -1613,7 +1613,7 @@
     {
       "type": "row",
       "id": 31,
-      "title": "\u2500\u2500 Node States \u2500\u2500",
+      "title": "── Node States ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -1674,7 +1674,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_alloc)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"alloc.*\"}))",
           "legendFormat": "Alloc",
           "refId": "A"
         }
@@ -1732,7 +1732,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_idle)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"idle.*\"}))",
           "legendFormat": "Idle",
           "refId": "A"
         }
@@ -1790,7 +1790,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_mix)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"mix.*\"}))",
           "legendFormat": "Mix",
           "refId": "A"
         }
@@ -1848,7 +1848,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_down)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"down.*\"}))",
           "legendFormat": "Down",
           "refId": "A"
         }
@@ -1906,7 +1906,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_drain)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"drain.*\"}))",
           "legendFormat": "Drain",
           "refId": "A"
         }
@@ -1964,7 +1964,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_maint)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"maint.*\"}))",
           "legendFormat": "Maint",
           "refId": "A"
         }
@@ -2022,7 +2022,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_comp)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"comp.*\"}))",
           "legendFormat": "Comp",
           "refId": "A"
         }
@@ -2080,7 +2080,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_err)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"err.*\"}))",
           "legendFormat": "Err",
           "refId": "A"
         }
@@ -2138,7 +2138,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_fail)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"fail.*\"}))",
           "legendFormat": "Fail",
           "refId": "A"
         }
@@ -2196,7 +2196,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_inval)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"inval.*\"}))",
           "legendFormat": "Inval",
           "refId": "A"
         }
@@ -2254,7 +2254,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_planned)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"plan.*\"}))",
           "legendFormat": "Planned",
           "refId": "A"
         }
@@ -2312,7 +2312,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_resv)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"resv.*\"}))",
           "legendFormat": "Resv",
           "refId": "A"
         }
@@ -2325,7 +2325,7 @@
       },
       "type": "timeseries",
       "id": 44,
-      "title": "slurm_nodes_* \u2014 All node states over time",
+      "title": "slurm_nodes_* — All node states over time",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -2369,7 +2369,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_alloc)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"alloc.*\"}))",
           "legendFormat": "Alloc",
           "refId": "A"
         },
@@ -2378,7 +2378,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_idle)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"idle.*\"}))",
           "legendFormat": "Idle",
           "refId": "B"
         },
@@ -2387,7 +2387,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_mix)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"mix.*\"}))",
           "legendFormat": "Mix",
           "refId": "C"
         },
@@ -2396,7 +2396,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_down)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"down.*\"}))",
           "legendFormat": "Down",
           "refId": "D"
         },
@@ -2405,7 +2405,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_drain)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"drain.*\"}))",
           "legendFormat": "Drain",
           "refId": "E"
         },
@@ -2414,7 +2414,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_maint)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"maint.*\"}))",
           "legendFormat": "Maint",
           "refId": "F"
         },
@@ -2423,7 +2423,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_resv)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"resv.*\"}))",
           "legendFormat": "Resv",
           "refId": "G"
         },
@@ -2432,7 +2432,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_comp)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"comp.*\"}))",
           "legendFormat": "Comp",
           "refId": "H"
         }
@@ -2441,7 +2441,7 @@
     {
       "type": "row",
       "id": 45,
-      "title": "\u2500\u2500 Per-Node Metrics \u2500\u2500",
+      "title": "── Per-Node Metrics ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -2457,7 +2457,7 @@
       },
       "type": "timeseries",
       "id": 46,
-      "title": "slurm_node_cpu_alloc \u2014 CPU allocated per node (top 10)",
+      "title": "slurm_node_cpu_alloc — CPU allocated per node (top 10)",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -2501,7 +2501,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum by(node) (slurm_node_cpu_alloc))",
+          "expr": "topk(10, max by(node) (slurm_node_cpu_alloc))",
           "legendFormat": "{{node}}",
           "refId": "A"
         }
@@ -2514,7 +2514,7 @@
       },
       "type": "timeseries",
       "id": 47,
-      "title": "slurm_node_cpu_total \u2014 CPU total per node (top 10)",
+      "title": "slurm_node_cpu_total — CPU total per node (top 10)",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -2558,7 +2558,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "topk(10, sum by(node) (slurm_node_cpu_total))",
+          "expr": "topk(10, max by(node) (slurm_node_cpu_total))",
           "legendFormat": "{{node}}",
           "refId": "A"
         }
@@ -2571,7 +2571,7 @@
       },
       "type": "timeseries",
       "id": 48,
-      "title": "slurm_node_status \u2014 Node up status per node/partition",
+      "title": "slurm_node_status — Node up status per node/partition",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -2624,7 +2624,7 @@
     {
       "type": "row",
       "id": 49,
-      "title": "\u2500\u2500 Global Job Totals (slurm_jobs_*) \u2014 always present even at 0 \u2500\u2500",
+      "title": "── Global Job Totals (slurm_jobs_*) — always present even at 0 ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -3336,7 +3336,7 @@
       },
       "type": "timeseries",
       "id": 62,
-      "title": "slurm_jobs_* \u2014 All global job states over time",
+      "title": "slurm_jobs_* — All global job states over time",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -3456,7 +3456,7 @@
       },
       "type": "timeseries",
       "id": 63,
-      "title": "slurm_jobs_cores_* \u2014 Global cores",
+      "title": "slurm_jobs_cores_* — Global cores",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -3518,7 +3518,7 @@
     {
       "type": "row",
       "id": 64,
-      "title": "\u2500\u2500 Queue per User & Partition (slurm_queue_* / slurm_cores_*) \u2500\u2500",
+      "title": "── Queue per User & Partition (slurm_queue_* / slurm_cores_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -3534,7 +3534,7 @@
       },
       "type": "timeseries",
       "id": 65,
-      "title": "slurm_queue_running \u2014 Running jobs per user/partition",
+      "title": "slurm_queue_running — Running jobs per user/partition",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -3591,7 +3591,7 @@
       },
       "type": "timeseries",
       "id": 66,
-      "title": "slurm_queue_pending \u2014 Pending jobs per user/partition/reason",
+      "title": "slurm_queue_pending — Pending jobs per user/partition/reason",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -3648,7 +3648,7 @@
       },
       "type": "timeseries",
       "id": 67,
-      "title": "slurm_cores_running \u2014 Cores running per user/partition",
+      "title": "slurm_cores_running — Cores running per user/partition",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -3705,7 +3705,7 @@
       },
       "type": "timeseries",
       "id": 68,
-      "title": "slurm_cores_pending \u2014 Cores pending per user/partition/reason",
+      "title": "slurm_cores_pending — Cores pending per user/partition/reason",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -3851,7 +3851,7 @@
     {
       "type": "row",
       "id": 70,
-      "title": "\u2500\u2500 Users (slurm_user_*) \u2500\u2500",
+      "title": "── Users (slurm_user_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -3867,7 +3867,7 @@
       },
       "type": "timeseries",
       "id": 71,
-      "title": "slurm_user_jobs_running \u2014 Running jobs per user",
+      "title": "slurm_user_jobs_running — Running jobs per user",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -3924,7 +3924,7 @@
       },
       "type": "timeseries",
       "id": 72,
-      "title": "slurm_user_jobs_pending \u2014 Pending jobs per user",
+      "title": "slurm_user_jobs_pending — Pending jobs per user",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -3981,7 +3981,7 @@
       },
       "type": "timeseries",
       "id": 73,
-      "title": "slurm_user_cpus_running \u2014 CPUs per user",
+      "title": "slurm_user_cpus_running — CPUs per user",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -4038,7 +4038,7 @@
       },
       "type": "timeseries",
       "id": 74,
-      "title": "slurm_user_gpus_running \u2014 GPUs per user",
+      "title": "slurm_user_gpus_running — GPUs per user",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -4095,7 +4095,7 @@
       },
       "type": "timeseries",
       "id": 75,
-      "title": "slurm_user_rpc_stats \u2014 RPC count per user",
+      "title": "slurm_user_rpc_stats — RPC count per user",
       "gridPos": {
         "h": 7,
         "w": 12,
@@ -4157,7 +4157,7 @@
     {
       "type": "row",
       "id": 76,
-      "title": "\u2500\u2500 Accounts (slurm_account_*) \u2500\u2500",
+      "title": "── Accounts (slurm_account_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -4173,7 +4173,7 @@
       },
       "type": "timeseries",
       "id": 77,
-      "title": "slurm_account_jobs_running \u2014 Running jobs per account",
+      "title": "slurm_account_jobs_running — Running jobs per account",
       "gridPos": {
         "h": 7,
         "w": 6,
@@ -4230,7 +4230,7 @@
       },
       "type": "timeseries",
       "id": 78,
-      "title": "slurm_account_jobs_pending \u2014 Pending per account",
+      "title": "slurm_account_jobs_pending — Pending per account",
       "gridPos": {
         "h": 7,
         "w": 6,
@@ -4287,7 +4287,7 @@
       },
       "type": "timeseries",
       "id": 79,
-      "title": "slurm_account_cpus_running \u2014 CPUs per account",
+      "title": "slurm_account_cpus_running — CPUs per account",
       "gridPos": {
         "h": 7,
         "w": 6,
@@ -4344,7 +4344,7 @@
       },
       "type": "timeseries",
       "id": 80,
-      "title": "slurm_account_gpus_running \u2014 GPUs per account",
+      "title": "slurm_account_gpus_running — GPUs per account",
       "gridPos": {
         "h": 7,
         "w": 6,
@@ -4401,7 +4401,7 @@
       },
       "type": "timeseries",
       "id": 81,
-      "title": "slurm_account_fairshare \u2014 FairShare per account",
+      "title": "slurm_account_fairshare — FairShare per account",
       "gridPos": {
         "h": 7,
         "w": 24,
@@ -4455,7 +4455,7 @@
     {
       "type": "row",
       "id": 110,
-      "title": "slurm_user_fairshare_* \u2014 User FairShare (v1.7.0)",
+      "title": "slurm_user_fairshare_* — User FairShare (v1.7.0)",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -4471,7 +4471,7 @@
       },
       "type": "timeseries",
       "id": 111,
-      "title": "slurm_user_fairshare \u2014 FairShare factor per user",
+      "title": "slurm_user_fairshare — FairShare factor per user",
       "description": "Requires --collector.fairshare.user-metrics=true (default).",
       "gridPos": {
         "h": 6,
@@ -4532,7 +4532,7 @@
       },
       "type": "timeseries",
       "id": 112,
-      "title": "slurm_user_fairshare_norm_usage \u2014 Normalized usage per user",
+      "title": "slurm_user_fairshare_norm_usage — Normalized usage per user",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -4588,7 +4588,7 @@
       },
       "type": "timeseries",
       "id": 113,
-      "title": "slurm_user_fairshare_raw_usage_cpu_seconds \u2014 CPU-seconds per user",
+      "title": "slurm_user_fairshare_raw_usage_cpu_seconds — CPU-seconds per user",
       "description": "Decay-weighted historical CPU usage in seconds.",
       "gridPos": {
         "h": 6,
@@ -4647,7 +4647,7 @@
       },
       "type": "timeseries",
       "id": 114,
-      "title": "slurm_account_fairshare_raw_usage_cpu_seconds \u2014 CPU-seconds per account",
+      "title": "slurm_account_fairshare_raw_usage_cpu_seconds — CPU-seconds per account",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -4705,7 +4705,7 @@
       },
       "type": "timeseries",
       "id": 115,
-      "title": "slurm_user_fairshare_norm_shares \u2014 Normalized shares per user",
+      "title": "slurm_user_fairshare_norm_shares — Normalized shares per user",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -4761,7 +4761,7 @@
       },
       "type": "timeseries",
       "id": 116,
-      "title": "slurm_account_fairshare_norm_shares / norm_usage \u2014 Account shares vs usage",
+      "title": "slurm_account_fairshare_norm_shares / norm_usage — Account shares vs usage",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -4822,7 +4822,7 @@
     {
       "type": "row",
       "id": 82,
-      "title": "\u2500\u2500 Partitions (slurm_partition_*) \u2500\u2500",
+      "title": "── Partitions (slurm_partition_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -5080,7 +5080,7 @@
     {
       "type": "row",
       "id": 87,
-      "title": "\u2500\u2500 Scheduler (slurm_scheduler_*) \u2500\u2500",
+      "title": "── Scheduler (slurm_scheduler_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -5296,7 +5296,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "\u00b5s",
+          "unit": "µs",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -5354,7 +5354,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "\u00b5s",
+          "unit": "µs",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -5412,7 +5412,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "\u00b5s",
+          "unit": "µs",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -5444,7 +5444,7 @@
       },
       "type": "timeseries",
       "id": 94,
-      "title": "slurm_scheduler_last_cycle/mean_cycle \u2014 Scheduler cycle times (\u00b5s)",
+      "title": "slurm_scheduler_last_cycle/mean_cycle — Scheduler cycle times (µs)",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -5478,7 +5478,7 @@
             "showPoints": "never",
             "spanNulls": false
           },
-          "unit": "\u00b5s"
+          "unit": "µs"
         },
         "overrides": []
       },
@@ -5510,7 +5510,7 @@
       },
       "type": "timeseries",
       "id": 95,
-      "title": "slurm_scheduler_backfill_*_cycle \u2014 Backfill cycle times (\u00b5s)",
+      "title": "slurm_scheduler_backfill_*_cycle — Backfill cycle times (µs)",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -5544,7 +5544,7 @@
             "showPoints": "never",
             "spanNulls": false
           },
-          "unit": "\u00b5s"
+          "unit": "µs"
         },
         "overrides": []
       },
@@ -5576,7 +5576,7 @@
       },
       "type": "timeseries",
       "id": 96,
-      "title": "slurm_scheduler_backfilled_* \u2014 Backfilled job counters",
+      "title": "slurm_scheduler_backfilled_* — Backfilled job counters",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -5660,7 +5660,7 @@
       },
       "type": "bargauge",
       "id": 97,
-      "title": "slurm_rpc_stats \u2014 RPC call count per operation (top 15)",
+      "title": "slurm_rpc_stats — RPC call count per operation (top 15)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -5717,7 +5717,7 @@
       },
       "type": "bargauge",
       "id": 98,
-      "title": "slurm_rpc_stats_avg_time \u2014 RPC avg time per operation (top 15, \u00b5s)",
+      "title": "slurm_rpc_stats_avg_time — RPC avg time per operation (top 15, µs)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -5770,7 +5770,7 @@
     {
       "type": "row",
       "id": 99,
-      "title": "\u2500\u2500 Reservations (slurm_reservation_*) \u2500\u2500",
+      "title": "── Reservations (slurm_reservation_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -5786,7 +5786,7 @@
       },
       "type": "timeseries",
       "id": 100,
-      "title": "slurm_reservation_node_count \u2014 Node count per reservation",
+      "title": "slurm_reservation_node_count — Node count per reservation",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -5843,7 +5843,7 @@
       },
       "type": "timeseries",
       "id": 101,
-      "title": "slurm_reservation_core_count \u2014 Core count per reservation",
+      "title": "slurm_reservation_core_count — Core count per reservation",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -5900,7 +5900,7 @@
       },
       "type": "timeseries",
       "id": 102,
-      "title": "slurm_reservation_nodes_* \u2014 Node states per reservation",
+      "title": "slurm_reservation_nodes_* — Node states per reservation",
       "gridPos": {
         "h": 7,
         "w": 8,
@@ -5980,7 +5980,7 @@
     {
       "type": "row",
       "id": 103,
-      "title": "\u2500\u2500 Licenses (slurm_license_*) \u2500\u2500",
+      "title": "── Licenses (slurm_license_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -5996,7 +5996,7 @@
       },
       "type": "timeseries",
       "id": 104,
-      "title": "slurm_license_total/used/free/reserved \u2014 License usage",
+      "title": "slurm_license_total/used/free/reserved — License usage",
       "gridPos": {
         "h": 7,
         "w": 24,
@@ -6077,7 +6077,7 @@
     {
       "type": "row",
       "id": 105,
-      "title": "\u2500\u2500 Exporter Health (slurm_exporter_*) \u2500\u2500",
+      "title": "── Exporter Health (slurm_exporter_*) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -6093,7 +6093,7 @@
       },
       "type": "stat",
       "id": 106,
-      "title": "slurm_exporter_collector_success \u2014 Collector status (OK/FAIL)",
+      "title": "slurm_exporter_collector_success — Collector status (OK/FAIL)",
       "gridPos": {
         "h": 6,
         "w": 24,
@@ -6172,7 +6172,7 @@
       },
       "type": "timeseries",
       "id": 107,
-      "title": "slurm_exporter_collector_duration_seconds \u2014 Scrape duration per collector",
+      "title": "slurm_exporter_collector_duration_seconds — Scrape duration per collector",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -6225,7 +6225,7 @@
     {
       "type": "row",
       "id": 108,
-      "title": "\u2500\u2500 Slurm Info (slurm_info) \u2500\u2500",
+      "title": "── Slurm Info (slurm_info) ──",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -6241,7 +6241,7 @@
       },
       "type": "stat",
       "id": 109,
-      "title": "slurm_info \u2014 Slurm binary versions",
+      "title": "slurm_info — Slurm binary versions",
       "gridPos": {
         "h": 4,
         "w": 24,

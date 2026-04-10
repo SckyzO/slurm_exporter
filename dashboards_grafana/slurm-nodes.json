@@ -144,7 +144,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_idle)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"idle.*\"}))",
           "legendFormat": "Idle",
           "refId": "A",
           "instant": true
@@ -203,7 +203,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_mix)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"mix.*\"}))",
           "legendFormat": "Mixed",
           "refId": "A",
           "instant": true
@@ -262,7 +262,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_alloc)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"alloc.*\"}))",
           "legendFormat": "Allocated",
           "refId": "A",
           "instant": true
@@ -325,7 +325,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_down)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"down.*\"}))",
           "legendFormat": "Down",
           "refId": "A",
           "instant": true
@@ -388,7 +388,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_drain)",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"drain.*\"}))",
           "legendFormat": "Drain",
           "refId": "A",
           "instant": true
@@ -415,7 +415,7 @@
       "type": "barchart",
       "id": 11,
       "title": "Node States per Partition",
-      "description": "Distribution of node states per partition. Scalable \u2014 based on aggregate metrics.",
+      "description": "Distribution of node states per partition. Scalable — based on aggregate metrics.",
       "gridPos": {
         "h": 8,
         "w": 14,
@@ -839,7 +839,7 @@
       "type": "table",
       "id": 13,
       "title": "Down & Drain Nodes",
-      "description": "Nodes in degraded state. Scalable to any cluster size \u2014 only shows problematic nodes. Empty table = healthy cluster.",
+      "description": "Nodes in degraded state. Scalable to any cluster size — only shows problematic nodes. Empty table = healthy cluster.",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -964,7 +964,7 @@
     {
       "type": "row",
       "id": 103,
-      "title": "Node CPU & Memory Detail \u2014 Partition: $partition",
+      "title": "Node CPU & Memory Detail — Partition: $partition",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -1275,7 +1275,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_cpu_alloc{partition=~\"${partition:regex}\"} / slurm_node_cpu_total{partition=~\"${partition:regex}\"} * 100",
+          "expr": "slurm_node_cpu_alloc{partition=~\"${partition:regex}\"} / clamp_min(slurm_node_cpu_total{partition=~\"${partition:regex}\"}, 1) * 100",
           "legendFormat": "{{node}}",
           "refId": "C",
           "instant": true,
@@ -1308,7 +1308,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_node_mem_alloc{partition=~\"${partition:regex}\"} / slurm_node_mem_total{partition=~\"${partition:regex}\"} * 100",
+          "expr": "slurm_node_mem_alloc{partition=~\"${partition:regex}\"} / clamp_min(slurm_node_mem_total{partition=~\"${partition:regex}\"}, 1) * 100",
           "legendFormat": "{{node}}",
           "refId": "F",
           "instant": true,
@@ -1319,7 +1319,7 @@
     {
       "type": "row",
       "id": 104,
-      "title": "Node History \u2014 Partition: $partition",
+      "title": "Node History — Partition: $partition",
       "collapsed": false,
       "gridPos": {
         "h": 1,

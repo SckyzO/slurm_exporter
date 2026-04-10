@@ -24,7 +24,7 @@
     {
       "type": "row",
       "id": 200,
-      "title": "Cluster Utilization \u2014 Current & Historical",
+      "title": "Cluster Utilization — Current & Historical",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -94,7 +94,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_cpus_alloc{instance=~\"$instance\"} / slurm_cpus_total{instance=~\"$instance\"} * 100",
+          "expr": "slurm_cpus_alloc{instance=~\"$instance\"} / clamp_min(slurm_cpus_total{instance=~\"$instance\"}, 1) * 100",
           "legendFormat": "CPU %",
           "refId": "A",
           "instant": true
@@ -162,7 +162,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "(sum(slurm_nodes_alloc{instance=~\"$instance\"}) + sum(slurm_nodes_mix{instance=~\"$instance\"})) / sum(slurm_nodes_total{instance=~\"$instance\"}) * 100",
+          "expr": "(count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"alloc.*\"})) + count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"mix.*\"}))) / sum(slurm_nodes_total{instance=~\"$instance\"}) * 100",
           "legendFormat": "Node %",
           "refId": "A",
           "instant": true
@@ -230,7 +230,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_node_mem_alloc{instance=~\"$instance\"}) / sum(slurm_node_mem_total{instance=~\"$instance\"}) * 100",
+          "expr": "sum(max by(node)(slurm_node_mem_alloc{instance=~\"$instance\"})) / clamp_min(sum(max by(node)(slurm_node_mem_total{instance=~\"$instance\"})), 1) * 100",
           "legendFormat": "Mem %",
           "refId": "A",
           "instant": true
@@ -366,7 +366,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "avg_over_time((slurm_cpus_alloc{instance=~\"$instance\"} / slurm_cpus_total{instance=~\"$instance\"} * 100)[1h:5m])",
+          "expr": "avg_over_time((slurm_cpus_alloc{instance=~\"$instance\"} / clamp_min(slurm_cpus_total{instance=~\"$instance\"}, 1) * 100)[1h:5m])",
           "legendFormat": "Avg",
           "refId": "A"
         }
@@ -433,7 +433,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "avg_over_time(((sum(slurm_nodes_alloc{instance=~\"$instance\"}) + sum(slurm_nodes_mix{instance=~\"$instance\"})) / sum(slurm_nodes_total{instance=~\"$instance\"}) * 100)[1h:5m])",
+          "expr": "avg_over_time(((count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"alloc.*\"})) + count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"mix.*\"}))) / sum(slurm_nodes_total{instance=~\"$instance\"}) * 100)[1h:5m])",
           "legendFormat": "Avg",
           "refId": "A"
         }
@@ -500,7 +500,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max_over_time((slurm_cpus_alloc{instance=~\"$instance\"} / slurm_cpus_total{instance=~\"$instance\"} * 100)[1h:5m])",
+          "expr": "max_over_time((slurm_cpus_alloc{instance=~\"$instance\"} / clamp_min(slurm_cpus_total{instance=~\"$instance\"}, 1) * 100)[1h:5m])",
           "legendFormat": "Max",
           "refId": "A"
         }
@@ -838,7 +838,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_cpus_alloc{instance=~\"$instance\"} / slurm_cpus_total{instance=~\"$instance\"} * 100",
+          "expr": "slurm_cpus_alloc{instance=~\"$instance\"} / clamp_min(slurm_cpus_total{instance=~\"$instance\"}, 1) * 100",
           "legendFormat": "CPU Util %",
           "refId": "A"
         },
@@ -847,7 +847,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "avg_over_time((slurm_cpus_alloc{instance=~\"$instance\"} / slurm_cpus_total{instance=~\"$instance\"} * 100)[1h:5m])",
+          "expr": "avg_over_time((slurm_cpus_alloc{instance=~\"$instance\"} / clamp_min(slurm_cpus_total{instance=~\"$instance\"}, 1) * 100)[1h:5m])",
           "legendFormat": "1h avg",
           "refId": "B"
         }
@@ -910,7 +910,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_node_mem_alloc{instance=~\"$instance\"}) / sum(slurm_node_mem_total{instance=~\"$instance\"}) * 100",
+          "expr": "sum(max by(node)(slurm_node_mem_alloc{instance=~\"$instance\"})) / clamp_min(sum(max by(node)(slurm_node_mem_total{instance=~\"$instance\"})), 1) * 100",
           "legendFormat": "Mem Util %",
           "refId": "A"
         }
@@ -1121,7 +1121,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_idle{instance=~\"$instance\"})",
+          "expr": "count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"idle.*\"}))",
           "legendFormat": "Idle",
           "refId": "A"
         },
@@ -1130,7 +1130,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_mix{instance=~\"$instance\"})",
+          "expr": "count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"mix.*\"}))",
           "legendFormat": "Mixed",
           "refId": "B"
         },
@@ -1139,7 +1139,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_alloc{instance=~\"$instance\"})",
+          "expr": "count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"alloc.*\"}))",
           "legendFormat": "Allocated",
           "refId": "C"
         },
@@ -1148,7 +1148,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_down{instance=~\"$instance\"})",
+          "expr": "count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"down.*\"}))",
           "legendFormat": "Down",
           "refId": "D"
         },
@@ -1157,7 +1157,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(slurm_nodes_drain{instance=~\"$instance\"})",
+          "expr": "count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"drain.*\"}))",
           "legendFormat": "Drain",
           "refId": "E"
         }
@@ -1306,7 +1306,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_nodes_alloc{instance=~\"$instance\"} + slurm_nodes_comp{instance=~\"$instance\"}",
+          "expr": "count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"alloc.*\"})) + count(count by(node)(slurm_node_status{instance=~\"$instance\",status=~\"comp.*\"}))",
           "legendFormat": "Allocated+Completing",
           "refId": "A"
         },
@@ -2869,7 +2869,7 @@
       },
       "type": "stat",
       "id": 94,
-      "title": "Last Cycle \u00b5s",
+      "title": "Last Cycle µs",
       "gridPos": {
         "h": 5,
         "w": 4,
@@ -2895,7 +2895,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "\u00b5s",
+          "unit": "µs",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -2927,7 +2927,7 @@
       },
       "type": "timeseries",
       "id": 95,
-      "title": "Scheduler Cycles (\u00b5s)",
+      "title": "Scheduler Cycles (µs)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -2966,7 +2966,7 @@
               "mode": "none"
             }
           },
-          "unit": "\u00b5s"
+          "unit": "µs"
         },
         "overrides": []
       },
@@ -2998,7 +2998,7 @@
       },
       "type": "timeseries",
       "id": 96,
-      "title": "Backfill Cycles (\u00b5s)",
+      "title": "Backfill Cycles (µs)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -3037,7 +3037,7 @@
               "mode": "none"
             }
           },
-          "unit": "\u00b5s"
+          "unit": "µs"
         },
         "overrides": []
       },
