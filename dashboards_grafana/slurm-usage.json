@@ -3242,7 +3242,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Slurm - Cluster Usage Statistics",
+  "title": "04 - Cluster Usage",
   "uid": "slurm-usage",
   "version": 1
 }

@@ -1947,7 +1947,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Slurm - Cluster Overview",
+  "title": "01 - Cluster Overview",
   "uid": "slurm-overview",
   "version": 1
 }

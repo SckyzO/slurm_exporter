@@ -158,7 +158,7 @@
       },
       "type": "stat",
       "id": 3,
-      "title": "Last Cycle (\u00b5s)",
+      "title": "Last Cycle (µs)",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -184,7 +184,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "\u00b5s",
+          "unit": "µs",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -212,7 +212,7 @@
             "uid": "${datasource}"
           },
           "expr": "slurm_scheduler_last_cycle",
-          "legendFormat": "\u00b5s",
+          "legendFormat": "µs",
           "refId": "A",
           "instant": true
         }
@@ -225,7 +225,7 @@
       },
       "type": "stat",
       "id": 4,
-      "title": "Mean Cycle (\u00b5s)",
+      "title": "Mean Cycle (µs)",
       "gridPos": {
         "h": 4,
         "w": 4,
@@ -251,7 +251,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "unit": "\u00b5s",
+          "unit": "µs",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -275,7 +275,7 @@
             "uid": "${datasource}"
           },
           "expr": "slurm_scheduler_mean_cycle",
-          "legendFormat": "\u00b5s",
+          "legendFormat": "µs",
           "refId": "A",
           "instant": true
         }
@@ -426,7 +426,7 @@
       },
       "type": "timeseries",
       "id": 10,
-      "title": "Scheduler Cycle Times (\u00b5s)",
+      "title": "Scheduler Cycle Times (µs)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -465,7 +465,7 @@
               "mode": "none"
             }
           },
-          "unit": "\u00b5s"
+          "unit": "µs"
         },
         "overrides": [
           {
@@ -528,7 +528,7 @@
       },
       "type": "timeseries",
       "id": 11,
-      "title": "Backfill Cycle Times (\u00b5s)",
+      "title": "Backfill Cycle Times (µs)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -567,7 +567,7 @@
               "mode": "none"
             }
           },
-          "unit": "\u00b5s"
+          "unit": "µs"
         },
         "overrides": []
       },
@@ -917,7 +917,7 @@
       },
       "type": "bargauge",
       "id": 31,
-      "title": "RPC Average Time (top 15 operations, \u00b5s)",
+      "title": "RPC Average Time (top 15 operations, µs)",
       "gridPos": {
         "h": 10,
         "w": 12,
@@ -1045,7 +1045,7 @@
       },
       "type": "bargauge",
       "id": 41,
-      "title": "RPC Avg Time per User (\u00b5s, top 10)",
+      "title": "RPC Avg Time per User (µs, top 10)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -1126,7 +1126,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Slurm - Scheduler Performance",
+  "title": "05 - Scheduler Performance",
   "uid": "slurm-scheduler",
   "version": 1
 }

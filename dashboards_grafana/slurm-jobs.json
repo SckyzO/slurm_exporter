@@ -734,7 +734,7 @@
       },
       "type": "bargauge",
       "id": 20,
-      "title": "Top Users \u2014 Running Jobs",
+      "title": "Top Users — Running Jobs",
       "gridPos": {
         "h": 10,
         "w": 8,
@@ -792,7 +792,7 @@
       },
       "type": "bargauge",
       "id": 21,
-      "title": "Top Users \u2014 Running CPUs",
+      "title": "Top Users — Running CPUs",
       "gridPos": {
         "h": 10,
         "w": 8,
@@ -850,7 +850,7 @@
       },
       "type": "bargauge",
       "id": 22,
-      "title": "Top Accounts \u2014 Running CPUs",
+      "title": "Top Accounts — Running CPUs",
       "gridPos": {
         "h": 10,
         "w": 8,
@@ -1050,7 +1050,7 @@
       },
       "type": "state-timeline",
       "id": 99,
-      "title": "Running vs Pending \u2014 State Timeline (cluster-level)",
+      "title": "Running vs Pending — State Timeline (cluster-level)",
       "description": "Color zones: green=cluster mostly running, orange=many pending, red=backlog growing.",
       "gridPos": {
         "h": 6,
@@ -1154,7 +1154,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Slurm - Jobs & Queue",
+  "title": "02 - Jobs & Queue",
   "uid": "slurm-jobs",
   "version": 1
 }

@@ -359,7 +359,7 @@
       },
       "type": "bargauge",
       "id": 10,
-      "title": "Top Users \u2014 Running Jobs",
+      "title": "Top Users — Running Jobs",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -425,7 +425,7 @@
       },
       "type": "bargauge",
       "id": 11,
-      "title": "Top Users \u2014 Running CPUs",
+      "title": "Top Users — Running CPUs",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -491,7 +491,7 @@
       },
       "type": "bargauge",
       "id": 12,
-      "title": "Top Accounts \u2014 Running CPUs",
+      "title": "Top Accounts — Running CPUs",
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -553,7 +553,7 @@
     {
       "type": "row",
       "id": 102,
-      "title": "FairShare Analysis \u2014 Why is my priority low?",
+      "title": "FairShare Analysis — Why is my priority low?",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -576,7 +576,7 @@
         "y": 14
       },
       "options": {
-        "content": "> **FairShare** (0\u20131): lower = lower priority. Determined by `NormUsage / NormShares`. **Usage/Shares ratio > 1** means a user consumed more than their allocation \u2192 expect declining priority. **< 1** means underused \u2192 priority increasing.",
+        "content": "> **FairShare** (0–1): lower = lower priority. Determined by `NormUsage / NormShares`. **Usage/Shares ratio > 1** means a user consumed more than their allocation → expect declining priority. **< 1** means underused → priority increasing.",
         "mode": "markdown"
       }
     },
@@ -830,7 +830,7 @@
       "type": "bargauge",
       "id": 22,
       "title": "Users by FairShare (lowest = most deprived)",
-      "description": "Sorted ascending \u2014 users at the top have the lowest priority. A low FairShare means they have consumed more than their allocated share.",
+      "description": "Sorted ascending — users at the top have the lowest priority. A low FairShare means they have consumed more than their allocated share.",
       "gridPos": {
         "h": 10,
         "w": 10,
@@ -1479,7 +1479,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Slurm - Accounting",
+  "title": "07 - Accounting",
   "uid": "slurm-accounting",
   "version": 1
 }

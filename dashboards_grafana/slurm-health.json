@@ -201,7 +201,7 @@
       },
       "type": "state-timeline",
       "id": 60,
-      "title": "Collector Health \u2014 State Timeline",
+      "title": "Collector Health — State Timeline",
       "description": "Shows OK/FAIL state of each collector over the selected time range. Green=OK, Red=FAIL.",
       "gridPos": {
         "h": 8,
@@ -299,7 +299,7 @@
       },
       "type": "status-history",
       "id": 61,
-      "title": "Collector Scrape Duration \u2014 Status History",
+      "title": "Collector Scrape Duration — Status History",
       "description": "Colored by duration thresholds: green <1s, yellow 1-5s, red >5s. Indicates Slurm command latency.",
       "gridPos": {
         "h": 7,
@@ -724,7 +724,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Slurm - Exporter Health",
+  "title": "08 - Exporter Health",
   "uid": "slurm-health",
   "version": 1
 }
