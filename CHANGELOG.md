@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-04-28
+
+### 🐛 Bug Fixes
+
+- **Dashboards — empty node states no longer break panels:** `count()` over an empty
+  vector returns no samples (not `0`) in PromQL, so `count(stateA) + count(stateB)`
+  silently returned "No data" whenever either side was empty. Six expressions in
+  `slurm-overview` and `slurm-usage` (Active, Down+Drain, Node %, Avg Node %,
+  Allocated+Completing) rewritten to use a single regex
+  (`status=~"alloc.*|mix.*"`) — also avoids double-counting nodes that appear
+  in multiple partitions. Plus 43 isolated `count(slurm_node_status{...})` panels
+  now use `or vector(0)` so empty states render as `0` instead of "No data".
+
+- **Multi-partition clusters — node state metrics double-counted:** nodes belonging
+  to multiple partitions were counted once per partition. Fixed by adding
+  `count by(node)` deduplication.
+
+### 📋 Documentation
+
+- `README.md` split into focused files under `docs/` (configuration, metrics, dashboards).
+- `docs/configuration.md`: corrected collector flags and defaults.
+- Full audit pass — missing flags, collectors, and metrics for v1.8 documented.
+- Grafana dashboards renumbered for pyramid ordering in the dashboards UI.
+
+### 🔧 Maintenance
+
+- Bump `prometheus/exporter-toolkit` v0.15.1 → v0.16.0 (Go 1.26 support, dependency-only release, no breaking changes).
+- Bump direct + indirect `golang.org/x/*` packages: crypto, net, sys, text, term, mod, tools.
+
+---
+
 ## [1.8.0] - 2026-04-01
 
 ### ✨ Features
