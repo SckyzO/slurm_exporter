@@ -144,7 +144,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(count by(node)(slurm_node_status{status=~\"idle.*\"}))",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"idle.*\"})) or vector(0)",
           "legendFormat": "Idle",
           "refId": "A",
           "instant": true
@@ -203,7 +203,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(count by(node)(slurm_node_status{status=~\"mix.*\"}))",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"mix.*\"})) or vector(0)",
           "legendFormat": "Mixed",
           "refId": "A",
           "instant": true
@@ -262,7 +262,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(count by(node)(slurm_node_status{status=~\"alloc.*\"}))",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"alloc.*\"})) or vector(0)",
           "legendFormat": "Allocated",
           "refId": "A",
           "instant": true
@@ -325,7 +325,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(count by(node)(slurm_node_status{status=~\"down.*\"}))",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"down.*\"})) or vector(0)",
           "legendFormat": "Down",
           "refId": "A",
           "instant": true
@@ -388,7 +388,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count(count by(node)(slurm_node_status{status=~\"drain.*\"}))",
+          "expr": "count(count by(node)(slurm_node_status{status=~\"drain.*\"})) or vector(0)",
           "legendFormat": "Drain",
           "refId": "A",
           "instant": true
