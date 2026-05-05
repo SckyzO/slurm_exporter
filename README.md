@@ -93,18 +93,18 @@ If you want to build the exporter yourself, you can do so using the provided Mak
 Ten ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
 All dashboards use a `$datasource` template variable and are compatible with Grafana 12+.
 
-| Dashboard | UID | Description |
-|-----------|-----|-------------|
-| **Cluster Overview** | `slurm-overview` | Global cluster health: CPU/GPU utilization, node states, job totals, partition summary |
-| **Jobs & Queue** | `slurm-jobs` | Job queue details by user, account, partition — pending reasons, top users |
-| **Node Detail** | `slurm-nodes` | Per-node CPU & memory table (filtered by partition), scalable to 100k+ nodes |
-| **Scheduler** | `slurm-scheduler` | slurmctld internals: cycle time, backfill, RPC statistics |
-| **Reservations & Licenses** | `slurm-reservations` | Active reservations, node states per reservation, license usage |
-| **Exporter Health** | `slurm-health` | Collector OK/FAIL status, scrape duration history, Slurm binary versions |
-| **Cluster Usage Statistics** | `slurm-usage` | CPU/GPU utilization gauges, fairshare per account, top users by CPU |
-| **All Metrics Reference** | `slurm-all-metrics` | Exhaustive reference panel for every exported metric |
-| **Accounting** | `slurm-accounting` | User/account consumption, FairShare analysis, top consumers, priority diagnostics |
-| **Exporter Performance** | `slurm-exporter-perf` | Command durations, cache freshness, error rates, scrape health (new in v1.8.0) |
+| # | Dashboard | UID | Description |
+|---|-----------|-----|-------------|
+| 01 | **Cluster Overview** | `slurm-overview` | Global cluster health: CPU/GPU utilization, node states, job totals, partition summary |
+| 02 | **Jobs & Queue** | `slurm-jobs` | Job queue details by user, account, partition — pending reasons, top users |
+| 03 | **Node Detail** | `slurm-nodes` | Per-node CPU & memory table (filtered by partition), scalable to 100k+ nodes |
+| 04 | **Cluster Usage Statistics** | `slurm-usage` | CPU/GPU utilization gauges, fairshare per account, top users by CPU |
+| 05 | **Scheduler** | `slurm-scheduler` | slurmctld internals: cycle time, backfill, RPC statistics |
+| 06 | **Reservations & Licenses** | `slurm-reservations` | Active reservations, node states per reservation, license usage |
+| 07 | **Accounting** | `slurm-accounting` | User/account consumption, FairShare analysis, top consumers, priority diagnostics |
+| 08 | **Exporter Health** | `slurm-health` | Collector OK/FAIL status, scrape duration history, Slurm binary versions |
+| 09 | **Exporter Performance** | `slurm-exporter-perf` | Command durations, cache freshness, error rates, scrape health (new in v1.8.0) |
+| 10 | **All Metrics Reference** | `slurm-all-metrics` | Exhaustive reference panel for every exported metric |
 
 ### Import to Grafana
 

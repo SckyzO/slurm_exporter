@@ -47,7 +47,7 @@ done
 
 ### 1. Cluster Overview
 
-**File:** `slurm-overview.json` | **UID:** `slurm-overview`
+**File:** `01-slurm-overview.json` | **UID:** `slurm-overview`
 
 Global cluster snapshot: node states, CPU/GPU utilization gauges, job totals,
 per-partition table (CPU allocation, running/pending jobs), and job state history.
@@ -75,7 +75,7 @@ per-partition table (CPU allocation, running/pending jobs), and job state histor
 
 ### 2. Jobs & Queue
 
-**File:** `slurm-jobs.json` | **UID:** `slurm-jobs`
+**File:** `02-slurm-jobs.json` | **UID:** `slurm-jobs`
 
 Detailed job queue monitoring: global totals, top users, pending reasons,
 per-partition breakdown, and job state timeline.
@@ -100,7 +100,7 @@ per-partition breakdown, and job state timeline.
 
 ### 3. Node Detail
 
-**File:** `slurm-nodes.json` | **UID:** `slurm-nodes`
+**File:** `03-slurm-nodes.json` | **UID:** `slurm-nodes`
 
 Per-node CPU and memory utilization. **Designed to scale from small clusters
 to 100k+ nodes** via a `$partition` filter variable.
@@ -127,7 +127,7 @@ to 100k+ nodes** via a `$partition` filter variable.
 
 ### 4. Cluster Usage Statistics
 
-**File:** `slurm-usage.json` | **UID:** `slurm-usage`
+**File:** `04-slurm-usage.json` | **UID:** `slurm-usage`
 
 Comprehensive utilization metrics: CPU/memory/GPU gauges, per-user and
 per-account breakdowns, fairshare, scheduler health, and trend timeseries.
@@ -159,7 +159,7 @@ per-account breakdowns, fairshare, scheduler health, and trend timeseries.
 
 ### 5. Scheduler
 
-**File:** `slurm-scheduler.json` | **UID:** `slurm-scheduler`
+**File:** `05-slurm-scheduler.json` | **UID:** `slurm-scheduler`
 
 Deep-dive into `slurmctld` internals: main scheduler and backfill cycle times,
 RPC statistics, queue sizes, and thread counts.
@@ -183,32 +183,9 @@ RPC statistics, queue sizes, and thread counts.
 
 ---
 
-### 6. Exporter Health
+### 6. Reservations & Licenses
 
-**File:** `slurm-health.json` | **UID:** `slurm-health`
-
-Monitors the health of the exporter itself: collector success/failure,
-scrape duration history, and Slurm binary availability.
-
-| Panel | Type | Description |
-|-------|------|-------------|
-| Collector Status | stat | OK / FAIL per collector — background color alert |
-| Collectors Healthy % | gauge | `sum(success) / count(success) * 100` |
-| Collector Health Timeline | state-timeline | Visual OK/FAIL history per collector |
-| Scrape Duration Status History | status-history | Duration colored by threshold (<1s green, 1-5s yellow, >5s red) |
-| Last Scrape Duration | bargauge | Current duration per collector, sorted slowest-first |
-| Duration Over Time | timeseries | Collector duration trend for detecting degradation |
-| Slurm Version | stat | `slurm_info{type="general"}` — active Slurm version |
-| Slurm Binaries | table | Availability check of each Slurm binary (sacct, sbatch, sinfo, …) |
-
-![Exporter Health — status & timeline](screenshots/health-1.png)
-![Exporter Health — duration & binaries](screenshots/health-2.png)
-
----
-
-### 7. Reservations & Licenses
-
-**File:** `slurm-reservations.json` | **UID:** `slurm-reservations`
+**File:** `06-slurm-reservations.json` | **UID:** `slurm-reservations`
 
 Active Slurm reservations, per-reservation node states, and license usage.
 License panels show "No data" when no licenses are configured — this is expected.
@@ -231,9 +208,9 @@ License panels show "No data" when no licenses are configured — this is expect
 
 ---
 
-### 8. Accounting *(new in v1.7.0)*
+### 7. Accounting *(new in v1.7.0)*
 
-**File:** `slurm-accounting.json` | **UID:** `slurm-accounting`
+**File:** `07-slurm-accounting.json` | **UID:** `slurm-accounting`
 
 Dedicated HPC accounting dashboard. Answers the key question:
 **"Why is this user's priority low?"** — by exposing FairShare components
@@ -260,28 +237,32 @@ Filter by `$account` and `$user` template variables.
 
 ---
 
-### 9. All Metrics Reference
+### 8. Exporter Health
 
-**File:** `slurm-all-metrics.json` | **UID:** `slurm-all-metrics`
+**File:** `08-slurm-health.json` | **UID:** `slurm-health`
 
-An exhaustive reference dashboard showing **every metric** exported by the
-Slurm Exporter, organized by collector. Useful for:
-- Discovering available metrics
-- Debugging queries
-- Validating that all collectors are working
+Monitors the health of the exporter itself: collector success/failure,
+scrape duration history, and Slurm binary availability.
 
-115 panels covering all 14 collectors (+ new v1.8 metrics):
-`accounts`, `cpus`, `fairshare`, `gpus`, `info`, `licenses`, `node`, `nodes`,
-`partitions`, `queue`, `reservation_nodes`, `reservations`, `scheduler`, `users`
+| Panel | Type | Description |
+|-------|------|-------------|
+| Collector Status | stat | OK / FAIL per collector — background color alert |
+| Collectors Healthy % | gauge | `sum(success) / count(success) * 100` |
+| Collector Health Timeline | state-timeline | Visual OK/FAIL history per collector |
+| Scrape Duration Status History | status-history | Duration colored by threshold (<1s green, 1-5s yellow, >5s red) |
+| Last Scrape Duration | bargauge | Current duration per collector, sorted slowest-first |
+| Duration Over Time | timeseries | Collector duration trend for detecting degradation |
+| Slurm Version | stat | `slurm_info{type="general"}` — active Slurm version |
+| Slurm Binaries | table | Availability check of each Slurm binary (sacct, sbatch, sinfo, …) |
 
-> This dashboard is intentionally dense. Use the other focused dashboards for
-> daily monitoring. This one is a reference/debug tool.
+![Exporter Health — status & timeline](screenshots/health-1.png)
+![Exporter Health — duration & binaries](screenshots/health-2.png)
 
 ---
 
-### 10. Exporter Performance *(new in v1.8.0)*
+### 9. Exporter Performance *(new in v1.8.0)*
 
-**File:** `slurm-exporter-perf.json` | **UID:** `slurm-exporter-perf`
+**File:** `09-slurm-exporter-perf.json` | **UID:** `slurm-exporter-perf`
 
 Internal performance dashboard for the exporter itself. Use this to validate
 that optimisations work and to detect slowdowns before they cause scrape failures.
@@ -325,3 +306,22 @@ docker run --rm --network slurm_slurm-network \
 ```
 
 See [`scripts/take_screenshots.sh`](../scripts/take_screenshots.sh) for the full script.
+### 10. All Metrics Reference
+
+**File:** `10-slurm-all-metrics.json` | **UID:** `slurm-all-metrics`
+
+An exhaustive reference dashboard showing **every metric** exported by the
+Slurm Exporter, organized by collector. Useful for:
+- Discovering available metrics
+- Debugging queries
+- Validating that all collectors are working
+
+115 panels covering all 14 collectors (+ new v1.8 metrics):
+`accounts`, `cpus`, `fairshare`, `gpus`, `info`, `licenses`, `node`, `nodes`,
+`partitions`, `queue`, `reservation_nodes`, `reservations`, `scheduler`, `users`
+
+> This dashboard is intentionally dense. Use the other focused dashboards for
+> daily monitoring. This one is a reference/debug tool.
+
+---
+
