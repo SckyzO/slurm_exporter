@@ -81,6 +81,20 @@
   "graphTooltip": 1,
   "links": [
     {
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [
+        "slurm"
+      ],
+      "targetBlank": false,
+      "title": "Slurm Dashboards",
+      "tooltip": "Switch to another Slurm dashboard",
+      "type": "dashboards",
+      "url": ""
+    },
+    {
       "title": "slurm_exporter on GitHub",
       "url": "https://github.com/SckyzO/slurm_exporter",
       "type": "link",
