@@ -174,7 +174,12 @@ func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
 	idleGPUs := ParseIdleGPUs(idleGPUsData)
 
 	// Calculate other GPUs (mixed, down, etc.)
+	// Clamp to zero: the three values come from separate sinfo invocations and
+	// cluster state can change between calls, which may produce a negative result.
 	otherGPUs := totalGPUs - allocatedGPUs - idleGPUs
+	if otherGPUs < 0 {
+		otherGPUs = 0
+	}
 
 	gm.alloc = allocatedGPUs
 	gm.idle = idleGPUs
