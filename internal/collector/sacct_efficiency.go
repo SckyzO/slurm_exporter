@@ -124,6 +124,8 @@ func ParseSacctEfficiency(input []byte) []SacctJobRecord {
 // SacctEfficiencyAggregates holds aggregated efficiency stats per user+account.
 type SacctEfficiencyAggregates struct {
 	JobCount          float64
+	CPUJobCount       float64 // jobs where CPUTime > 0 (denominator for CPUEfficiencyPct)
+	MemJobCount       float64 // jobs where ReqMem > 0 (denominator for MemEfficiencyPct)
 	CPUEfficiencyPct  float64 // avg(TotalCPU / CPUTime * 100)
 	MemEfficiencyPct  float64 // avg(MaxRSS / ReqMem * 100), only for jobs with ReqMem>0
 	CPUHoursAllocated float64
@@ -149,18 +151,23 @@ func AggregateSacctEfficiency(records []SacctJobRecord) map[string]map[string]*S
 
 		if r.CPUTimeSeconds > 0 {
 			agg.CPUEfficiencyPct += r.TotalCPUSeconds / r.CPUTimeSeconds * 100
+			agg.CPUJobCount++
 		}
 		if r.ReqMemMB > 0 && r.MaxRSSMB >= 0 {
 			agg.MemEfficiencyPct += r.MaxRSSMB / r.ReqMemMB * 100
+			agg.MemJobCount++
 		}
 	}
 
-	// Convert sums to averages
+	// Convert sums to averages using per-metric job counts as denominators.
+	// This avoids understating averages when some jobs lack CPU-time or memory data.
 	for _, users := range result {
 		for _, agg := range users {
-			if agg.JobCount > 0 {
-				agg.CPUEfficiencyPct /= agg.JobCount
-				agg.MemEfficiencyPct /= agg.JobCount
+			if agg.CPUJobCount > 0 {
+				agg.CPUEfficiencyPct /= agg.CPUJobCount
+			}
+			if agg.MemJobCount > 0 {
+				agg.MemEfficiencyPct /= agg.MemJobCount
 			}
 		}
 	}
