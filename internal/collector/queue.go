@@ -321,6 +321,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 			PushMetric(values, ch, qc.pending, reason)
 		}
 		PushMetric(qm.running, ch, qc.running, "")
+		PushMetric(qm.suspended, ch, qc.suspended, "")
 		PushMetric(qm.cancelled, ch, qc.cancelled, "")
 		PushMetric(qm.completing, ch, qc.completing, "")
 		PushMetric(qm.completed, ch, qc.completed, "")
@@ -333,6 +334,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 			PushMetric(value, ch, qc.coresPending, reason)
 		}
 		PushMetric(qm.cRunning, ch, qc.coresRunning, "")
+		PushMetric(qm.cSuspended, ch, qc.coresSuspended, "")
 		PushMetric(qm.cCancelled, ch, qc.coresCancelled, "")
 		PushMetric(qm.cCompleting, ch, qc.coresCompleting, "")
 		PushMetric(qm.cCompleted, ch, qc.coresCompleted, "")
@@ -345,6 +347,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 		// user label disabled: aggregate all users per partition
 		pushAggregatedNNVal(qm.pending, ch, qc.pending)
 		pushAggregatedNVal(qm.running, ch, qc.running, "")
+		pushAggregatedNVal(qm.suspended, ch, qc.suspended, "")
 		pushAggregatedNVal(qm.cancelled, ch, qc.cancelled, "")
 		pushAggregatedNVal(qm.completing, ch, qc.completing, "")
 		pushAggregatedNVal(qm.completed, ch, qc.completed, "")
@@ -355,6 +358,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 		pushAggregatedNVal(qm.nodeFail, ch, qc.nodeFail, "")
 		pushAggregatedNNVal(qm.cPending, ch, qc.coresPending)
 		pushAggregatedNVal(qm.cRunning, ch, qc.coresRunning, "")
+		pushAggregatedNVal(qm.cSuspended, ch, qc.coresSuspended, "")
 		pushAggregatedNVal(qm.cCancelled, ch, qc.coresCancelled, "")
 		pushAggregatedNVal(qm.cCompleting, ch, qc.coresCompleting, "")
 		pushAggregatedNVal(qm.cCompleted, ch, qc.coresCompleted, "")
