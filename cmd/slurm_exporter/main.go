@@ -19,6 +19,8 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -116,11 +118,8 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"reservations":      func(l *logger.Logger) prometheus.Collector { return collector.NewReservationsCollector(l) },
 	"reservation_nodes": func(l *logger.Logger) prometheus.Collector { return collector.NewReservationNodesCollector(l) },
 	"licenses":          func(l *logger.Logger) prometheus.Collector { return collector.NewLicensesCollector(l) },
-	"sacct_efficiency": func(l *logger.Logger) prometheus.Collector {
-		c := collector.NewSacctEfficiencyCollector(l, *sacctEfficiencyInterval, *sacctEfficiencyLookback)
-		c.Start(context.Background())
-		return c
-	},
+	// sacct_efficiency constructor is overridden in main() with a signal-aware context.
+	"sacct_efficiency": nil,
 }
 
 // indexHTML is the HTML content displayed on the root page
@@ -176,6 +175,18 @@ func main() {
 		log = logger.NewJSONLogger(*logLevel)
 	} else {
 		log = logger.NewTextLogger(*logLevel)
+	}
+
+	// Create a signal-aware context so background goroutines (e.g. sacct_efficiency)
+	// are cancelled cleanly on SIGTERM or SIGINT.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
+
+	// Wire the signal context into the sacct_efficiency collector constructor.
+	collectorConstructors["sacct_efficiency"] = func(l *logger.Logger) prometheus.Collector {
+		c := collector.NewSacctEfficiencyCollector(l, *sacctEfficiencyInterval, *sacctEfficiencyLookback)
+		c.Start(ctx)
+		return c
 	}
 
 	collector.SetCommandTimeout(*commandTimeout)
