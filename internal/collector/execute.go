@@ -36,7 +36,7 @@ func SetBinPath(p string) {
 // Used by ValidateBinaries to check that all required tools are present at startup.
 var SlurmBinaries = []string{
 	"sinfo", "squeue", "sdiag", "scontrol", "sshare",
-	"sacct", "sbatch", "salloc", "srun",
+	"sacct",
 }
 
 // ValidateBinaries checks that every binary in the given list is accessible
