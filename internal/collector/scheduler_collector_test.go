@@ -37,8 +37,8 @@ func TestSchedulerCollector_Collect(t *testing.T) {
 	assert.True(t, names["slurm_scheduler_queue_size"])
 	assert.True(t, names["slurm_scheduler_last_cycle"])
 	assert.True(t, names["slurm_scheduler_backfill_last_cycle"])
-	assert.True(t, names["slurm_scheduler_jobs_submitted_total"])
-	assert.True(t, names["slurm_scheduler_jobs_completed_total"])
+	assert.True(t, names["slurm_scheduler_jobs_submitted"])
+	assert.True(t, names["slurm_scheduler_jobs_completed"])
 }
 
 func TestSchedulerCollector_Describe(t *testing.T) {
