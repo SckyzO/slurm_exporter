@@ -80,6 +80,31 @@ func TestParsePartitionsMetricsWithRealOutput(t *testing.T) {
 	}
 }
 
+// TestParsePartitionCPUsStripsAsterisk verifies that the default partition marker (*)
+// appended by Slurm to the default partition name is stripped from CPU sinfo output.
+func TestParsePartitionCPUsStripsAsterisk(t *testing.T) {
+	partitions := make(map[string]*PartitionMetrics)
+	// "compute*" is what Slurm emits for the default partition
+	parsePartitionCPUs([]byte("compute*,10/20/5/35\n"), partitions)
+	require.Contains(t, partitions, "compute", "asterisk must be stripped from CPU partition name")
+	assert.NotContains(t, partitions, "compute*", "raw asterisk-suffixed key must not appear")
+	assert.Equal(t, 10.0, partitions["compute"].cpuAllocated)
+	assert.Equal(t, 35.0, partitions["compute"].cpuTotal)
+}
+
+// TestParsePartitionGPUsStripsAsterisk verifies that the default partition marker (*)
+// appended by Slurm to the default partition name is stripped from GPU sinfo output.
+func TestParsePartitionGPUsStripsAsterisk(t *testing.T) {
+	partitions := make(map[string]*PartitionMetrics)
+	// "gpu*" is what Slurm emits for the default partition in GPU sinfo output
+	parsePartitionGPUs([]byte("2 gpu* gpu:A100:4 gpu:A100:2\n"), partitions)
+	require.Contains(t, partitions, "gpu", "asterisk must be stripped from GPU partition name")
+	assert.NotContains(t, partitions, "gpu*", "raw asterisk-suffixed key must not appear")
+	// 2 nodes * 2 allocated = 4 allocated, 2 nodes * (4-2) = 4 idle
+	assert.Equal(t, 4.0, partitions["gpu"].gpuAllocated)
+	assert.Equal(t, 4.0, partitions["gpu"].gpuIdle)
+}
+
 // TestParsePartitionsMetricsGPUOnlyPartition is a regression test for issue #5:
 // a nil pointer dereference panic when a GPU partition name does not appear in
 // the CPU sinfo output (i.e., it exists only in the GPU sinfo output).
