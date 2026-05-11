@@ -28,6 +28,47 @@ func TestSchedulerMetrics(t *testing.T) {
 	assert.Equal(t, 10.0, sm.totalBackfilledHeterogeneous)
 }
 
+// TestSchedulerRPCLineRe_HyphenatedUsername is the non-regression test for
+// PR #28: usernames with hyphens (e.g. "alice-21") were silently truncated
+// to "alice" by the character class [A-Za-z0-9_]*. With the fix the full
+// username is captured.
+func TestSchedulerRPCLineRe_HyphenatedUsername(t *testing.T) {
+	cases := []struct {
+		name      string
+		line      string
+		wantUser  string
+		wantCount string
+	}{
+		{
+			name:      "plain username",
+			line:      "        alice  count:120  ave_time:42  total_time:5040 ",
+			wantUser:  "alice",
+			wantCount: "120",
+		},
+		{
+			name:      "hyphenated username",
+			line:      "        alice-21  count:120  ave_time:42  total_time:5040 ",
+			wantUser:  "alice-21",
+			wantCount: "120",
+		},
+		{
+			name:      "underscore + digits",
+			line:      "        bob_42  count:99  ave_time:7  total_time:693 ",
+			wantUser:  "bob_42",
+			wantCount: "99",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			matches := schedulerRPCLineRe.FindAllStringSubmatch(tc.line, -1)
+			require.NotEmpty(t, matches, "regex must match: %q", tc.line)
+			require.GreaterOrEqual(t, len(matches[0]), 5, "regex must capture 4 groups + full match")
+			assert.Equal(t, tc.wantUser, matches[0][1])
+			assert.Equal(t, tc.wantCount, matches[0][2])
+		})
+	}
+}
+
 func TestParseSchedulerMetrics_JobCounters(t *testing.T) {
 	// Vérifie que les job counters sdiag sont bien parsés
 	data, err := os.ReadFile("../../test_data/sdiag.txt")
