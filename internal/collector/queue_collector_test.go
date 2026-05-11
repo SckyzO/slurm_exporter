@@ -95,6 +95,26 @@ func fmtBool(label string, v bool) string {
 	return label + "=false"
 }
 
+// TestParseQueueMetrics_StripsPartitionAsterisk is the defensive companion
+// to issue #20 / PR #21: squeue -o "%P" emits "compute*" for the default
+// partition on some Slurm versions, and the queue collector previously
+// stored this raw value as the partition label. Now stripped, mirroring
+// what partitions.go and nodes.go do.
+func TestParseQueueMetrics_StripsPartitionAsterisk(t *testing.T) {
+	// One RUNNING job (12 cores) on the default partition "compute*"
+	input := []byte("compute*|RUNNING|12||alice\n")
+	qm := ParseQueueMetrics(input)
+
+	// Per-user state map for alice should be keyed by bare "compute"
+	require.Contains(t, qm.running, "alice")
+	require.Contains(t, qm.running["alice"], "compute",
+		"asterisk must be stripped from queue partition label")
+	assert.NotContains(t, qm.running["alice"], "compute*",
+		"raw asterisk-suffixed partition key must not appear")
+	assert.Equal(t, 1.0, qm.running["alice"]["compute"])
+	assert.Equal(t, 12.0, qm.cRunning["alice"]["compute"])
+}
+
 func TestQueueCollector_ErrorEmitsGlobalTotals(t *testing.T) {
 	// Even on error, global job totals must be emitted (always-present guarantee)
 	oldExecute := Execute

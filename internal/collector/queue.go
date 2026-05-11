@@ -105,7 +105,12 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 			if len(fields) < 5 {
 				continue
 			}
-			part := strings.TrimSpace(fields[0])
+			// Strip the default-partition marker (*) so labels are consistent
+			// with the partitions and nodes collectors. squeue -o "%P" emits
+			// "compute*" for the default partition on some Slurm versions; the
+			// same fix as in partitions.go (issue #20) is applied here so any
+			// PromQL join on the partition label works as expected.
+			part := strings.TrimRight(strings.TrimSpace(fields[0]), "*")
 			state := fields[1]
 			coresI, _ := strconv.Atoi(fields[2])
 			cores := float64(coresI)
