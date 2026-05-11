@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,6 +19,8 @@ type NodeMetrics struct {
 	cpuIdle    uint64
 	cpuOther   uint64
 	cpuTotal   uint64
+	gresTotal  map[string]uint64
+	gresUsed   map[string]uint64
 	nodeStatus string
 	partitions []string
 }
@@ -28,6 +31,29 @@ func NodeGetMetrics(logger *logger.Logger) (map[string]*NodeMetrics, error) {
 		return nil, err
 	}
 	return ParseNodeMetrics(data), nil
+}
+
+// gresRe extracts type, optional model, and count from a GRES token.
+// Handles: "gpu:4", "gpu:A30:4(IDX:0-3)", "gpu:(null):2(S:0-1)".
+var gresRe = regexp.MustCompile(`(\w+):(\(null\)|[^:(]*):?([0-9]+)(?:\([^)]*\))?`)
+
+func parseGresString(gresStr string) map[string]uint64 {
+	result := make(map[string]uint64)
+	if gresStr == "" || gresStr == "N/A" || gresStr == "(null)" {
+		return result
+	}
+	for _, m := range gresRe.FindAllStringSubmatch(gresStr, -1) {
+		count, err := strconv.ParseUint(m[3], 10, 64)
+		if err != nil {
+			continue
+		}
+		key := m[1]
+		if m[2] != "" && m[2] != "(null)" {
+			key = m[1] + ":" + m[2]
+		}
+		result[key] += count
+	}
+	return result
 }
 
 // ParseNodeMetrics takes the output of sinfo with node data
@@ -49,9 +75,13 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		nodeStatus := node[4] // mixed, allocated, etc.
 		partition := node[5]  // Partition name
 
-		// Create new node metrics if it doesn't exist
 		if _, exists := nodes[nodeName]; !exists {
-			nodes[nodeName] = &NodeMetrics{0, 0, 0, 0, 0, 0, nodeStatus, []string{}}
+			nodes[nodeName] = &NodeMetrics{
+				gresTotal:  make(map[string]uint64),
+				gresUsed:   make(map[string]uint64),
+				nodeStatus: nodeStatus,
+				partitions: []string{},
+			}
 		}
 
 		memAlloc, _ := strconv.ParseUint(node[1], 10, 64)
@@ -73,7 +103,13 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		nodes[nodeName].cpuOther = cpuOther
 		nodes[nodeName].cpuTotal = cpuTotal
 
-		// Add the partition if it's not already in the list
+		if len(node) >= 7 {
+			nodes[nodeName].gresTotal = parseGresString(node[6])
+		}
+		if len(node) >= 8 {
+			nodes[nodeName].gresUsed = parseGresString(node[7])
+		}
+
 		nodes[nodeName].partitions = appendUnique(nodes[nodeName].partitions, partition)
 	}
 
@@ -82,10 +118,10 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 
 /*
 NodeData executes the sinfo command to get detailed data for each node.
-Expected sinfo output format: "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition".
+Expected sinfo output format: "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition,Gres,GresUsed".
 */
 func NodeData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-h", "-N", "-O", "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition"}
+	args := []string{"-h", "-N", "-O", "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition,Gres:60,GresUsed:80"}
 	return Execute(logger, "sinfo", args)
 }
 
@@ -97,11 +133,14 @@ type NodeCollector struct {
 	memAlloc   *prometheus.Desc
 	memTotal   *prometheus.Desc
 	nodeStatus *prometheus.Desc
+	gresTotal  *prometheus.Desc
+	gresUsed   *prometheus.Desc
 	logger     *logger.Logger
 }
 
 func NewNodeCollector(logger *logger.Logger) *NodeCollector {
 	labels := []string{"node", "status", "partition"}
+	gresLabels := []string{"node", "status", "partition", "gres_type"}
 	return &NodeCollector{
 		cpuAlloc:   prometheus.NewDesc("slurm_node_cpu_alloc", "Allocated CPUs per node", labels, nil),
 		cpuIdle:    prometheus.NewDesc("slurm_node_cpu_idle", "Idle CPUs per node", labels, nil),
@@ -110,6 +149,8 @@ func NewNodeCollector(logger *logger.Logger) *NodeCollector {
 		memAlloc:   prometheus.NewDesc("slurm_node_mem_alloc", "Allocated memory per node", labels, nil),
 		memTotal:   prometheus.NewDesc("slurm_node_mem_total", "Total memory per node", labels, nil),
 		nodeStatus: prometheus.NewDesc("slurm_node_status", "Node Status with partition", labels, nil),
+		gresTotal:  prometheus.NewDesc("slurm_node_gres_total", "Total GRES per node", gresLabels, nil),
+		gresUsed:   prometheus.NewDesc("slurm_node_gres_used", "Used GRES per node", gresLabels, nil),
 		logger:     logger,
 	}
 }
@@ -122,6 +163,8 @@ func (nc *NodeCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.memAlloc
 	ch <- nc.memTotal
 	ch <- nc.nodeStatus
+	ch <- nc.gresTotal
+	ch <- nc.gresUsed
 }
 
 func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) {
@@ -139,6 +182,13 @@ func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(nc.memAlloc, prometheus.GaugeValue, float64(metrics.memAlloc), node, metrics.nodeStatus, partition)
 			ch <- prometheus.MustNewConstMetric(nc.memTotal, prometheus.GaugeValue, float64(metrics.memTotal), node, metrics.nodeStatus, partition)
 			ch <- prometheus.MustNewConstMetric(nc.nodeStatus, prometheus.GaugeValue, 1, node, metrics.nodeStatus, partition)
+
+			for gresType, count := range metrics.gresTotal {
+				ch <- prometheus.MustNewConstMetric(nc.gresTotal, prometheus.GaugeValue, float64(count), node, metrics.nodeStatus, partition, gresType)
+			}
+			for gresType, count := range metrics.gresUsed {
+				ch <- prometheus.MustNewConstMetric(nc.gresUsed, prometheus.GaugeValue, float64(count), node, metrics.nodeStatus, partition, gresType)
+			}
 		}
 	}
 }
