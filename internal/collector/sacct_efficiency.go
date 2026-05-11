@@ -187,6 +187,12 @@ type SacctEfficiencyCollector struct {
 	cpuHoursAllocated *prometheus.Desc
 	lastRefreshDesc   *prometheus.Desc
 
+	// done is closed when the background goroutine launched by Start() exits.
+	// Tests can wait on it after cancelling the context to ensure the
+	// goroutine is finished before tearing down package-level state (like the
+	// Execute mock). Unused in production.
+	done chan struct{}
+
 	logger *logger.Logger
 }
 
@@ -196,6 +202,7 @@ func NewSacctEfficiencyCollector(log *logger.Logger, interval, lookback time.Dur
 	c := &SacctEfficiencyCollector{
 		interval: interval,
 		lookback: lookback,
+		done:     make(chan struct{}),
 		cpuEfficiency: prometheus.NewDesc(
 			"slurm_job_cpu_efficiency_avg",
 			"Average CPU efficiency of completed jobs (TotalCPU/CPUTime*100) aggregated by account+user over the lookback window.",
@@ -223,8 +230,10 @@ func NewSacctEfficiencyCollector(log *logger.Logger, interval, lookback time.Dur
 }
 
 // Start launches the background refresh goroutine. Call once after construction.
+// The goroutine exits when ctx is cancelled; Done() can be used to wait for it.
 func (c *SacctEfficiencyCollector) Start(ctx context.Context) {
 	go func() {
+		defer close(c.done)
 		c.refresh()
 		ticker := time.NewTicker(c.interval)
 		defer ticker.Stop()
@@ -237,6 +246,13 @@ func (c *SacctEfficiencyCollector) Start(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// Done returns a channel that is closed when the background refresh goroutine
+// started by Start() has fully exited. Useful in tests to synchronise teardown
+// (e.g. restoring a mocked package-level Execute) after cancelling the context.
+func (c *SacctEfficiencyCollector) Done() <-chan struct{} {
+	return c.done
 }
 
 func (c *SacctEfficiencyCollector) refresh() {

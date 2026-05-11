@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -163,21 +164,31 @@ func TestSacctEfficiencyCollector_EmptyBeforeFirstRefresh(t *testing.T) {
 }
 
 func TestSacctEfficiencyCollector_ErrorKeepsPreviousCache(t *testing.T) {
-	callCount := 0
+	// The collector starts a background refresh goroutine that calls the
+	// package-level Execute. atomic.Int64 keeps the counter race-free, and
+	// we wait on c.Done() before restoring Execute so the goroutine has
+	// fully exited (otherwise the defer below races with the goroutine's
+	// read of Execute).
+	var callCount atomic.Int64
+
+	log := logger.NewLogger("error")
+	c := NewSacctEfficiencyCollector(log, 1*time.Millisecond, 1*time.Hour)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	oldExecute := Execute
-	defer func() { Execute = oldExecute }()
+	defer func() {
+		cancel()
+		<-c.Done() // ensure the refresh goroutine has fully exited
+		Execute = oldExecute
+	}()
+
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		callCount++
-		if callCount == 1 {
+		if callCount.Add(1) == 1 {
 			return []byte(`alice|hpc_team|4|01:00:00|03:00:00|04:00:00|1G|2G`), nil
 		}
 		return nil, assert.AnError // second call fails
 	}
 
-	log := logger.NewLogger("error")
-	c := NewSacctEfficiencyCollector(log, 1*time.Millisecond, 1*time.Hour)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	c.Start(ctx)
 
 	time.Sleep(50 * time.Millisecond) // let first refresh + failed second run
