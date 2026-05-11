@@ -23,7 +23,7 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 - [⚙️ Configuration](docs/configuration.md) *(flags, collectors, Prometheus)*
 - [📊 Metrics Reference](docs/metrics.md) *(all 14 collectors)*
 - [🛠️ Development](docs/development.md) *(build, test, lint)*
-- [📈 Grafana Dashboards](#-grafana-dashboards)
+- [📈 Dashboards & Alerts](#-dashboards--alerts) *(Grafana JSONs + Prometheus alerting rules)*
 - [📸 Screenshots](#-screenshots)
 - [📜 License](#-license)
 
@@ -37,7 +37,8 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 - ✅ Liveness probe at `/healthz` for orchestrators (Kubernetes, systemd).
 - ✅ GPU metrics per account and user (`slurm_account_gpus_running`, `slurm_user_gpus_running`).
 - ✅ Per-reservation node state metrics (`slurm_reservation_nodes_*`).
-- ✅ Ready-to-use Grafana dashboard.
+- ✅ Ten ready-to-use Grafana dashboards (in [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/)).
+- ✅ Site-neutral Prometheus alerting rules and recording rules (in [`monitoring/prometheus/`](monitoring/prometheus/)).
 
 ---
 
@@ -88,10 +89,24 @@ If you want to build the exporter yourself, you can do so using the provided Mak
 
 ---
 
-## 📈 Grafana Dashboards
+## 📈 Dashboards & Alerts
 
-Ten ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
-All dashboards use a `$datasource` template variable and are compatible with Grafana 12+.
+All monitoring assets live under [`monitoring/`](monitoring/):
+
+```
+monitoring/
+├── grafana/dashboards/    10 Grafana dashboards (JSON) + screenshots
+└── prometheus/
+    ├── alerts.yml         Alerting rules (severity-based, site-neutral)
+    └── rules.yml          Recording rules (cluster:slurm_job_failure_rate:ratio15m)
+```
+
+See [`monitoring/README.md`](monitoring/README.md) for end-to-end wiring (scrape config, rule_files, Alertmanager).
+
+### Grafana Dashboards
+
+Ten ready-to-use dashboards in [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/).
+All use a `$datasource` template variable and are compatible with Grafana 12+.
 
 | # | Dashboard | UID | Description |
 |---|-----------|-----|-------------|
@@ -111,13 +126,13 @@ All dashboards use a `$datasource` template variable and are compatible with Gra
 **Option 1 — Copy JSON files** to your Grafana provisioning directory:
 
 ```bash
-cp dashboards_grafana/*.json /etc/grafana/provisioning/dashboards/
+cp monitoring/grafana/dashboards/*.json /etc/grafana/provisioning/dashboards/
 ```
 
 **Option 2 — Import via API:**
 
 ```bash
-for f in dashboards_grafana/*.json; do
+for f in monitoring/grafana/dashboards/*.json; do
   curl -s -X POST http://admin:password@grafana-host:3000/api/dashboards/db \
     -H "Content-Type: application/json" \
     -d "{\"dashboard\": $(cat $f), \"overwrite\": true, \"folderId\": 0}"
@@ -128,36 +143,67 @@ done
 > On clusters with 100k+ nodes, always select a specific partition to avoid loading excessive data.
 > The partition summary and problem nodes panels are always scalable regardless of cluster size.
 
+### Prometheus Alerts & Recording Rules
+
+A starter set of site-neutral alerting rules ships in
+[`monitoring/prometheus/alerts.yml`](monitoring/prometheus/alerts.yml), with
+one supporting recording rule in
+[`monitoring/prometheus/rules.yml`](monitoring/prometheus/rules.yml).
+See [`monitoring/prometheus/README.md`](monitoring/prometheus/README.md)
+for the threshold table, calibration guidance, and validation recipes.
+
+**Coverage**: node down/drain/maint, partition nodes down, pending-job queue
+backlog (warning / critical), job failure rate (warning / critical),
+slurmctld cycle slowness, SlurmDBD queue backlog, GPU saturation.
+
+**What's not in it**: `team` / `runbook_url` / `dashboard_url` labels — those
+are site-specific, add them via Prometheus `external_labels` or
+Alertmanager routing.
+
+**Load in Prometheus**:
+
+```yaml
+rule_files:
+  - /etc/prometheus/rules/slurm_alerts.yml
+  - /etc/prometheus/rules/slurm_rules.yml
+```
+
+Validate before deploying:
+
+```bash
+promtool check rules monitoring/prometheus/alerts.yml monitoring/prometheus/rules.yml
+```
+
 ---
 
 ## 📸 Screenshots
 
 > Screenshots taken on a 20-node test cluster (alice/bob/carol/dave/eve/frank, multiple accounts and partitions).
-> Click any thumbnail to open the full-size image. See [`dashboards_grafana/README.md`](dashboards_grafana/README.md) for the full dashboard documentation.
+> Click any thumbnail to open the full-size image. See [`monitoring/grafana/dashboards/README.md`](monitoring/grafana/dashboards/README.md) for the full dashboard documentation.
 
 <table>
 <tr>
 <td align="center" width="33%">
 
 **Cluster Overview**<br>
-<a href="dashboards_grafana/screenshots/overview-1.png">
-  <img src="dashboards_grafana/screenshots/overview-1.png" width="100%" alt="Cluster Overview">
+<a href="monitoring/grafana/dashboards/screenshots/overview-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/overview-1.png" width="100%" alt="Cluster Overview">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Jobs & Queue**<br>
-<a href="dashboards_grafana/screenshots/jobs-1.png">
-  <img src="dashboards_grafana/screenshots/jobs-1.png" width="100%" alt="Jobs & Queue">
+<a href="monitoring/grafana/dashboards/screenshots/jobs-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/jobs-1.png" width="100%" alt="Jobs & Queue">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Node Detail** *(scalable 100k+ nodes)*<br>
-<a href="dashboards_grafana/screenshots/nodes-1.png">
-  <img src="dashboards_grafana/screenshots/nodes-1.png" width="100%" alt="Node Detail">
+<a href="monitoring/grafana/dashboards/screenshots/nodes-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/nodes-1.png" width="100%" alt="Node Detail">
 </a>
 
 </td>
@@ -166,24 +212,24 @@ done
 <td align="center" width="33%">
 
 **Cluster Usage Statistics**<br>
-<a href="dashboards_grafana/screenshots/usage-1.png">
-  <img src="dashboards_grafana/screenshots/usage-1.png" width="100%" alt="Cluster Usage Statistics">
+<a href="monitoring/grafana/dashboards/screenshots/usage-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/usage-1.png" width="100%" alt="Cluster Usage Statistics">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Scheduler**<br>
-<a href="dashboards_grafana/screenshots/scheduler-1.png">
-  <img src="dashboards_grafana/screenshots/scheduler-1.png" width="100%" alt="Scheduler">
+<a href="monitoring/grafana/dashboards/screenshots/scheduler-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/scheduler-1.png" width="100%" alt="Scheduler">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Exporter Health**<br>
-<a href="dashboards_grafana/screenshots/health-1.png">
-  <img src="dashboards_grafana/screenshots/health-1.png" width="100%" alt="Exporter Health">
+<a href="monitoring/grafana/dashboards/screenshots/health-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/health-1.png" width="100%" alt="Exporter Health">
 </a>
 
 </td>
@@ -192,24 +238,24 @@ done
 <td align="center" width="33%">
 
 **Reservations & Licenses**<br>
-<a href="dashboards_grafana/screenshots/reservations-1.png">
-  <img src="dashboards_grafana/screenshots/reservations-1.png" width="100%" alt="Reservations & Licenses">
+<a href="monitoring/grafana/dashboards/screenshots/reservations-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/reservations-1.png" width="100%" alt="Reservations & Licenses">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Accounting** *(new in v1.7.0)*<br>
-<a href="dashboards_grafana/screenshots/accounting-1.png">
-  <img src="dashboards_grafana/screenshots/accounting-1.png" width="100%" alt="Accounting">
+<a href="monitoring/grafana/dashboards/screenshots/accounting-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/accounting-1.png" width="100%" alt="Accounting">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Exporter Performance** *(new in v1.8.0)*<br>
-<a href="dashboards_grafana/screenshots/exporter-perf-1.png">
-  <img src="dashboards_grafana/screenshots/exporter-perf-1.png" width="100%" alt="Exporter Performance">
+<a href="monitoring/grafana/dashboards/screenshots/exporter-perf-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/exporter-perf-1.png" width="100%" alt="Exporter Performance">
 </a>
 
 </td>
@@ -217,7 +263,7 @@ done
 <tr>
 <td align="center" colspan="3">
 
-*All 10 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
+*All 10 dashboards documented in [`monitoring/grafana/dashboards/README.md`](monitoring/grafana/dashboards/README.md)*
 
 </td>
 </tr>

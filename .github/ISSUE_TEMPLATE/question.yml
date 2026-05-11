@@ -1,0 +1,54 @@
+name: ❓ Question or Configuration Help
+description: Something isn't working but you're not sure whether it's a bug or a config issue
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome! Use this template if you're new to Prometheus/Grafana, or if
+        you're not sure whether you're hitting a bug or a configuration thing.
+        We'd rather you ask than get stuck — no question is too basic.
+
+        If you already know it's a bug, please use the
+        [🐛 Bug Report](https://github.com/SckyzO/slurm_exporter/issues/new?template=bug_report.yml)
+        template instead so we can collect the right data upfront.
+
+  - type: input
+    id: exporter_version
+    attributes:
+      label: slurm_exporter version
+      description: Output of `slurm_exporter --version` (first line).
+      placeholder: "slurm_exporter, version v1.8.2 ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: observation
+    attributes:
+      label: What are you observing?
+      description: |
+        A panel that's empty, a metric value that looks wrong, a flag that
+        doesn't seem to behave like the docs suggest, ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try?
+      description: |
+        Commands you ran, dashboard panels you inspected, other tools or
+        exporters you compared to. This helps us understand where the
+        confusion is.
+
+  - type: input
+    id: affected
+    attributes:
+      label: Affected dashboard or metric (if relevant)
+      placeholder: "05-slurm-scheduler.json, panel 'Job Lifecycle' / slurm_jobs_pending"
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Don't worry about formatting — just describe what you're seeing.

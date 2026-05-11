@@ -155,21 +155,44 @@ summary, no `Co-authored-by:`.
 
 ## 5. Validate continuously
 
+**Every command below runs inside a containerised toolchain** — Docker is
+the only requirement on the developer machine, the result is identical on
+every host. The image is defined in [`scripts/docker/tools/`](../scripts/docker/tools/)
+and built lazily on first use.
+
 After every commit, run:
 
 ```bash
-make check    # vet + golangci-lint + tests
+make check    # vet + golangci-lint + tests (containerised)
 ```
 
-Before the release ships, run the heavier checks at least once:
+**Before tagging, both of these must be green — release blockers:**
 
 ```bash
-make race     # race detector
-make build    # full ldflags build
+make check    # exit 0 required
+make report   # exit 0 → grade ≥ B; aim for A or A+
+```
+
+`make report` is the offline equivalent of
+[goreportcard.com](https://goreportcard.com): runs `gofmt -s`, `go vet`,
+`gocyclo`, `ineffassign`, `misspell`, and a `LICENSE` check, prints a
+per-check score, and assigns a global grade. It exits non-zero below
+grade B so it can gate CI / pre-commit. The score matches what
+goreportcard.com would publish.
+
+Also run at least once before tagging:
+
+```bash
+make race     # race detector (containerised)
+make build    # full ldflags build (native)
 ```
 
 If `make race` fails on a pre-existing test (not something you introduced),
 fix it in this release if cheap, otherwise file a follow-up issue.
+
+If `make report` drops a grade vs. master (e.g. a new function above
+gocyclo threshold), either refactor before tagging or annotate explicitly
+with `//nolint:gocyclo` and a rationale comment.
 
 ---
 
@@ -209,7 +232,7 @@ For v1.8.2 we explicitly verified:
   that previously dropped a node, confirm the node now appears).
 - Renamed metrics use the new names (e.g. `slurm_scheduler_jobs_submitted`
   without `_total`).
-- Dashboards in `dashboards_grafana/` still render — `make redeploy-dashboards`
+- Dashboards in `monitoring/grafana/dashboards/` still render — `make redeploy-dashboards`
   reimports them and Grafana is reachable at `http://localhost:3000`.
 
 ### Diff exposed metrics against docs
@@ -249,7 +272,7 @@ For every change that affects user-visible behavior:
 | `docs/metrics-examples.md` | Any new metric in a section where a representative sample would help users |
 | `docs/configuration.md` | Any new flag, default change, or behavior toggle |
 | `README.md` | Headline features only |
-| `dashboards_grafana/*.json` | Any rename, drop of a metric that's actually used in a panel, or addition of a high-value metric that deserves its own panel |
+| `monitoring/grafana/dashboards/*.json` | Any rename, drop of a metric that's actually used in a panel, or addition of a high-value metric that deserves its own panel |
 | Companion `monitoring-stacks/alerts/slurm.yml` | Any metric rename, drop, or new opt-in collector that recording rules / alerts depend on |
 
 For breaking changes, include a **migration table** in CHANGELOG:

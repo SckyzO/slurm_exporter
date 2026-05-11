@@ -27,14 +27,14 @@ template variable for portability.
 **Option 2 — Provisioning** (recommended for permanent setup):
 
 ```bash
-cp dashboards_grafana/*.json /etc/grafana/provisioning/dashboards/
+cp monitoring/grafana/dashboards/*.json /etc/grafana/provisioning/dashboards/
 # Reload Grafana or wait for the provisioning interval (default: 30s)
 ```
 
 **Option 3 — API** (batch import):
 
 ```bash
-for f in dashboards_grafana/*.json; do
+for f in monitoring/grafana/dashboards/*.json; do
   curl -s -X POST http://admin:password@grafana-host:3000/api/dashboards/db \
     -H "Content-Type: application/json" \
     -d "{\"dashboard\": $(cat "$f"), \"overwrite\": true, \"folderId\": 0}"

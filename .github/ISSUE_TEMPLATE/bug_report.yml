@@ -1,0 +1,102 @@
+name: 🐛 Bug Report
+description: A metric is missing, wrong, or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more details you give
+        upfront, the faster the issue can be diagnosed.
+
+        Most parsing bugs in this project come from how Slurm formats CLI output
+        on a specific version or cluster shape — the **raw Slurm command output
+        field below is the single most useful piece of information**.
+
+  - type: input
+    id: exporter_version
+    attributes:
+      label: slurm_exporter version
+      description: Output of `slurm_exporter --version` (first line is enough).
+      placeholder: "slurm_exporter, version v1.8.2 ..."
+    validations:
+      required: true
+
+  - type: input
+    id: slurm_version
+    attributes:
+      label: Slurm version
+      description: Output of `sinfo --version`.
+      placeholder: "slurm 24.05.4"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Rocky Linux 9.3, Ubuntu 22.04, ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What's happening?
+      description: |
+        Describe the symptom. Include exact metric name(s), label values,
+        and unexpected behaviour. A snippet of the affected `/metrics`
+        output works great.
+      placeholder: |
+        e.g. `slurm_node_status{...}` returns no data even though the cluster
+        has running nodes; `count by (status) (slurm_node_status)` is empty.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Commands / actions that surface the bug.
+      placeholder: |
+        1. Run the exporter with `slurm_exporter --log.level=debug`
+        2. `curl -s http://localhost:9341/metrics | grep slurm_node_status`
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: slurm_output
+    attributes:
+      label: Raw Slurm command output (please include this!)
+      description: |
+        Run the relevant Slurm CLI command directly on the host and paste its
+        output here. For node-related bugs this is typically:
+        `sinfo -h -N -O "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition"`.
+        For queue/accounting bugs: `squeue -h -o "%P|%T|%C|%r|%u"`.
+        For scheduler bugs: `sdiag`. Look in the exporter's source code (e.g.
+        `internal/collector/*Data()` functions) for the exact command used by
+        the collector you're investigating.
+
+        This is the **single most useful field** — most bugs are diagnosed
+        from this output alone.
+      render: shell
+
+  - type: textarea
+    id: exporter_logs
+    attributes:
+      label: Exporter logs (`--log.level=debug`)
+      description: Restart the exporter with `--log.level=debug` and paste any error/warning lines around the time of the scrape.
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Dashboards in use, custom flags, container environment, anything that might matter.

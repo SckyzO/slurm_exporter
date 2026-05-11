@@ -65,36 +65,61 @@ go/modules/pkg/mod: go.mod
 	@echo "Downloading Go modules"
 	go mod download
 
-# Test target to run all tests
-.PHONY: test
-test: $(GOFILES)
-	@echo "Running tests"
-	go test -v ./...
+# ─── Containerised tooling ────────────────────────────────────────────────────
+# The check / report / lint / vet / race targets below run inside a single
+# self-contained image (scripts/docker/tools/) that bundles Go, golangci-lint,
+# gocyclo, misspell, and ineffassign. The only host requirement is Docker —
+# no Go toolchain needed.
 
-# Run tests with the race detector. Useful locally to catch concurrency bugs
+TOOLS_IMG     := slurm_exporter-tools:latest
+TOOLS_CTX     := scripts/docker/tools
+IN_TOOLS      := docker run --rm -v "$(CURDIR):/repo" -w /repo $(TOOLS_IMG)
+
+# Build the tools image if missing or if its Dockerfile changed.
+.PHONY: tools-image
+tools-image:
+	@if ! docker image inspect $(TOOLS_IMG) >/dev/null 2>&1 || \
+	   [ $(TOOLS_CTX)/Dockerfile -nt /tmp/.$(TOOLS_IMG).stamp ]; then \
+	  echo "Building $(TOOLS_IMG)..."; \
+	  docker build -t $(TOOLS_IMG) $(TOOLS_CTX) && touch /tmp/.$(TOOLS_IMG).stamp; \
+	fi
+
+# Test target to run all tests (in container).
+.PHONY: test
+test: tools-image
+	@echo "Running tests (containerised)"
+	@$(IN_TOOLS) -c 'go test -v ./...'
+
+# Tests with the race detector (in container). Useful to catch concurrency bugs
 # in collectors with background goroutines (e.g. sacct_efficiency).
 .PHONY: race
-race: $(GOFILES)
-	@echo "Running tests with race detector"
-	go test -race -count=1 ./...
+race: tools-image
+	@echo "Running tests with race detector (containerised)"
+	@$(IN_TOOLS) -c 'go test -race -count=1 ./...'
 
-# Static analysis with go vet (also covered by golangci-lint).
+# go vet (in container).
 .PHONY: vet
-vet:
-	@echo "Running go vet"
-	go vet ./...
+vet: tools-image
+	@echo "Running go vet (containerised)"
+	@$(IN_TOOLS) -c 'go vet ./...'
 
-# Lint using the same tool as CI (golangci-lint).
-# Requires golangci-lint to be installed locally:
-#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+# golangci-lint, same tool as CI (in container).
 .PHONY: lint
-lint:
-	@echo "Running golangci-lint"
-	golangci-lint run ./...
+lint: tools-image
+	@echo "Running golangci-lint (containerised)"
+	@$(IN_TOOLS) -c 'golangci-lint run ./...'
 
 # Full pre-commit / pre-release verification — mirrors what CI runs.
 .PHONY: check
 check: vet lint test
+
+# Offline equivalent of the goreportcard.com checks (in container).
+# Runs gofmt -s, go vet, gocyclo, ineffassign, misspell, and a LICENSE check,
+# then prints a per-check score and an overall grade. Exits non-zero below B
+# so CI / pre-commit hooks can gate on it.
+.PHONY: report
+report: tools-image
+	@$(IN_TOOLS) -c '$(TOOLS_CTX)/goreport.sh'
 
 # Run the built binary
 .PHONY: run

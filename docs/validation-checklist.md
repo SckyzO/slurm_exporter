@@ -27,31 +27,39 @@ Confirm the workspace is clean and the binary builds.
 
 ### Command
 
+All `make vet`, `make lint`, `make test`, `make check`, `make race`, and
+`make report` targets run inside a containerised toolchain
+(`scripts/docker/tools/`). The only host requirement is Docker.
+
 ```bash
 cd "$(git rev-parse --show-toplevel)"
 git status --short
-make vet
-make lint
-make build
+make check      # vet + lint + tests, all in container
+make report     # offline goreportcard.com equivalent, in container
+make build      # full ldflags build (produces bin/slurm_exporter)
 bin/slurm_exporter --version
 ```
 
 ### Expected
 
-- `git status --short` shows only intentional changes (and possibly `.claude/`,
-  which is gitignored noise).
-- `make vet` exits 0 with `Running go vet` then `go vet ./...` only.
-- `make lint` ends with `0 issues.`
+- `git status --short` shows only intentional changes (and possibly
+  `.claude/`, which is gitignored noise).
+- `make check` exits 0 — `go vet`, `golangci-lint`, and all tests pass.
+- `make report` exits 0 — average grade ≥ B (current master is A+ at
+  98.76%). Any drop in grade vs. master is a release blocker.
 - `make build` produces `bin/slurm_exporter` without warnings.
-- `bin/slurm_exporter --version` prints a version string including the current
-  branch name (e.g. `v1.8.1-NN-gXXXXXXX` for an unreleased branch).
+- `bin/slurm_exporter --version` prints a version string including the
+  current branch name (e.g. `v1.8.1-NN-gXXXXXXX` for an unreleased branch).
 
 ### If it fails
 
-- `vet` / `lint` errors: fix them before continuing. Don't validate a branch
+- **`make check` errors**: fix before continuing. Don't validate a branch
   that doesn't pass static checks.
-- `make build` errors usually mean a Go toolchain mismatch — check
-  `go version` matches what `Makefile` expects (1.25+).
+- **`make report` drops a grade**: read the per-check breakdown — most
+  common cause is a new function above the gocyclo threshold (15).
+  Either refactor or annotate with `//nolint:gocyclo` + rationale.
+- **First `make` call is slow**: the tools image is being built. Subsequent
+  runs reuse the cache and start in seconds.
 
 ---
 
@@ -415,7 +423,7 @@ Open in browser (or via Playwright/Chromium for the AI agent):
 http://localhost:3000  (login admin / admin)
 ```
 
-Walk through every dashboard in `dashboards_grafana/`. For each:
+Walk through every dashboard in `monitoring/grafana/dashboards/`. For each:
 - No "No data" on panels that should have data.
 - No PromQL parse errors (red banner).
 - Time ranges show plausible values.
@@ -461,7 +469,7 @@ make -C scripts/testing clean     # full teardown including Docker volumes
 
 Tick each as you go:
 
-- [ ] Step 1 — `make vet`, `make lint`, `make build` all green
+- [ ] Step 1 — `make check`, `make report` (grade ≥ B), `make build` all green
 - [ ] Step 2 — `make setup` completes 9/9
 - [ ] Step 3 — Exporter restarted with all collectors + debug
 - [ ] Step 4 — `/metrics` returns 200, 0 errors/warnings in log

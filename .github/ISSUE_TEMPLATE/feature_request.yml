@@ -1,0 +1,62 @@
+name: ✨ Feature Request
+description: Propose a new metric, collector, dashboard panel, or behavior
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest something. Feature requests get
+        prioritised on **operational value** ("what can users not monitor today?"),
+        not on completeness ("everything that could be exposed").
+
+        Before opening, check the [roadmap](https://github.com/SckyzO/slurm_exporter/blob/master/docs/roadmap.md) —
+        the idea might already be planned.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: |
+        Describe the operational question, alerting need, or capacity-planning
+        question behind the request. Concrete use cases get prioritised faster.
+      placeholder: |
+        e.g. I want to alert when a specific user submits too many failed jobs
+        in a short window, or detect when a partition consistently has no idle
+        GPUs while jobs queue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed metric / collector / behavior
+      description: |
+        A rough sketch helps: metric name(s) + labels + type
+        (gauge/counter/histogram), or a description of the new behavior.
+      placeholder: |
+        e.g. `slurm_job_count_failed{account, user}` (gauge) — count of jobs
+        in FAILED state over the sacct lookback window, per user.
+    validations:
+      required: true
+
+  - type: textarea
+    id: slurm_command
+    attributes:
+      label: Underlying Slurm command (if known)
+      description: |
+        What Slurm CLI invocation would supply the data? Helps assess feasibility
+        and load on slurmctld.
+      placeholder: |
+        e.g. `sacct -X -P -n --starttime <lookback> --format=User,Account,State`
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds today (PromQL tricks, other exporters, manual scripts)?
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Related links, examples from other exporters (node_exporter, vpenso/slurm_exporter, etc.), pointers to discussions.
