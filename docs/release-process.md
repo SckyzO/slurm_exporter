@@ -303,7 +303,83 @@ For issues that are *acknowledged but planned for the next release*: leave
 them open and comment with the planned milestone and what the user can do
 in the meantime.
 
-### Tag and release
+### Test on a real platform before the final tag
+
+The Docker test cluster (`scripts/testing`) catches structural bugs, but it
+runs on short hostnames (`c1`–`c10`), no real workload variability, and a
+clean Slurm install. **A real cluster will surface things the test cluster
+can't** — long node names, multi-type GPUs, slurmctld restarts, sustained
+load, version-specific output quirks. Before tagging the final release,
+run the binary on an actual cluster.
+
+Two approaches depending on risk:
+
+#### A. Release candidate tag (recommended for minor/major and breaking changes)
+
+For releases that rename metrics, change types, or touch the scheduler
+(v1.8.2 was one of these), tag a release candidate first. CI will publish
+it as a GitHub **pre-release** thanks to the `prerelease: auto` setting in
+`.goreleaser.yaml`, so users won't grab it by accident from
+`go install @latest` or release-assets automation.
+
+```bash
+git checkout master && git pull
+git tag -a vX.Y.Z-rc1 -m "vX.Y.Z release candidate 1"
+git push origin vX.Y.Z-rc1
+# → CI publishes a GitHub pre-release with the rc1 binary
+```
+
+Deploy the rc1 binary to a staging or production cluster, leave it running
+through at least one full work cycle (a few hours, ideally overnight), and
+watch for:
+
+- Unexpected dips or spikes in any metric series.
+- New error logs from the exporter.
+- Dashboard panels suddenly showing "No data" where they used to.
+- `slurm_exporter_collector_duration_seconds` getting much longer.
+
+If you find an issue: fix on a hotfix branch, merge, then `vX.Y.Z-rc2`.
+Repeat as needed. Once stable, ship the final tag:
+
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z — <headline>"
+git push origin vX.Y.Z
+```
+
+#### B. Local build + manual deploy (for trivial patches)
+
+For a patch that only touches docs, tests, or a clearly isolated bug, the
+RC dance is overkill. Build the binary from merged `master` and ship it
+manually to a staging cluster:
+
+```bash
+git checkout master && git pull
+make build
+
+scp bin/slurm_exporter staging-cluster:/usr/local/bin/slurm_exporter.next
+ssh staging-cluster "
+  /usr/local/bin/slurm_exporter.next --version &&
+  systemctl stop slurm_exporter &&
+  mv /usr/local/bin/slurm_exporter.next /usr/local/bin/slurm_exporter &&
+  systemctl start slurm_exporter
+"
+```
+
+Watch Grafana and `/metrics` for the same signals as approach A, for a
+shorter window (~30 min) before tagging.
+
+#### Decision matrix
+
+| Change type | Approach |
+|---|---|
+| Breaking change (metric rename/retyped, label change) | **A — RC tag**, deploy to staging, full overnight |
+| New collector / new exposed metric | **A — RC tag**, deploy to staging, a few hours |
+| Bug fix to existing collector | **B — local build**, 30 min validation |
+| Docs / test-only patch | None required — `make check` is enough |
+
+### Tag the final release
+
+Once you're confident on a real cluster:
 
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z — <short headline>"

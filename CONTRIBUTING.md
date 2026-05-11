@@ -186,8 +186,11 @@ Read that file before cutting a release. The quick summary:
 7. Update `CHANGELOG.md`, `docs/metrics.md`, `docs/metrics-examples.md`,
    dashboards, and the companion alerting rules if applicable.
 8. Open the release PR with the v1.8.2 template structure.
-9. After merge: tag, close integrated community PRs with a thank-you, and
-   respond to acknowledged-but-deferred issues.
-
-CI (`.github/workflows/release.yml`) picks up the tag and runs
-`lint → test → goreleaser release` automatically.
+9. After merge: close integrated community PRs with a thank-you and respond
+   to acknowledged-but-deferred issues.
+10. **Test the binary on a real cluster before the final tag.** Approach A
+    (RC tag `vX.Y.Z-rc1` → GitHub pre-release → staging overnight) for
+    breaking/minor releases; approach B (local `make build` → scp to
+    staging) for trivial patches. Decision matrix in the playbook.
+11. Tag the final `vX.Y.Z`; CI (`.github/workflows/release.yml`) runs
+    `lint → test → goreleaser release` and publishes automatically.
