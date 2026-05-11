@@ -23,7 +23,7 @@ var (
 	schedulerPatternTotalStart  = regexp.MustCompile(`^[\s]+Total backfilled jobs \(since last slurm start\)`)
 	schedulerPatternTotalCycle  = regexp.MustCompile(`^[\s]+Total backfilled jobs \(since last stats cycle start\)`)
 	schedulerPatternTotalHetero = regexp.MustCompile(`^[\s]+Total backfilled heterogeneous job components`)
-	schedulerRPCLineRe          = regexp.MustCompile(`^\s*([A-Za-z0-9_]*).*count:([0-9]*)\s*ave_time:([0-9]*)\s\s*total_time:([0-9]*)\s*$`)
+	schedulerRPCLineRe          = regexp.MustCompile(`^\s*([A-Za-z0-9_-]*).*count:([0-9]*)\s*ave_time:([0-9]*)\s\s*total_time:([0-9]*)\s*$`)
 
 	// Job counters (sdiag "Jobs submitted/started/completed/canceled/failed")
 	schedulerPatternJobsSubmitted = regexp.MustCompile(`^Jobs submitted`)
