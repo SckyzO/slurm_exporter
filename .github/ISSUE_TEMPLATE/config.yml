@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/SckyzO/slurm_exporter#readme
+    about: Configuration, metrics, dashboards. Often answers the question before opening an issue.
+  - name: 🚀 Latest release
+    url: https://github.com/SckyzO/slurm_exporter/releases/latest
+    about: Make sure the issue isn't already fixed in a newer release.
+  - name: 🗺️ Roadmap
+    url: https://github.com/SckyzO/slurm_exporter/blob/master/docs/roadmap.md
+    about: What's planned for upcoming releases.
