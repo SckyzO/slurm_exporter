@@ -1,0 +1,33 @@
+name: Refresh Go Report Card
+
+# Tell goreportcard.com to re-analyse the repo whenever a new release is
+# tagged. The endpoint enqueues the regeneration and returns immediately —
+# the actual report becomes available a few seconds later at
+# https://goreportcard.com/report/github.com/sckyzo/slurm_exporter
+#
+# Kept as a dedicated workflow (rather than a step inside release.yml) so a
+# goreportcard.com outage cannot fail the GoReleaser pipeline.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST to goreportcard.com
+        # REPO is sourced from the GitHub context; passing it via env keeps
+        # the run: block free of templated values, which is the recommended
+        # pattern for workflow injection protection.
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          curl -fsS -X POST 'https://goreportcard.com/checks' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "repo=github.com/${REPO}" \
+            -o /dev/null -w 'HTTP %{http_code} after %{time_total}s\n'
