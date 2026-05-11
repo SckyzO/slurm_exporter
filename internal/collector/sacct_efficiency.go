@@ -124,6 +124,8 @@ func ParseSacctEfficiency(input []byte) []SacctJobRecord {
 // SacctEfficiencyAggregates holds aggregated efficiency stats per user+account.
 type SacctEfficiencyAggregates struct {
 	JobCount          float64
+	CPUJobCount       float64 // jobs where CPUTime > 0 (denominator for CPUEfficiencyPct)
+	MemJobCount       float64 // jobs where ReqMem > 0 (denominator for MemEfficiencyPct)
 	CPUEfficiencyPct  float64 // avg(TotalCPU / CPUTime * 100)
 	MemEfficiencyPct  float64 // avg(MaxRSS / ReqMem * 100), only for jobs with ReqMem>0
 	CPUHoursAllocated float64
@@ -149,18 +151,23 @@ func AggregateSacctEfficiency(records []SacctJobRecord) map[string]map[string]*S
 
 		if r.CPUTimeSeconds > 0 {
 			agg.CPUEfficiencyPct += r.TotalCPUSeconds / r.CPUTimeSeconds * 100
+			agg.CPUJobCount++
 		}
 		if r.ReqMemMB > 0 && r.MaxRSSMB >= 0 {
 			agg.MemEfficiencyPct += r.MaxRSSMB / r.ReqMemMB * 100
+			agg.MemJobCount++
 		}
 	}
 
-	// Convert sums to averages
+	// Convert sums to averages using per-metric job counts as denominators.
+	// This avoids understating averages when some jobs lack CPU-time or memory data.
 	for _, users := range result {
 		for _, agg := range users {
-			if agg.JobCount > 0 {
-				agg.CPUEfficiencyPct /= agg.JobCount
-				agg.MemEfficiencyPct /= agg.JobCount
+			if agg.CPUJobCount > 0 {
+				agg.CPUEfficiencyPct /= agg.CPUJobCount
+			}
+			if agg.MemJobCount > 0 {
+				agg.MemEfficiencyPct /= agg.MemJobCount
 			}
 		}
 	}
@@ -187,6 +194,12 @@ type SacctEfficiencyCollector struct {
 	cpuHoursAllocated *prometheus.Desc
 	lastRefreshDesc   *prometheus.Desc
 
+	// done is closed when the background goroutine launched by Start() exits.
+	// Tests can wait on it after cancelling the context to ensure the
+	// goroutine is finished before tearing down package-level state (like the
+	// Execute mock). Unused in production.
+	done chan struct{}
+
 	logger *logger.Logger
 }
 
@@ -196,6 +209,7 @@ func NewSacctEfficiencyCollector(log *logger.Logger, interval, lookback time.Dur
 	c := &SacctEfficiencyCollector{
 		interval: interval,
 		lookback: lookback,
+		done:     make(chan struct{}),
 		cpuEfficiency: prometheus.NewDesc(
 			"slurm_job_cpu_efficiency_avg",
 			"Average CPU efficiency of completed jobs (TotalCPU/CPUTime*100) aggregated by account+user over the lookback window.",
@@ -223,8 +237,10 @@ func NewSacctEfficiencyCollector(log *logger.Logger, interval, lookback time.Dur
 }
 
 // Start launches the background refresh goroutine. Call once after construction.
+// The goroutine exits when ctx is cancelled; Done() can be used to wait for it.
 func (c *SacctEfficiencyCollector) Start(ctx context.Context) {
 	go func() {
+		defer close(c.done)
 		c.refresh()
 		ticker := time.NewTicker(c.interval)
 		defer ticker.Stop()
@@ -237,6 +253,13 @@ func (c *SacctEfficiencyCollector) Start(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// Done returns a channel that is closed when the background refresh goroutine
+// started by Start() has fully exited. Useful in tests to synchronise teardown
+// (e.g. restoring a mocked package-level Execute) after cancelling the context.
+func (c *SacctEfficiencyCollector) Done() <-chan struct{} {
+	return c.done
 }
 
 func (c *SacctEfficiencyCollector) refresh() {

@@ -16,10 +16,12 @@ var (
 	accountJobRunning   = regexp.MustCompile(`^running`)
 	accountJobSuspended = regexp.MustCompile(`^suspended`)
 
-	// treGPURe matches GPU counts in TRES strings from squeue %b output.
-	// Real formats observed: "gres/gpu:4", "gres/gpu:2", "N/A"
-	// Also handles typed GPUs: "gres/gpu:a100:2", "gres/gpu:nvidia_gb200:4"
-	tresGPURe = regexp.MustCompile(`gres/gpu[^,\s]*[:/=](\d+)`)
+	// tresGPURe matches GPU counts in TRES strings from squeue %b output.
+	// Real formats observed: "gres/gpu:4", "gres:gpu:4", "N/A"
+	// Also handles typed GPUs: "gres/gpu:a100:2", "gres:gpu:nvidia_gb200:4"
+	// The [:/]gpu prefix tolerates both separators — some Slurm versions emit
+	// the colon form (see issue #28).
+	tresGPURe = regexp.MustCompile(`gres[:/]gpu[^,\s]*[:/=](\d+)`)
 )
 
 // parseGPUsFromTRES extracts the GPU count per node from a TRES string.

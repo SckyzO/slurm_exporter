@@ -1158,6 +1158,179 @@
           "instant": true
         }
       ]
+    },
+    {
+      "type": "row",
+      "id": 105,
+      "title": "Job Lifecycle (since slurmctld start)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat",
+      "id": 50,
+      "title": "Jobs Submitted",
+      "description": "Jobs submitted to the scheduler since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag. Resets to 0 on reconfigure.",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 40 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "slurm_scheduler_jobs_submitted",
+          "legendFormat": "Submitted",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat",
+      "id": 51,
+      "title": "Jobs Started",
+      "description": "Jobs started (dispatched) since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 40 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "slurm_scheduler_jobs_started",
+          "legendFormat": "Started",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat",
+      "id": 52,
+      "title": "Jobs Completed",
+      "description": "Jobs completed since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 40 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "slurm_scheduler_jobs_completed",
+          "legendFormat": "Completed",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat",
+      "id": 53,
+      "title": "Jobs Canceled",
+      "description": "Jobs canceled since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 40 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "yellow", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "slurm_scheduler_jobs_canceled",
+          "legendFormat": "Canceled",
+          "refId": "A",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "type": "stat",
+      "id": 54,
+      "title": "Jobs Failed",
+      "description": "Jobs failed since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 40 },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "slurm_scheduler_jobs_failed",
+          "legendFormat": "Failed",
+          "refId": "A",
+          "instant": true
+        }
+      ]
     }
   ],
   "refresh": "30s",

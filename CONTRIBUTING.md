@@ -168,19 +168,35 @@ The target: total scrape time < 5s on a 10 000-node cluster at 30s interval.
 
 ## Releasing
 
-Releases are automated via GoReleaser on tag push. To prepare a release:
+Releases are automated via GoReleaser on tag push, but everything before the
+tag — branch strategy, integrating community PRs with credit, the defensive
+audit, the live-cluster validation, the doc-vs-exporter diff — follows a
+deliberate workflow documented in **[`docs/release-process.md`](docs/release-process.md)**.
 
-```bash
-# Ensure clean state
-make test && golangci-lint run ./...
+Read that file before cutting a release. The companion file
+**[`docs/validation-checklist.md`](docs/validation-checklist.md)** is a
+copy-pasteable 11-step procedure to validate any candidate against the
+Docker test cluster, written so a human or an AI agent can run it
+without prior context.
 
-# Update CHANGELOG.md with the new version section
+The quick summary:
 
-# Commit and tag
-git add CHANGELOG.md
-git commit -m "chore: bump CHANGELOG for vX.Y.Z"
-git tag -a vX.Y.Z -m "vX.Y.Z — short description"
-git push origin master && git push origin vX.Y.Z
-```
-
-The CI pipeline runs `test → lint → release` automatically.
+1. Branch off `master` as `fix/vX.Y.Z` (patch) or `feat/vX.Y` (minor).
+2. Triage open PRs/issues; pick a coherent release theme.
+3. Integrate community PRs as local commits with `Co-authored-by:` — one
+   commit per logical change, each with a non-regression test.
+4. Run the defensive audit (same bug class elsewhere?).
+5. `make check` + `make race` continuously; full end-to-end via
+   `scripts/testing`.
+6. Diff the exporter's `/metrics` output against `docs/metrics.md`.
+7. Update `CHANGELOG.md`, `docs/metrics.md`, `docs/metrics-examples.md`,
+   dashboards, and the companion alerting rules if applicable.
+8. Open the release PR with the v1.8.2 template structure.
+9. After merge: close integrated community PRs with a thank-you and respond
+   to acknowledged-but-deferred issues.
+10. **Test the binary on a real cluster before the final tag.** Approach A
+    (RC tag `vX.Y.Z-rc1` → GitHub pre-release → staging overnight) for
+    breaking/minor releases; approach B (local `make build` → scp to
+    staging) for trivial patches. Decision matrix in the playbook.
+11. Tag the final `vX.Y.Z`; CI (`.github/workflows/release.yml`) runs
+    `lint → test → goreleaser release` and publishes automatically.

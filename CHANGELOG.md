@@ -5,6 +5,236 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2026-05-11
+
+### ⚠️ Breaking Changes
+
+- **`scheduler` collector — `slurm_scheduler_jobs_*_total` renamed and
+  retyped (issue #22, PR #23 by @UeliDeSchwert):**
+  The five sdiag-derived counters introduced in v1.8.0 were declared as
+  `prometheus.CounterValue` but `sdiag` resets these values to zero on
+  every `slurmctld` restart or `scontrol reconfigure`. A Counter that
+  decreases violates the Prometheus data model and breaks `rate()` /
+  `increase()` at the reset boundary. The `_total` suffix is also
+  reserved for Counters by Prometheus naming conventions.
+
+  | Old (Counter) | New (Gauge) |
+  | --- | --- |
+  | `slurm_scheduler_jobs_submitted_total` | `slurm_scheduler_jobs_submitted` |
+  | `slurm_scheduler_jobs_started_total`   | `slurm_scheduler_jobs_started` |
+  | `slurm_scheduler_jobs_completed_total` | `slurm_scheduler_jobs_completed` |
+  | `slurm_scheduler_jobs_canceled_total`  | `slurm_scheduler_jobs_canceled` |
+  | `slurm_scheduler_jobs_failed_total`    | `slurm_scheduler_jobs_failed` |
+
+  **Migration:**
+  - Replace the metric names in any external dashboards / recording rules /
+    alerts.
+  - Drop any `rate()` or `increase()` wrappers — these were already
+    producing incorrect results across slurmctld restarts. Use the raw
+    Gauge value (cumulative since last reset) or `deriv()` for a
+    short-window throughput estimate.
+  - Help text on each metric documents the reset behavior.
+
+  Rationale for shipping this in a patch release: the metrics were only
+  introduced six weeks ago (v1.8.0, 2026-04-02), shipped in two releases
+  (v1.8.0 and v1.8.1), are not referenced in any in-repo dashboard, and
+  had a real correctness bug under any non-trivial cluster reconfigure.
+  The disruption window is small and the longer the broken Counter ships,
+  the more downstream consumers we'd break later.
+
+  The `dashboards_grafana/05-slurm-scheduler.json` dashboard ships in this
+  release with a new **"Job Lifecycle (since slurmctld start)"** row
+  exposing the five renamed metrics — the first in-repo visualisation
+  of these counters.
+
+### 🐛 Bug Fixes
+
+- **`node` collector — long node names silently dropped (issue #10):**
+  `sinfo -O "NodeList,..."` uses fixed-width columns (default 20 chars for
+  `NodeList`). On clusters with node hostnames longer than 20 characters, the
+  `NodeList` column collided with `AllocMem`, leaving lines with only 5
+  whitespace-separated tokens instead of 6. The parser silently skipped them
+  (`if len(node) < 6 { continue }`), causing entire nodes to disappear from the
+  metrics map — and the collector reported success (no error, non-zero
+  `slurm_exporter_collector_duration_seconds`) while exposing zero
+  `slurm_node_*` series. Fixed by switching to variable-width columns
+  (`NodeList: ,AllocMem: ,...`); the trailing `:` instructs `sinfo` to size
+  each column to its value. The parser itself is unchanged.
+  Regression was introduced when `slurm_node_status` was added; the original
+  2022 fix for the same class of bug (commit `77080e0`) was inadvertently
+  reverted at that point.
+
+- **`reservations` collector — phantom row when no reservations defined
+  (issue #26):**
+  `parseReservations` processed every non-empty record from
+  `scontrol show reservation`, including the literal `"No reservations in
+  the system"` line that scontrol emits on an empty cluster. With no
+  key=value to parse, every field stayed at its zero value and the
+  record was still appended — producing a phantom series:
+
+  ```
+  slurm_reservation_info{reservation_name="",...} 1
+  slurm_reservation_start_time_seconds{reservation_name=""} -6.21355968e+10
+  slurm_reservation_end_time_seconds{reservation_name=""} -6.21355968e+10
+  ```
+
+  The `-6.21e+10` timestamp is `time.Time{}.Unix() = -62135596800`
+  (year 0001), which Grafana renders as `1968-01-12 20:06:43` on the
+  reservations dashboard.
+
+  Fixed by skipping records that didn't yield a `ReservationName`. Empty
+  clusters now produce zero `slurm_reservation_*` series; dashboards
+  show "No data" instead of a fake 1968 reservation. Non-regression test
+  added with a `sreservations_empty.txt` fixture.
+- **`scheduler` collector — RPC usernames with hyphens silently truncated
+  (PR #28 by @ncreddine):**
+  `schedulerRPCLineRe` used the character class `[A-Za-z0-9_]*` for the
+  username capture group, which silently dropped the hyphen. Usernames
+  like `alice-21` were truncated to `alice`, collapsing every per-user RPC
+  stat onto the prefix and hiding per-user breakdowns in
+  `slurm_user_rpc_stats_*`. Extended the class to `[A-Za-z0-9_-]*`.
+  Table-driven non-regression test added.
+- **`accounts` collector — `gres:gpu:N` (colon separator) not parsed
+  (PR #28 by @ncreddine):**
+  `tresGPURe` matched only the slash form `gres/gpu:N` from `squeue %b`
+  output. Some Slurm versions emit `gres:gpu:N` (colon prefix) which fell
+  through to a count of 0, undercounting `slurm_account_cores_gpu` and
+  `slurm_user_cores_gpu` on those clusters. Broadened the prefix to
+  `gres[:/]gpu`. Existing slash-form tests still pass; four colon-form
+  cases added.
+- **Startup fails if `sbatch`/`salloc`/`srun` are absent (issue #24, PR #25 by
+  @UeliDeSchwert):**
+  `ValidateBinaries()` required `sbatch`, `salloc`, and `srun` in addition to
+  the Slurm monitoring tools actually used by the exporter. These three
+  job-submission binaries are never invoked by any collector and are often
+  absent on read-only monitoring containers or minimal Slurm client
+  installations, causing the exporter to refuse to start with
+  `--slurm.bin-path` set. They are now removed from the required list.
+  Companion follow-up below restores informational visibility.
+
+### ✨ Improvements
+
+- **`slurm_info` collector — expose job submission tool versions when
+  available:**
+  Following the issue #24 fix that dropped `sbatch`/`salloc`/`srun` from the
+  strict startup validation, they are now reintroduced in the `slurm_info`
+  collector as **silent optionals**: emitted only when present on the host,
+  with no log entry or metric when absent. Lookup uses `os.Stat` against
+  `--slurm.bin-path` (or `exec.LookPath` against `$PATH` when empty),
+  avoiding any subprocess spawn. Required binaries continue to emit a
+  `slurm_info{binary="X",version="not_found"}` series with value `0` when
+  missing, so operators can still alert on their absence.
+
+- **`partitions` collector — default partition `*` suffix not stripped
+  (issue #20, PR #21 by @UeliDeSchwert):**
+  Slurm appends `*` to the default partition name in `sinfo` output
+  (e.g. `compute*`). The `nodes` collector already strips this suffix
+  (`nodes.go:169`), but `partitions.go` did not, producing
+  `slurm_partition_cpus_*` and `slurm_partition_gpus_*` with
+  `partition="compute*"` while every other metric used `partition="compute"`.
+  PromQL joins on the partition label silently returned no data for the
+  default partition. Fixed by applying the same `strings.TrimRight(..., "*")`
+  in both the CPU path and the GPU path; two unit tests verify the
+  asterisk-suffixed input is stored under the bare key.
+- **`queue` collector — same `*` suffix bug, defensive companion fix:**
+  `squeue -o "%P"` emits `compute*` for the default partition on some
+  Slurm versions; the queue collector now applies the same
+  `TrimRight(..., "*")` so `slurm_queue_*` and `slurm_cores_*` labels
+  stay aligned with the partitions and nodes collectors.
+  Non-regression test added.
+- **`sacct_efficiency` collector — graceful shutdown on SIGTERM/SIGINT
+  (issue #18, PR #19 by @UeliDeSchwert):**
+  The background refresh goroutine was started with `context.Background()`,
+  which is never cancelled. On SIGTERM/SIGINT, the HTTP server stopped but
+  the goroutine — possibly mid-`sacct` invocation — was only terminated
+  when the OS killed the process. Now wired through `signal.NotifyContext`,
+  so the context is cancelled cleanly on signal. The main loop also waits
+  up to 5 seconds for the goroutine to exit (via the new `Done()` channel)
+  before returning, so any in-flight `sacct` call has a chance to complete.
+  Non-regression test added (`TestSacctEfficiencyCollector_DoneClosesOnCancel`).
+- **`gpus` collector — `slurm_gpus_other` can be negative on busy clusters
+  (issue #16, PR #17 by @UeliDeSchwert):**
+  `other` is computed as `total − allocated − idle`, where each value comes
+  from a separate `sinfo` invocation. Cluster state can change between the
+  three calls, transiently producing `alloc + idle > total` and a negative
+  gauge — which Grafana renders incorrectly. Clamped to zero with a Debug
+  log when the clamp triggers (useful for diagnosing suspected miscounting
+  without spamming production logs, since the race is common on loaded
+  clusters). A follow-up issue tracks the proper fix: consolidate the three
+  `sinfo` calls into one to eliminate the race at the source.
+- **`sacct_efficiency` collector — memory efficiency average understated
+  (issue #14, PR #15 by @UeliDeSchwert):**
+  `slurm_job_mem_efficiency_avg` accumulated the per-job ratio only when
+  `ReqMemMB > 0` (correct) but divided by `JobCount` — the total number of
+  jobs, including those without memory requests. On a cluster where half the
+  jobs are submitted without `--mem`, the reported average was half the real
+  value. Same structural pattern fixed for `slurm_job_cpu_efficiency_avg`
+  (lower impact in practice). Fixed by adding `CPUJobCount` and `MemJobCount`
+  to the aggregates struct and dividing by the per-metric counter. Affected
+  sites will see both averages rise to their correct value after upgrade.
+  Non-regression test added.
+- **`queue` collector — `slurm_queue_suspended` and `slurm_cores_suspended`
+  never emitted (issue #12, PR #13 by @UeliDeSchwert):**
+  Both metrics were declared, described, and populated by `ParseQueueMetrics`,
+  but `Collect()` was missing the `PushMetric` / `pushAggregatedNVal` calls
+  for them — every scrape silently dropped these series. The global
+  `slurm_jobs_suspended` gauge was unaffected. Fixed by adding the four
+  missing calls (two in the per-user branch, two in the aggregated branch).
+  Non-regression test added.
+- **`partitions` collector — multi-type GPU undercount:**
+  `parseGpuCount()` in `partitions.go` used `FindStringSubmatch` (singular),
+  returning only the first `gpu:*:N` match in a GRES string. On nodes
+  exposing multiple GPU types (`gpu:A100:4,gpu:H100:2`),
+  `slurm_partition_gpus_allocated` and `slurm_partition_gpus_idle` were
+  silently undercounted (returned 4 instead of 6). Fixed by iterating over
+  comma-separated GRES sub-specs and accumulating, matching the
+  long-correct behavior of `gpus.go::parseGPUCount`. Cluster-wide
+  `slurm_gpus_*` was not affected. Affected sites will see
+  `slurm_partition_gpus_*` values increase to their real count after
+  upgrade.
+
+### 🛡️ Defensive hardening
+
+- **`partitions` collector — fixed-width truncation of GRES strings:**
+  `sinfo --Format=...Gres:50,GresUsed:50` truncates rich GRES specs on busy
+  GPU nodes (multi-type GPUs, MIG slices) at 50 chars, producing wrong GPU
+  counts in `slurm_partition_gpus_*`. Same class of bug as the `node`
+  collector issue. Switched to variable-width (`Gres: ,GresUsed:`).
+- **`gpus` collector — fixed-width truncation of GRES strings:**
+  Same fix applied to `IdleGPUsData()` and `TotalGPUsData()`. `AllocatedGPUsData()`
+  was already correct.
+- **Empty-parse warning logs:** `node` and `partitions` collectors now emit a
+  warning when the parser returns zero entries despite the underlying command
+  succeeding. This makes the failure mode from issue #10 fail loudly instead
+  of silently — operators see the warning instead of staring at "No data"
+  dashboards with no clue why.
+- **Data race in `sacct_efficiency` test fixed; `Done()` channel added.**
+  `TestSacctEfficiencyCollector_ErrorKeepsPreviousCache` had two races caught
+  by `go test -race`: an unprotected `callCount++` in the mock closure, and
+  the test's `defer Execute = oldExecute` racing with the background refresh
+  goroutine still reading `Execute`. Counter now uses `atomic.Int64`, and
+  `SacctEfficiencyCollector` exposes a new `Done() <-chan struct{}` channel
+  that closes when the background goroutine exits — letting tests
+  synchronise teardown deterministically. Production behavior unchanged.
+
+### 📊 Dashboard impact
+
+No dashboard JSON changes — metric names, labels, and types are unchanged.
+However, **clusters previously affected by silent truncation will see metric
+values increase** as the missing series reappear:
+
+- `slurm_node_*` series for nodes with hostnames > 20 chars will now be exposed
+  (previously absent), so `count`/`sum` queries over them will rise to their
+  real values.
+- `slurm_partition_*` series for partitions with names > 30 chars will now
+  appear under their full name; series previously stored under a truncated
+  partition name will disappear.
+- `slurm_gpus_*` and `slurm_partition_gpus_*` will reflect the true GPU
+  inventory on nodes with rich GRES specs (multi-type GPU, MIG).
+
+The `or vector(0)` guards added to dashboards in v1.8.1 remain valid (they
+protect against legitimately empty states) and require no rework.
+
 ## [1.8.1] - 2026-04-28
 
 ### 🐛 Bug Fixes

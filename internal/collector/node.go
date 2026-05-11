@@ -82,10 +82,16 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 
 /*
 NodeData executes the sinfo command to get detailed data for each node.
-Expected sinfo output format: "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition".
+Expected sinfo output format: space-separated columns
+"NodeList AllocMem Memory CPUsState StateLong Partition".
+
+The trailing ":" on each field forces sinfo to use variable column widths;
+without it, long node names (>20 chars, the default NodeList width) collide
+with the next column and produce <6 whitespace-separated tokens — silently
+dropping those nodes. See https://github.com/SckyzO/slurm_exporter/issues/10.
 */
 func NodeData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-h", "-N", "-O", "NodeList,AllocMem,Memory,CPUsState,StateLong,Partition"}
+	args := []string{"-h", "-N", "-O", "NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition:"}
 	return Execute(logger, "sinfo", args)
 }
 
@@ -129,6 +135,9 @@ func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) {
 	if err != nil {
 		nc.logger.Error("Failed to get node metrics", "err", err)
 		return
+	}
+	if len(nodes) == 0 {
+		nc.logger.Warn("node collector parsed zero nodes — sinfo returned no data or output format unexpected; no slurm_node_* series will be exposed this scrape")
 	}
 	for node, metrics := range nodes {
 		for _, partition := range metrics.partitions {

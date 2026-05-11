@@ -1,0 +1,2 @@
+2 a_partition_with_a_very_long_name_above_thirty_chars gpu:nvidia_a100_80gb:8,mig:nvidia_a100_3g.40gb:7,gpu:nvidia_h100_80gb:4 gpu:nvidia_a100_80gb:3,gpu:nvidia_h100_80gb:2
+1 short_part gpu:tesla_v100-sxm3-32gb:16 gpu:tesla_v100-sxm3-32gb:0

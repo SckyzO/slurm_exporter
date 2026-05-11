@@ -7,8 +7,13 @@ project_name: slurm_exporter
 # Release configuration
 release:
   github:
-    owner: sckyzo 
+    owner: sckyzo
   name_template: "{{ .ProjectName }} v{{ .Version }}"
+  # Auto-detect pre-release tags (anything containing "-", e.g. v1.8.2-rc1)
+  # and mark them as pre-release on GitHub. Stable tags (v1.8.2) are published
+  # as normal releases. See docs/release-process.md section "Test on a real
+  # platform before tagging" for the RC workflow.
+  prerelease: auto
 
 builds:
   - id: slurm_exporter

@@ -105,7 +105,12 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 			if len(fields) < 5 {
 				continue
 			}
-			part := strings.TrimSpace(fields[0])
+			// Strip the default-partition marker (*) so labels are consistent
+			// with the partitions and nodes collectors. squeue -o "%P" emits
+			// "compute*" for the default partition on some Slurm versions; the
+			// same fix as in partitions.go (issue #20) is applied here so any
+			// PromQL join on the partition label works as expected.
+			part := strings.TrimRight(strings.TrimSpace(fields[0]), "*")
 			state := fields[1]
 			coresI, _ := strconv.Atoi(fields[2])
 			cores := float64(coresI)
@@ -321,6 +326,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 			PushMetric(values, ch, qc.pending, reason)
 		}
 		PushMetric(qm.running, ch, qc.running, "")
+		PushMetric(qm.suspended, ch, qc.suspended, "")
 		PushMetric(qm.cancelled, ch, qc.cancelled, "")
 		PushMetric(qm.completing, ch, qc.completing, "")
 		PushMetric(qm.completed, ch, qc.completed, "")
@@ -333,6 +339,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 			PushMetric(value, ch, qc.coresPending, reason)
 		}
 		PushMetric(qm.cRunning, ch, qc.coresRunning, "")
+		PushMetric(qm.cSuspended, ch, qc.coresSuspended, "")
 		PushMetric(qm.cCancelled, ch, qc.coresCancelled, "")
 		PushMetric(qm.cCompleting, ch, qc.coresCompleting, "")
 		PushMetric(qm.cCompleted, ch, qc.coresCompleted, "")
@@ -345,6 +352,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 		// user label disabled: aggregate all users per partition
 		pushAggregatedNNVal(qm.pending, ch, qc.pending)
 		pushAggregatedNVal(qm.running, ch, qc.running, "")
+		pushAggregatedNVal(qm.suspended, ch, qc.suspended, "")
 		pushAggregatedNVal(qm.cancelled, ch, qc.cancelled, "")
 		pushAggregatedNVal(qm.completing, ch, qc.completing, "")
 		pushAggregatedNVal(qm.completed, ch, qc.completed, "")
@@ -355,6 +363,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 		pushAggregatedNVal(qm.nodeFail, ch, qc.nodeFail, "")
 		pushAggregatedNNVal(qm.cPending, ch, qc.coresPending)
 		pushAggregatedNVal(qm.cRunning, ch, qc.coresRunning, "")
+		pushAggregatedNVal(qm.cSuspended, ch, qc.coresSuspended, "")
 		pushAggregatedNVal(qm.cCancelled, ch, qc.coresCancelled, "")
 		pushAggregatedNVal(qm.cCompleting, ch, qc.coresCompleting, "")
 		pushAggregatedNVal(qm.cCompleted, ch, qc.coresCompleted, "")

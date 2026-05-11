@@ -37,13 +37,26 @@ Provides global statistics on CPU states for the entire cluster.
 
 ### `fairshare` Collector
 
-Reports the calculated fairshare factor for each account.
+Reports the calculated fairshare factor and underlying share/usage components,
+per account and (when enabled via `--collector.fairshare.user-metrics`, default on) per user.
 
-- **Command:** `sshare -n -P -o "account,fairshare"`
+- **Command:** `sshare -a -P -n -o "Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare"`
 
 | Metric | Description | Labels |
 |---|---|---|
-| `slurm_account_fairshare` | FairShare for account | `account` |
+| `slurm_account_fairshare` | FairShare factor for account | `account` |
+| `slurm_account_fairshare_norm_shares` | Normalised share allocation | `account` |
+| `slurm_account_fairshare_norm_usage` | Normalised usage over the decay window | `account` |
+| `slurm_account_fairshare_raw_shares` | Raw share allocation | `account` |
+| `slurm_account_fairshare_raw_usage_cpu_seconds` | Raw CPU-seconds consumed | `account` |
+| `slurm_user_fairshare` | FairShare factor for user | `user`, `account` |
+| `slurm_user_fairshare_norm_shares` | Normalised share allocation per user | `user`, `account` |
+| `slurm_user_fairshare_norm_usage` | Normalised usage per user | `user`, `account` |
+| `slurm_user_fairshare_raw_shares` | Raw share allocation per user | `user`, `account` |
+| `slurm_user_fairshare_raw_usage_cpu_seconds` | Raw CPU-seconds consumed per user | `user`, `account` |
+
+User-level metrics can be disabled on clusters with many users to reduce cardinality
+via `--collector.fairshare.user-metrics=false`.
 
 ### `gpus` Collector
 
@@ -215,18 +228,59 @@ primary state (token before the first `+`).
 
 ### `scheduler` Collector
 
-Provides internal performance metrics from the `slurmctld` daemon.
+Provides internal performance metrics from the `slurmctld` daemon, parsed from
+`sdiag` output.
 
 - **Command:** `sdiag`
+
+**Scheduler health (gauges, always emitted):**
 
 | Metric | Description | Labels |
 |---|---|---|
 | `slurm_scheduler_threads` | Number of scheduler threads | (none) |
 | `slurm_scheduler_queue_size` | Length of the scheduler queue | (none) |
-| `slurm_scheduler_mean_cycle` | Scheduler mean cycle time (microseconds) | (none) |
-| `slurm_rpc_stats` | RPC count statistic | `operation` |
-| `slurm_user_rpc_stats` | RPC count statistic per user | `user` |
-| `...` | (and many other backfill and RPC time metrics) | `operation` or `user` |
+| `slurm_scheduler_dbd_queue_size` | Pending entries in the SlurmDBD agent queue | (none) |
+| `slurm_scheduler_last_cycle` | Last scheduler cycle duration (µs) | (none) |
+| `slurm_scheduler_mean_cycle` | Scheduler mean cycle duration (µs) | (none) |
+| `slurm_scheduler_cycle_per_minute` | Scheduler cycles per minute | (none) |
+| `slurm_scheduler_backfill_last_cycle` | Last backfill cycle duration (µs) | (none) |
+| `slurm_scheduler_backfill_mean_cycle` | Mean backfill cycle duration (µs) | (none) |
+| `slurm_scheduler_backfill_depth_mean` | Mean backfill depth | (none) |
+
+**Backfill activity (gauges that reset on `slurmctld` restart):**
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_scheduler_backfilled_jobs_since_start_total` | Jobs backfilled since `slurmctld` start | (none) |
+| `slurm_scheduler_backfilled_jobs_since_cycle_total` | Jobs backfilled since last stats cycle | (none) |
+| `slurm_scheduler_backfilled_heterogeneous_total` | Heterogeneous job components backfilled | (none) |
+
+**Job lifecycle counts (gauges that reset on `slurmctld` restart or `scontrol reconfigure`):**
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_scheduler_jobs_submitted` | Jobs submitted to the scheduler since last stats reset | (none) |
+| `slurm_scheduler_jobs_started` | Jobs started (dispatched) since last stats reset | (none) |
+| `slurm_scheduler_jobs_completed` | Jobs completed since last stats reset | (none) |
+| `slurm_scheduler_jobs_canceled` | Jobs canceled since last stats reset | (none) |
+| `slurm_scheduler_jobs_failed` | Jobs failed since last stats reset | (none) |
+
+> **Note:** these five counters were renamed in v1.8.2 to drop the `_total`
+> suffix and switched from Counter to Gauge, because `sdiag` resets them on
+> every `slurmctld` restart or `scontrol reconfigure`. A Counter that decreases
+> breaks `rate()` and `increase()`. Use `delta()` over a time window, or
+> consume the raw value as a cumulative since-last-reset gauge.
+
+**RPC statistics (cluster-wide and per user):**
+
+| Metric | Description | Labels |
+|---|---|---|
+| `slurm_rpc_stats` | RPC call count by message type | `operation` |
+| `slurm_rpc_stats_avg_time` | Average RPC time (µs) by message type | `operation` |
+| `slurm_rpc_stats_total_time` | Total cumulative RPC time (µs) by message type | `operation` |
+| `slurm_user_rpc_stats` | RPC call count per user | `user` |
+| `slurm_user_rpc_stats_avg_time` | Average RPC time (µs) per user | `user` |
+| `slurm_user_rpc_stats_total_time` | Total cumulative RPC time (µs) per user | `user` |
 
 ### `users` Collector
 

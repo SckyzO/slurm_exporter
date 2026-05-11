@@ -52,6 +52,12 @@ func TestParseGPUsFromTRES(t *testing.T) {
 		{"no GPU", "N/A", 0},
 		{"empty", "", 0},
 		{"full TRES string", "billing=10,cpu=8,gres/gpu:4,mem=32G,node=1", 4},
+		// PR #28: some Slurm versions emit "gres:gpu:N" (colon prefix) instead
+		// of "gres/gpu:N" (slash). Both must be parsed identically.
+		{"colon simple", "gres:gpu:4", 4},
+		{"colon typed", "gres:gpu:a100:2", 2},
+		{"colon nvidia_gb200", "gres:gpu:nvidia_gb200:4", 4},
+		{"colon full TRES", "billing=10,cpu=8,gres:gpu:4,mem=32G,node=1", 4},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

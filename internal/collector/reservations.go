@@ -162,6 +162,16 @@ func parseReservations(data []byte) ([]ReservationInfo, error) {
 				res.EndTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
 			}
 		}
+
+		// Skip records that didn't yield a real reservation. scontrol prints
+		// "No reservations in the system" on an empty cluster; without this
+		// guard, the parser would emit a phantom ReservationInfo with an
+		// empty Name and time.Time{} timestamps (Unix = -62135596800 = year
+		// 0001), surfacing as fake "1968-01-12" reservations on dashboards.
+		// See https://github.com/SckyzO/slurm_exporter/issues/26.
+		if res.Name == "" {
+			continue
+		}
 		reservations = append(reservations, res)
 	}
 	return reservations, nil

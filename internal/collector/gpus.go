@@ -173,8 +173,17 @@ func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
 	}
 	idleGPUs := ParseIdleGPUs(idleGPUsData)
 
-	// Calculate other GPUs (mixed, down, etc.)
+	// Calculate other GPUs (DRAIN, DOWN, RESERVED, MAINTENANCE, etc.).
+	// Clamp to zero because total/allocated/idle come from three separate
+	// sinfo invocations and cluster state can change between them, producing
+	// a transient negative result (see issue #16). The Debug log gives a
+	// trail if operators ever need to investigate suspected miscounting.
 	otherGPUs := totalGPUs - allocatedGPUs - idleGPUs
+	if otherGPUs < 0 {
+		logger.Debug("gpus collector: clamped negative 'other' to zero (likely sinfo timing race)",
+			"total", totalGPUs, "alloc", allocatedGPUs, "idle", idleGPUs, "computed_other", otherGPUs)
+		otherGPUs = 0
+	}
 
 	gm.alloc = allocatedGPUs
 	gm.idle = idleGPUs
@@ -195,15 +204,21 @@ func AllocatedGPUsData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "sinfo", args)
 }
 
-// IdleGPUsData executes sinfo command to get idle and allocated GPU information
+// IdleGPUsData executes sinfo command to get idle and allocated GPU information.
+//
+// Trailing ":" on each field forces variable column widths; fixed widths
+// (was Gres:50, GresUsed:50) silently truncate rich GRES specs on busy GPU
+// nodes (multi-type GPUs, MIG slices), causing wrong GPU counts.
+// See https://github.com/SckyzO/slurm_exporter/issues/10.
 func IdleGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes:10 ,Gres:50 ,GresUsed:50", "--state=idle,allocated"}
+	args := []string{"-a", "-h", "--Format=Nodes: ,Gres: ,GresUsed:", "--state=idle,allocated"}
 	return Execute(logger, "sinfo", args)
 }
 
-// TotalGPUsData executes sinfo command to get total GPU information
+// TotalGPUsData executes sinfo command to get total GPU information.
+// See IdleGPUsData for the rationale behind the variable-width format.
 func TotalGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes:10 ,Gres:50"}
+	args := []string{"-a", "-h", "--Format=Nodes: ,Gres:"}
 	return Execute(logger, "sinfo", args)
 }
 

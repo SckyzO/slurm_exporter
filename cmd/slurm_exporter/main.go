@@ -19,6 +19,8 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -116,11 +118,11 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"reservations":      func(l *logger.Logger) prometheus.Collector { return collector.NewReservationsCollector(l) },
 	"reservation_nodes": func(l *logger.Logger) prometheus.Collector { return collector.NewReservationNodesCollector(l) },
 	"licenses":          func(l *logger.Logger) prometheus.Collector { return collector.NewLicensesCollector(l) },
-	"sacct_efficiency": func(l *logger.Logger) prometheus.Collector {
-		c := collector.NewSacctEfficiencyCollector(l, *sacctEfficiencyInterval, *sacctEfficiencyLookback)
-		c.Start(context.Background())
-		return c
-	},
+	// sacct_efficiency constructor is overridden in main() with a signal-aware
+	// context so the background refresh goroutine is cancelled cleanly on
+	// SIGTERM/SIGINT (see issue #18). Left nil here — disabled-by-default
+	// means the constructor is never invoked through this map directly.
+	"sacct_efficiency": nil,
 }
 
 // indexHTML is the HTML content displayed on the root page
@@ -192,6 +194,27 @@ func main() {
 		}
 	}
 
+	// Create a signal-aware context so background goroutines (e.g. sacct_efficiency)
+	// are cancelled cleanly on SIGTERM or SIGINT (issue #18). Placed after the
+	// binary validation block to avoid a defer-skipped-by-os.Exit ordering issue.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
+
+	// sacctDone captures the Done() channel of the sacct_efficiency collector
+	// (if enabled) so we can wait for its background goroutine to fully exit
+	// after the HTTP server has shut down. Stays nil if the collector is
+	// disabled — the post-server wait below is a no-op in that case.
+	var sacctDone <-chan struct{}
+
+	// Wire the signal context into the sacct_efficiency collector constructor
+	// and capture its Done() channel for graceful shutdown.
+	collectorConstructors["sacct_efficiency"] = func(l *logger.Logger) prometheus.Collector {
+		c := collector.NewSacctEfficiencyCollector(l, *sacctEfficiencyInterval, *sacctEfficiencyLookback)
+		c.Start(ctx)
+		sacctDone = c.Done()
+		return c
+	}
+
 	// Create a custom registry to avoid global state and third-party metric pollution
 	reg := prometheus.NewRegistry()
 
@@ -238,6 +261,20 @@ func main() {
 	}
 	if err := web.ListenAndServe(server, toolkitFlags, log.Logger); err != nil {
 		log.Error("Failed to start HTTP server", "err", err)
-		os.Exit(1)
+		stop()     // release signal handler explicitly before bypassing defer via os.Exit
+		os.Exit(1) //nolint:gocritic // stop() called explicitly above
+	}
+
+	// Graceful shutdown: wait for the sacct_efficiency background goroutine to
+	// finish (if it was started). Bounded by a short timeout so we don't hang
+	// the process when sacct is genuinely stuck.
+	if sacctDone != nil {
+		log.Info("Waiting for sacct_efficiency background goroutine to finish...")
+		select {
+		case <-sacctDone:
+			log.Info("sacct_efficiency stopped cleanly")
+		case <-time.After(5 * time.Second):
+			log.Warn("sacct_efficiency did not stop within 5s, exiting anyway")
+		}
 	}
 }

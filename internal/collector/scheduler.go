@@ -23,7 +23,7 @@ var (
 	schedulerPatternTotalStart  = regexp.MustCompile(`^[\s]+Total backfilled jobs \(since last slurm start\)`)
 	schedulerPatternTotalCycle  = regexp.MustCompile(`^[\s]+Total backfilled jobs \(since last stats cycle start\)`)
 	schedulerPatternTotalHetero = regexp.MustCompile(`^[\s]+Total backfilled heterogeneous job components`)
-	schedulerRPCLineRe          = regexp.MustCompile(`^\s*([A-Za-z0-9_]*).*count:([0-9]*)\s*ave_time:([0-9]*)\s\s*total_time:([0-9]*)\s*$`)
+	schedulerRPCLineRe          = regexp.MustCompile(`^\s*([A-Za-z0-9_-]*).*count:([0-9]*)\s*ave_time:([0-9]*)\s\s*total_time:([0-9]*)\s*$`)
 
 	// Job counters (sdiag "Jobs submitted/started/completed/canceled/failed")
 	schedulerPatternJobsSubmitted = regexp.MustCompile(`^Jobs submitted`)
@@ -268,11 +268,11 @@ func (sc *SchedulerCollector) Collect(ch chan<- prometheus.Metric) {
 		sc.logger.Error("Failed to get scheduler metrics", "err", err)
 		return
 	}
-	ch <- prometheus.MustNewConstMetric(sc.jobsSubmitted, prometheus.CounterValue, sm.jobsSubmitted)
-	ch <- prometheus.MustNewConstMetric(sc.jobsStarted, prometheus.CounterValue, sm.jobsStarted)
-	ch <- prometheus.MustNewConstMetric(sc.jobsCompleted, prometheus.CounterValue, sm.jobsCompleted)
-	ch <- prometheus.MustNewConstMetric(sc.jobsCanceled, prometheus.CounterValue, sm.jobsCanceled)
-	ch <- prometheus.MustNewConstMetric(sc.jobsFailed, prometheus.CounterValue, sm.jobsFailed)
+	ch <- prometheus.MustNewConstMetric(sc.jobsSubmitted, prometheus.GaugeValue, sm.jobsSubmitted)
+	ch <- prometheus.MustNewConstMetric(sc.jobsStarted, prometheus.GaugeValue, sm.jobsStarted)
+	ch <- prometheus.MustNewConstMetric(sc.jobsCompleted, prometheus.GaugeValue, sm.jobsCompleted)
+	ch <- prometheus.MustNewConstMetric(sc.jobsCanceled, prometheus.GaugeValue, sm.jobsCanceled)
+	ch <- prometheus.MustNewConstMetric(sc.jobsFailed, prometheus.GaugeValue, sm.jobsFailed)
 	ch <- prometheus.MustNewConstMetric(sc.threads, prometheus.GaugeValue, sm.threads)
 	ch <- prometheus.MustNewConstMetric(sc.queueSize, prometheus.GaugeValue, sm.queueSize)
 	ch <- prometheus.MustNewConstMetric(sc.dbdQueueSize, prometheus.GaugeValue, sm.dbdQueueSize)
@@ -311,24 +311,24 @@ func NewSchedulerCollector(logger *logger.Logger) *SchedulerCollector {
 	userRPCLabels := []string{"user"}
 	return &SchedulerCollector{
 		jobsSubmitted: prometheus.NewDesc(
-			"slurm_scheduler_jobs_submitted_total",
-			"Total jobs submitted to the scheduler since last stats reset (sdiag)",
+			"slurm_scheduler_jobs_submitted",
+			"Jobs submitted to the scheduler since last stats reset (sdiag). Value resets on slurmctld restart or scontrol reconfigure.",
 			nil, nil),
 		jobsStarted: prometheus.NewDesc(
-			"slurm_scheduler_jobs_started_total",
-			"Total jobs started (dispatched) since last stats reset (sdiag)",
+			"slurm_scheduler_jobs_started",
+			"Jobs started (dispatched) since last stats reset (sdiag). Value resets on slurmctld restart or scontrol reconfigure.",
 			nil, nil),
 		jobsCompleted: prometheus.NewDesc(
-			"slurm_scheduler_jobs_completed_total",
-			"Total jobs completed since last stats reset (sdiag)",
+			"slurm_scheduler_jobs_completed",
+			"Jobs completed since last stats reset (sdiag). Value resets on slurmctld restart or scontrol reconfigure.",
 			nil, nil),
 		jobsCanceled: prometheus.NewDesc(
-			"slurm_scheduler_jobs_canceled_total",
-			"Total jobs canceled since last stats reset (sdiag)",
+			"slurm_scheduler_jobs_canceled",
+			"Jobs canceled since last stats reset (sdiag). Value resets on slurmctld restart or scontrol reconfigure.",
 			nil, nil),
 		jobsFailed: prometheus.NewDesc(
-			"slurm_scheduler_jobs_failed_total",
-			"Total jobs failed since last stats reset (sdiag)",
+			"slurm_scheduler_jobs_failed",
+			"Jobs failed since last stats reset (sdiag). Value resets on slurmctld restart or scontrol reconfigure.",
 			nil, nil),
 		threads: prometheus.NewDesc(
 			"slurm_scheduler_threads",

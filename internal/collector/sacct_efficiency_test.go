@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -113,6 +114,41 @@ func TestAggregateSacctEfficiency(t *testing.T) {
 	assert.InDelta(t, 75.0, alice.MemEfficiencyPct, 0.1)
 }
 
+// TestAggregateSacctEfficiency_PartialMemoryJobs is the non-regression test
+// for issue #14 / PR #15: averages must use per-metric job counts as their
+// denominator. Pre-fix, the memory average was divided by JobCount (total
+// jobs), diluting it by every job submitted without `--mem`.
+func TestAggregateSacctEfficiency_PartialMemoryJobs(t *testing.T) {
+	records := []SacctJobRecord{
+		// Job with memory tracked: 80% efficient (1600/2000)
+		{User: "alice", Account: "hpc", AllocCPUs: 4, ElapsedSeconds: 3600,
+			TotalCPUSeconds: 3600, CPUTimeSeconds: 4 * 3600,
+			MaxRSSMB: 1600, ReqMemMB: 2000},
+		// Job without memory request — must be EXCLUDED from the mem average
+		{User: "alice", Account: "hpc", AllocCPUs: 4, ElapsedSeconds: 3600,
+			TotalCPUSeconds: 1800, CPUTimeSeconds: 4 * 3600,
+			MaxRSSMB: 0, ReqMemMB: 0},
+	}
+
+	aggs := AggregateSacctEfficiency(records)
+	alice := aggs["hpc"]["alice"]
+
+	// 2 total jobs, but only 1 with memory data
+	assert.Equal(t, float64(2), alice.JobCount)
+	assert.Equal(t, float64(2), alice.CPUJobCount)
+	assert.Equal(t, float64(1), alice.MemJobCount)
+
+	// Mem avg = only job 1 → 1600/2000 * 100 = 80%
+	// (pre-fix value would be 40%, diluted by job 2)
+	assert.InDelta(t, 80.0, alice.MemEfficiencyPct, 0.1)
+
+	// CPU avg = both jobs:
+	//   job 1: 3600/14400 * 100 = 25%
+	//   job 2: 1800/14400 * 100 = 12.5%
+	//   avg = 18.75%
+	assert.InDelta(t, 18.75, alice.CPUEfficiencyPct, 0.1)
+}
+
 // ── SacctEfficiencyCollector ─────────────────────────────────────────────────
 
 func TestSacctEfficiencyCollector_Collect(t *testing.T) {
@@ -162,22 +198,62 @@ func TestSacctEfficiencyCollector_EmptyBeforeFirstRefresh(t *testing.T) {
 	assert.Empty(t, mfs, "no metrics before first refresh")
 }
 
-func TestSacctEfficiencyCollector_ErrorKeepsPreviousCache(t *testing.T) {
-	callCount := 0
+// TestSacctEfficiencyCollector_DoneClosesOnCancel verifies the Done() channel
+// is closed when the context passed to Start() is cancelled. This is the
+// mechanism main.go relies on for graceful shutdown on SIGTERM/SIGINT
+// (issue #18).
+func TestSacctEfficiencyCollector_DoneClosesOnCancel(t *testing.T) {
+	log := logger.NewLogger("error")
+	c := NewSacctEfficiencyCollector(log, 1*time.Hour, 1*time.Hour)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	oldExecute := Execute
-	defer func() { Execute = oldExecute }()
+	defer func() {
+		cancel()
+		<-c.Done()
+		Execute = oldExecute
+	}()
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		callCount++
-		if callCount == 1 {
+		return []byte(""), nil
+	}
+
+	c.Start(ctx)
+	cancel()
+
+	select {
+	case <-c.Done():
+		// success
+	case <-time.After(1 * time.Second):
+		t.Fatal("Done() did not close within 1s after cancel — graceful shutdown broken")
+	}
+}
+
+func TestSacctEfficiencyCollector_ErrorKeepsPreviousCache(t *testing.T) {
+	// The collector starts a background refresh goroutine that calls the
+	// package-level Execute. atomic.Int64 keeps the counter race-free, and
+	// we wait on c.Done() before restoring Execute so the goroutine has
+	// fully exited (otherwise the defer below races with the goroutine's
+	// read of Execute).
+	var callCount atomic.Int64
+
+	log := logger.NewLogger("error")
+	c := NewSacctEfficiencyCollector(log, 1*time.Millisecond, 1*time.Hour)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	oldExecute := Execute
+	defer func() {
+		cancel()
+		<-c.Done() // ensure the refresh goroutine has fully exited
+		Execute = oldExecute
+	}()
+
+	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
+		if callCount.Add(1) == 1 {
 			return []byte(`alice|hpc_team|4|01:00:00|03:00:00|04:00:00|1G|2G`), nil
 		}
 		return nil, assert.AnError // second call fails
 	}
 
-	log := logger.NewLogger("error")
-	c := NewSacctEfficiencyCollector(log, 1*time.Millisecond, 1*time.Hour)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	c.Start(ctx)
 
 	time.Sleep(50 * time.Millisecond) // let first refresh + failed second run

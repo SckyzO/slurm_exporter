@@ -20,10 +20,16 @@ func PartitionsData(logger *logger.Logger) ([]byte, error) {
 
 /*
 PartitionsGpuData executes the sinfo command to retrieve partition GPU information.
-Expected sinfo output format: "Partition,Gres,GresUsed" (PartitionName,Total/Alloc GPUs).
+Expected sinfo output format: space-separated columns
+"Nodes Partition Gres GresUsed".
+
+Trailing ":" forces variable column widths; fixed widths (was Partition:30,
+Gres:50, GresUsed:50) silently truncate long partition names or rich GRES
+specs (e.g. multi-type GPU + MIG slices), producing wrong GPU counts.
+See https://github.com/SckyzO/slurm_exporter/issues/10.
 */
 func PartitionsGpuData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "sinfo", []string{"-h", "--Format=Nodes:10 ,Partition:30 ,Gres:50 ,GresUsed:50", "--state=idle,allocated"})
+	return Execute(logger, "sinfo", []string{"-h", "--Format=Nodes: ,Partition: ,Gres: ,GresUsed:", "--state=idle,allocated"})
 }
 
 /*
@@ -57,14 +63,26 @@ var (
 	partitionGpuRe = regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
 )
 
-// parseGpuCount extracts GPU count from GPU spec string
+// parseGpuCount sums all gpu:*:N matches in a GRES string.
+//
+// A GRES string can list multiple GPU types on the same node, e.g.
+// "gpu:A100:4,gpu:H100:2" → 6. Previously this function only returned the
+// first match (4), causing slurm_partition_gpus_* to undercount on
+// multi-type GPU nodes. Aligned with gpus.go::parseGPUCount, which has
+// always iterated correctly.
 func parseGpuCount(gpuSpec string, re *regexp.Regexp) float64 {
-	matches := re.FindStringSubmatch(gpuSpec)
-	if len(matches) > 2 {
-		gpuCount, _ := strconv.ParseFloat(matches[2], 64)
-		return gpuCount
+	var count = 0.0
+	for _, spec := range strings.Split(gpuSpec, ",") {
+		if !strings.Contains(spec, "gpu:") {
+			continue
+		}
+		matches := re.FindStringSubmatch(spec)
+		if len(matches) > 2 {
+			gpuCount, _ := strconv.ParseFloat(matches[2], 64)
+			count += gpuCount
+		}
 	}
-	return 0.0
+	return count
 }
 
 // parsePartitionCPUs parses sinfo "%R,%C" output into the partitions map.
@@ -77,7 +95,9 @@ func parsePartitionCPUs(data []byte, partitions map[string]*PartitionMetrics) {
 		if len(splitLine) < 2 {
 			continue
 		}
-		partition := splitLine[0]
+		// Strip the default-partition marker (*) so labels are consistent with
+		// nodes.go and other partition consumers — see issue #20.
+		partition := strings.TrimRight(splitLine[0], "*")
 		if _, exists := partitions[partition]; !exists {
 			partitions[partition] = &PartitionMetrics{}
 		}
@@ -104,7 +124,9 @@ func parsePartitionGPUs(data []byte, partitions map[string]*PartitionMetrics) {
 			continue
 		}
 		numNodes, _ := strconv.ParseFloat(fields[0], 64)
-		partition := fields[1]
+		// Strip the default-partition marker (*) so labels are consistent with
+		// nodes.go and other partition consumers — see issue #20.
+		partition := strings.TrimRight(fields[1], "*")
 		nodeGpus := parseGpuCount(fields[2], partitionGpuRe)
 		allocatedGpus := parseGpuCount(fields[3], partitionGpuRe)
 		if _, exists := partitions[partition]; !exists {
@@ -201,6 +223,9 @@ func (pc *PartitionsCollector) Collect(ch chan<- prometheus.Metric) {
 	if err != nil {
 		pc.logger.Error("Failed to parse partitions metrics", "err", err)
 		return
+	}
+	if len(pm) == 0 {
+		pc.logger.Warn("partitions collector parsed zero partitions — sinfo/squeue returned no data or output format unexpected; no slurm_partition_* series will be exposed this scrape")
 	}
 	for p := range pm {
 		ch <- prometheus.MustNewConstMetric(pc.cpuAllocated, prometheus.GaugeValue, pm[p].cpuAllocated, p)
