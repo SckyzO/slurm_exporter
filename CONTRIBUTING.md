@@ -173,7 +173,13 @@ tag — branch strategy, integrating community PRs with credit, the defensive
 audit, the live-cluster validation, the doc-vs-exporter diff — follows a
 deliberate workflow documented in **[`docs/release-process.md`](docs/release-process.md)**.
 
-Read that file before cutting a release. The quick summary:
+Read that file before cutting a release. The companion file
+**[`docs/validation-checklist.md`](docs/validation-checklist.md)** is a
+copy-pasteable 11-step procedure to validate any candidate against the
+Docker test cluster, written so a human or an AI agent can run it
+without prior context.
+
+The quick summary:
 
 1. Branch off `master` as `fix/vX.Y.Z` (patch) or `feat/vX.Y` (minor).
 2. Triage open PRs/issues; pick a coherent release theme.

@@ -175,14 +175,30 @@ fix it in this release if cheap, otherwise file a follow-up issue.
 
 ## 6. End-to-end test on a live cluster
 
-Spin up the test cluster and validate the actual `/metrics` output:
+Spin up the test cluster and validate the actual `/metrics` output, with
+every collector enabled, debug logs captured, and release-specific
+assertions made explicit.
+
+The detailed step-by-step playbook is in
+**[`docs/validation-checklist.md`](validation-checklist.md)** — 11 steps,
+copy-pasteable commands, expected outputs, and "if it fails" diagnostics
+for each. Designed so a human or an AI agent can execute the validation
+end-to-end without prior context.
+
+Short version of what that checklist covers:
 
 ```bash
-make -C scripts/testing setup
-make -C scripts/testing workload N=30
+make -C scripts/testing setup     # Step 2 — bring up cluster + deploy binary
 
-# Inspect metrics from inside slurmctld
-docker exec slurmctld curl -s http://localhost:9341/metrics > /tmp/metrics.txt
+# Step 3 — restart exporter with ALL collectors and debug logs
+# (see the checklist for the full command)
+
+# Step 4-5 — verify scrape returns 200 and every collector success=1
+# Step 6 — inspect the exact Slurm commands logged
+# Step 7 — submit workload, re-scrape
+# Step 8 — diff /metrics ↔ docs/metrics.md
+# Step 9 — release-specific assertions (template in the checklist)
+# Step 10 — visual Grafana dashboard pass
 ```
 
 ### Spot-check the release theme
@@ -216,6 +232,9 @@ Treat "exposed but not documented" entries as bugs to fix in this release
 "Documented but not exposed" entries are usually contextual (e.g. account-level
 metrics need running jobs, sacct_efficiency is opt-in). Verify each before
 declaring the doc clean.
+
+> The full diff workflow is automated and explained in the
+> [validation checklist](validation-checklist.md#step-8--diff-exposed-metrics-against-docsmetricsmd).
 
 ---
 
