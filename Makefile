@@ -71,6 +71,31 @@ test: $(GOFILES)
 	@echo "Running tests"
 	go test -v ./...
 
+# Run tests with the race detector. Useful locally to catch concurrency bugs
+# in collectors with background goroutines (e.g. sacct_efficiency).
+.PHONY: race
+race: $(GOFILES)
+	@echo "Running tests with race detector"
+	go test -race -count=1 ./...
+
+# Static analysis with go vet (also covered by golangci-lint).
+.PHONY: vet
+vet:
+	@echo "Running go vet"
+	go vet ./...
+
+# Lint using the same tool as CI (golangci-lint).
+# Requires golangci-lint to be installed locally:
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+.PHONY: lint
+lint:
+	@echo "Running golangci-lint"
+	golangci-lint run ./...
+
+# Full pre-commit / pre-release verification — mirrors what CI runs.
+.PHONY: check
+check: vet lint test
+
 # Run the built binary
 .PHONY: run
 run: $(GOBIN)
