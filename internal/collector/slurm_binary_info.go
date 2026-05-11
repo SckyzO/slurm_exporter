@@ -18,7 +18,7 @@ type SlurmInfoCollector struct {
 func NewSlurmInfoCollector(logger *logger.Logger) *SlurmInfoCollector {
 	binaries := []string{
 		"sinfo", "squeue", "sdiag", "scontrol",
-		"sacct", "sbatch", "salloc", "srun",
+		"sacct",
 	}
 	labels := []string{"type", "binary", "version"}
 	return &SlurmInfoCollector{

@@ -32,11 +32,14 @@ func SetBinPath(p string) {
 	binPath = p
 }
 
-// SlurmBinaries is the list of Slurm CLI tools used by the exporter.
+// SlurmBinaries is the list of Slurm CLI tools required by the exporter.
 // Used by ValidateBinaries to check that all required tools are present at startup.
+// Job submission tools (sbatch, salloc, srun) are intentionally excluded: the
+// exporter never invokes them, so requiring them blocks deployment on
+// monitoring-only nodes / minimal containers. See issue #24.
 var SlurmBinaries = []string{
 	"sinfo", "squeue", "sdiag", "scontrol", "sshare",
-	"sacct", "sbatch", "salloc", "srun",
+	"sacct",
 }
 
 // ValidateBinaries checks that every binary in the given list is accessible
