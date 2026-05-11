@@ -64,6 +64,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2022 fix for the same class of bug (commit `77080e0`) was inadvertently
   reverted at that point.
 
+- **`reservations` collector — phantom row when no reservations defined
+  (issue #26):**
+  `parseReservations` processed every non-empty record from
+  `scontrol show reservation`, including the literal `"No reservations in
+  the system"` line that scontrol emits on an empty cluster. With no
+  key=value to parse, every field stayed at its zero value and the
+  record was still appended — producing a phantom series:
+
+  ```
+  slurm_reservation_info{reservation_name="",...} 1
+  slurm_reservation_start_time_seconds{reservation_name=""} -6.21355968e+10
+  slurm_reservation_end_time_seconds{reservation_name=""} -6.21355968e+10
+  ```
+
+  The `-6.21e+10` timestamp is `time.Time{}.Unix() = -62135596800`
+  (year 0001), which Grafana renders as `1968-01-12 20:06:43` on the
+  reservations dashboard.
+
+  Fixed by skipping records that didn't yield a `ReservationName`. Empty
+  clusters now produce zero `slurm_reservation_*` series; dashboards
+  show "No data" instead of a fake 1968 reservation. Non-regression test
+  added with a `sreservations_empty.txt` fixture.
 - **`scheduler` collector — RPC usernames with hyphens silently truncated
   (PR #28 by @ncreddine):**
   `schedulerRPCLineRe` used the character class `[A-Za-z0-9_]*` for the
