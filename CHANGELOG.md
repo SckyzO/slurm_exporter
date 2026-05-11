@@ -5,6 +5,108 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2026-05-11
+
+### 🐛 Bug Fixes
+
+- **`node` collector — long node names silently dropped (issue #10):**
+  `sinfo -O "NodeList,..."` uses fixed-width columns (default 20 chars for
+  `NodeList`). On clusters with node hostnames longer than 20 characters, the
+  `NodeList` column collided with `AllocMem`, leaving lines with only 5
+  whitespace-separated tokens instead of 6. The parser silently skipped them
+  (`if len(node) < 6 { continue }`), causing entire nodes to disappear from the
+  metrics map — and the collector reported success (no error, non-zero
+  `slurm_exporter_collector_duration_seconds`) while exposing zero
+  `slurm_node_*` series. Fixed by switching to variable-width columns
+  (`NodeList: ,AllocMem: ,...`); the trailing `:` instructs `sinfo` to size
+  each column to its value. The parser itself is unchanged.
+  Regression was introduced when `slurm_node_status` was added; the original
+  2022 fix for the same class of bug (commit `77080e0`) was inadvertently
+  reverted at that point.
+
+- **`gpus` collector — `slurm_gpus_other` can be negative on busy clusters
+  (issue #16, PR #17 by @UeliDeSchwert):**
+  `other` is computed as `total − allocated − idle`, where each value comes
+  from a separate `sinfo` invocation. Cluster state can change between the
+  three calls, transiently producing `alloc + idle > total` and a negative
+  gauge — which Grafana renders incorrectly. Clamped to zero with a Debug
+  log when the clamp triggers (useful for diagnosing suspected miscounting
+  without spamming production logs, since the race is common on loaded
+  clusters). A follow-up issue tracks the proper fix: consolidate the three
+  `sinfo` calls into one to eliminate the race at the source.
+- **`sacct_efficiency` collector — memory efficiency average understated
+  (issue #14, PR #15 by @UeliDeSchwert):**
+  `slurm_job_mem_efficiency_avg` accumulated the per-job ratio only when
+  `ReqMemMB > 0` (correct) but divided by `JobCount` — the total number of
+  jobs, including those without memory requests. On a cluster where half the
+  jobs are submitted without `--mem`, the reported average was half the real
+  value. Same structural pattern fixed for `slurm_job_cpu_efficiency_avg`
+  (lower impact in practice). Fixed by adding `CPUJobCount` and `MemJobCount`
+  to the aggregates struct and dividing by the per-metric counter. Affected
+  sites will see both averages rise to their correct value after upgrade.
+  Non-regression test added.
+- **`queue` collector — `slurm_queue_suspended` and `slurm_cores_suspended`
+  never emitted (issue #12, PR #13 by @UeliDeSchwert):**
+  Both metrics were declared, described, and populated by `ParseQueueMetrics`,
+  but `Collect()` was missing the `PushMetric` / `pushAggregatedNVal` calls
+  for them — every scrape silently dropped these series. The global
+  `slurm_jobs_suspended` gauge was unaffected. Fixed by adding the four
+  missing calls (two in the per-user branch, two in the aggregated branch).
+  Non-regression test added.
+- **`partitions` collector — multi-type GPU undercount:**
+  `parseGpuCount()` in `partitions.go` used `FindStringSubmatch` (singular),
+  returning only the first `gpu:*:N` match in a GRES string. On nodes
+  exposing multiple GPU types (`gpu:A100:4,gpu:H100:2`),
+  `slurm_partition_gpus_allocated` and `slurm_partition_gpus_idle` were
+  silently undercounted (returned 4 instead of 6). Fixed by iterating over
+  comma-separated GRES sub-specs and accumulating, matching the
+  long-correct behavior of `gpus.go::parseGPUCount`. Cluster-wide
+  `slurm_gpus_*` was not affected. Affected sites will see
+  `slurm_partition_gpus_*` values increase to their real count after
+  upgrade.
+
+### 🛡️ Defensive hardening
+
+- **`partitions` collector — fixed-width truncation of GRES strings:**
+  `sinfo --Format=...Gres:50,GresUsed:50` truncates rich GRES specs on busy
+  GPU nodes (multi-type GPUs, MIG slices) at 50 chars, producing wrong GPU
+  counts in `slurm_partition_gpus_*`. Same class of bug as the `node`
+  collector issue. Switched to variable-width (`Gres: ,GresUsed:`).
+- **`gpus` collector — fixed-width truncation of GRES strings:**
+  Same fix applied to `IdleGPUsData()` and `TotalGPUsData()`. `AllocatedGPUsData()`
+  was already correct.
+- **Empty-parse warning logs:** `node` and `partitions` collectors now emit a
+  warning when the parser returns zero entries despite the underlying command
+  succeeding. This makes the failure mode from issue #10 fail loudly instead
+  of silently — operators see the warning instead of staring at "No data"
+  dashboards with no clue why.
+- **Data race in `sacct_efficiency` test fixed; `Done()` channel added.**
+  `TestSacctEfficiencyCollector_ErrorKeepsPreviousCache` had two races caught
+  by `go test -race`: an unprotected `callCount++` in the mock closure, and
+  the test's `defer Execute = oldExecute` racing with the background refresh
+  goroutine still reading `Execute`. Counter now uses `atomic.Int64`, and
+  `SacctEfficiencyCollector` exposes a new `Done() <-chan struct{}` channel
+  that closes when the background goroutine exits — letting tests
+  synchronise teardown deterministically. Production behavior unchanged.
+
+### 📊 Dashboard impact
+
+No dashboard JSON changes — metric names, labels, and types are unchanged.
+However, **clusters previously affected by silent truncation will see metric
+values increase** as the missing series reappear:
+
+- `slurm_node_*` series for nodes with hostnames > 20 chars will now be exposed
+  (previously absent), so `count`/`sum` queries over them will rise to their
+  real values.
+- `slurm_partition_*` series for partitions with names > 30 chars will now
+  appear under their full name; series previously stored under a truncated
+  partition name will disappear.
+- `slurm_gpus_*` and `slurm_partition_gpus_*` will reflect the true GPU
+  inventory on nodes with rich GRES specs (multi-type GPU, MIG).
+
+The `or vector(0)` guards added to dashboards in v1.8.1 remain valid (they
+protect against legitimately empty states) and require no rework.
+
 ## [1.8.1] - 2026-04-28
 
 ### 🐛 Bug Fixes
