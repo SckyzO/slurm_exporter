@@ -64,6 +64,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2022 fix for the same class of bug (commit `77080e0`) was inadvertently
   reverted at that point.
 
+- **`scheduler` collector — RPC usernames with hyphens silently truncated
+  (PR #28 by @ncreddine):**
+  `schedulerRPCLineRe` used the character class `[A-Za-z0-9_]*` for the
+  username capture group, which silently dropped the hyphen. Usernames
+  like `alice-21` were truncated to `alice`, collapsing every per-user RPC
+  stat onto the prefix and hiding per-user breakdowns in
+  `slurm_user_rpc_stats_*`. Extended the class to `[A-Za-z0-9_-]*`.
+  Table-driven non-regression test added.
+- **`accounts` collector — `gres:gpu:N` (colon separator) not parsed
+  (PR #28 by @ncreddine):**
+  `tresGPURe` matched only the slash form `gres/gpu:N` from `squeue %b`
+  output. Some Slurm versions emit `gres:gpu:N` (colon prefix) which fell
+  through to a count of 0, undercounting `slurm_account_cores_gpu` and
+  `slurm_user_cores_gpu` on those clusters. Broadened the prefix to
+  `gres[:/]gpu`. Existing slash-form tests still pass; four colon-form
+  cases added.
 - **Startup fails if `sbatch`/`salloc`/`srun` are absent (issue #24, PR #25 by
   @UeliDeSchwert):**
   `ValidateBinaries()` required `sbatch`, `salloc`, and `srun` in addition to
