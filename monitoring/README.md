@@ -25,6 +25,10 @@ Screenshots of every dashboard are under
 
 ## Prometheus rules
 
+See [`prometheus/README.md`](prometheus/README.md) for the full inventory
+of alerts and recording rules — threshold tables, calibration notes,
+labelling conventions, and validation recipes.
+
 ### `alerts.yml`
 
 A starter set of alerting rules tuned for medium-to-large HPC clusters.

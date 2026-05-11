@@ -23,7 +23,7 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 - [⚙️ Configuration](docs/configuration.md) *(flags, collectors, Prometheus)*
 - [📊 Metrics Reference](docs/metrics.md) *(all 14 collectors)*
 - [🛠️ Development](docs/development.md) *(build, test, lint)*
-- [📈 Grafana Dashboards](#-grafana-dashboards)
+- [📈 Dashboards & Alerts](#-dashboards--alerts) *(Grafana JSONs + Prometheus alerting rules)*
 - [📸 Screenshots](#-screenshots)
 - [📜 License](#-license)
 
@@ -37,7 +37,8 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 - ✅ Liveness probe at `/healthz` for orchestrators (Kubernetes, systemd).
 - ✅ GPU metrics per account and user (`slurm_account_gpus_running`, `slurm_user_gpus_running`).
 - ✅ Per-reservation node state metrics (`slurm_reservation_nodes_*`).
-- ✅ Ready-to-use Grafana dashboard.
+- ✅ Ten ready-to-use Grafana dashboards (in [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/)).
+- ✅ Site-neutral Prometheus alerting rules and recording rules (in [`monitoring/prometheus/`](monitoring/prometheus/)).
 
 ---
 
@@ -88,10 +89,24 @@ If you want to build the exporter yourself, you can do so using the provided Mak
 
 ---
 
-## 📈 Grafana Dashboards
+## 📈 Dashboards & Alerts
 
-Ten ready-to-use Grafana dashboards are provided in the [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/) directory.
-All dashboards use a `$datasource` template variable and are compatible with Grafana 12+.
+All monitoring assets live under [`monitoring/`](monitoring/):
+
+```
+monitoring/
+├── grafana/dashboards/    10 Grafana dashboards (JSON) + screenshots
+└── prometheus/
+    ├── alerts.yml         Alerting rules (severity-based, site-neutral)
+    └── rules.yml          Recording rules (cluster:slurm_job_failure_rate:ratio15m)
+```
+
+See [`monitoring/README.md`](monitoring/README.md) for end-to-end wiring (scrape config, rule_files, Alertmanager).
+
+### Grafana Dashboards
+
+Ten ready-to-use dashboards in [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/).
+All use a `$datasource` template variable and are compatible with Grafana 12+.
 
 | # | Dashboard | UID | Description |
 |---|-----------|-----|-------------|
@@ -127,6 +142,37 @@ done
 > **Scale note (Node Detail dashboard):** The per-node table is filtered by the `$partition` variable.
 > On clusters with 100k+ nodes, always select a specific partition to avoid loading excessive data.
 > The partition summary and problem nodes panels are always scalable regardless of cluster size.
+
+### Prometheus Alerts & Recording Rules
+
+A starter set of site-neutral alerting rules ships in
+[`monitoring/prometheus/alerts.yml`](monitoring/prometheus/alerts.yml), with
+one supporting recording rule in
+[`monitoring/prometheus/rules.yml`](monitoring/prometheus/rules.yml).
+See [`monitoring/prometheus/README.md`](monitoring/prometheus/README.md)
+for the threshold table, calibration guidance, and validation recipes.
+
+**Coverage**: node down/drain/maint, partition nodes down, pending-job queue
+backlog (warning / critical), job failure rate (warning / critical),
+slurmctld cycle slowness, SlurmDBD queue backlog, GPU saturation.
+
+**What's not in it**: `team` / `runbook_url` / `dashboard_url` labels — those
+are site-specific, add them via Prometheus `external_labels` or
+Alertmanager routing.
+
+**Load in Prometheus**:
+
+```yaml
+rule_files:
+  - /etc/prometheus/rules/slurm_alerts.yml
+  - /etc/prometheus/rules/slurm_rules.yml
+```
+
+Validate before deploying:
+
+```bash
+promtool check rules monitoring/prometheus/alerts.yml monitoring/prometheus/rules.yml
+```
 
 ---
 
