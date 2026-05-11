@@ -443,31 +443,116 @@ slurm_reservation_node_count{reservation_name="prod"} 102
 
 Command: `sdiag`
 
+### Scheduler health (gauges)
+
 ```
-# HELP slurm_scheduler_backfill_last_cycle Last backfill cycle time in microseconds reported by sdiag
-# TYPE slurm_scheduler_backfill_last_cycle gauge
-slurm_scheduler_backfill_last_cycle 1.94289e+06
-
-# HELP slurm_scheduler_backfilled_jobs_since_start_total Jobs started via backfilling since last Slurm start
-# TYPE slurm_scheduler_backfilled_jobs_since_start_total gauge
-slurm_scheduler_backfilled_jobs_since_start_total 111544
-
-# HELP slurm_scheduler_cycle_per_minute Number of scheduler cycles per minute reported by sdiag
-# TYPE slurm_scheduler_cycle_per_minute gauge
-slurm_scheduler_cycle_per_minute 63
-
-# HELP slurm_scheduler_last_cycle Last scheduler cycle time in microseconds reported by sdiag
-# TYPE slurm_scheduler_last_cycle gauge
-slurm_scheduler_last_cycle 97209
+# HELP slurm_scheduler_threads Number of scheduler threads
+# TYPE slurm_scheduler_threads gauge
+slurm_scheduler_threads 1
 
 # HELP slurm_scheduler_queue_size Length of the scheduler queue reported by sdiag
 # TYPE slurm_scheduler_queue_size gauge
 slurm_scheduler_queue_size 0
 
+# HELP slurm_scheduler_dbd_queue_size Pending entries in the SlurmDBD agent queue
+# TYPE slurm_scheduler_dbd_queue_size gauge
+slurm_scheduler_dbd_queue_size 0
+
+# HELP slurm_scheduler_last_cycle Last scheduler cycle time in microseconds reported by sdiag
+# TYPE slurm_scheduler_last_cycle gauge
+slurm_scheduler_last_cycle 97209
+
+# HELP slurm_scheduler_mean_cycle Scheduler mean cycle time (microseconds)
+# TYPE slurm_scheduler_mean_cycle gauge
+slurm_scheduler_mean_cycle 74593
+
+# HELP slurm_scheduler_cycle_per_minute Number of scheduler cycles per minute
+# TYPE slurm_scheduler_cycle_per_minute gauge
+slurm_scheduler_cycle_per_minute 63
+
+# HELP slurm_scheduler_backfill_last_cycle Last backfill cycle time (µs)
+# TYPE slurm_scheduler_backfill_last_cycle gauge
+slurm_scheduler_backfill_last_cycle 5334
+
+# HELP slurm_scheduler_backfill_mean_cycle Mean backfill cycle time (µs)
+# TYPE slurm_scheduler_backfill_mean_cycle gauge
+slurm_scheduler_backfill_mean_cycle 621
+
+# HELP slurm_scheduler_backfill_depth_mean Mean backfill depth
+# TYPE slurm_scheduler_backfill_depth_mean gauge
+slurm_scheduler_backfill_depth_mean 15
+```
+
+### Backfill cumulative counters (reset on slurmctld restart)
+
+```
+# HELP slurm_scheduler_backfilled_jobs_since_start_total Jobs backfilled since slurmctld start
+# TYPE slurm_scheduler_backfilled_jobs_since_start_total gauge
+slurm_scheduler_backfilled_jobs_since_start_total 13
+
+# HELP slurm_scheduler_backfilled_jobs_since_cycle_total Jobs backfilled since last stats cycle
+# TYPE slurm_scheduler_backfilled_jobs_since_cycle_total gauge
+slurm_scheduler_backfilled_jobs_since_cycle_total 13
+
+# HELP slurm_scheduler_backfilled_heterogeneous_total Heterogeneous job components backfilled
+# TYPE slurm_scheduler_backfilled_heterogeneous_total gauge
+slurm_scheduler_backfilled_heterogeneous_total 0
+```
+
+### Job lifecycle (gauges that reset on slurmctld restart or scontrol reconfigure)
+
+> Renamed and re-typed in v1.8.2 (dropped `_total`, switched Counter → Gauge).
+> See [CHANGELOG](../CHANGELOG.md#182) for migration notes.
+
+```
+# HELP slurm_scheduler_jobs_submitted Jobs submitted to the scheduler since last stats reset
+# TYPE slurm_scheduler_jobs_submitted gauge
+slurm_scheduler_jobs_submitted 53
+
+# HELP slurm_scheduler_jobs_started Jobs started (dispatched) since last stats reset
+# TYPE slurm_scheduler_jobs_started gauge
+slurm_scheduler_jobs_started 27
+
+# HELP slurm_scheduler_jobs_completed Jobs completed since last stats reset
+# TYPE slurm_scheduler_jobs_completed gauge
+slurm_scheduler_jobs_completed 27
+
+# HELP slurm_scheduler_jobs_canceled Jobs canceled since last stats reset
+# TYPE slurm_scheduler_jobs_canceled gauge
+slurm_scheduler_jobs_canceled 0
+
+# HELP slurm_scheduler_jobs_failed Jobs failed since last stats reset
+# TYPE slurm_scheduler_jobs_failed gauge
+slurm_scheduler_jobs_failed 0
+```
+
+### RPC statistics
+
+```
 # HELP slurm_rpc_stats RPC call count by operation, reported by sdiag
 # TYPE slurm_rpc_stats gauge
 slurm_rpc_stats{operation="REQUEST_NODE_INFO"} 4320
 slurm_rpc_stats{operation="REQUEST_JOB_INFO"} 8640
+
+# HELP slurm_rpc_stats_avg_time Average RPC time (µs) by operation
+# TYPE slurm_rpc_stats_avg_time gauge
+slurm_rpc_stats_avg_time{operation="REQUEST_NODE_INFO"} 142
+
+# HELP slurm_rpc_stats_total_time Total cumulative RPC time (µs) by operation
+# TYPE slurm_rpc_stats_total_time gauge
+slurm_rpc_stats_total_time{operation="REQUEST_NODE_INFO"} 613440
+
+# HELP slurm_user_rpc_stats RPC call count per user
+# TYPE slurm_user_rpc_stats gauge
+slurm_user_rpc_stats{user="alice"} 240
+
+# HELP slurm_user_rpc_stats_avg_time Average RPC time (µs) per user
+# TYPE slurm_user_rpc_stats_avg_time gauge
+slurm_user_rpc_stats_avg_time{user="alice"} 95
+
+# HELP slurm_user_rpc_stats_total_time Total RPC time (µs) per user
+# TYPE slurm_user_rpc_stats_total_time gauge
+slurm_user_rpc_stats_total_time{user="alice"} 22800
 ```
 
 ---
