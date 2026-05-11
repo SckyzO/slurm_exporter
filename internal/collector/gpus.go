@@ -173,8 +173,17 @@ func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
 	}
 	idleGPUs := ParseIdleGPUs(idleGPUsData)
 
-	// Calculate other GPUs (mixed, down, etc.)
+	// Calculate other GPUs (DRAIN, DOWN, RESERVED, MAINTENANCE, etc.).
+	// Clamp to zero because total/allocated/idle come from three separate
+	// sinfo invocations and cluster state can change between them, producing
+	// a transient negative result (see issue #16). The Debug log gives a
+	// trail if operators ever need to investigate suspected miscounting.
 	otherGPUs := totalGPUs - allocatedGPUs - idleGPUs
+	if otherGPUs < 0 {
+		logger.Debug("gpus collector: clamped negative 'other' to zero (likely sinfo timing race)",
+			"total", totalGPUs, "alloc", allocatedGPUs, "idle", idleGPUs, "computed_other", otherGPUs)
+		otherGPUs = 0
+	}
 
 	gm.alloc = allocatedGPUs
 	gm.idle = idleGPUs
