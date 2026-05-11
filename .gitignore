@@ -26,3 +26,14 @@ CLAUDE.md
 
 # Local cluster config override (machine-specific)
 scripts/testing/cluster.local.conf
+
+# Local scratch space — survive reboots (unlike /tmp) but never committed.
+# Useful for draft issue comments, release-PR bodies, exporter capture
+# files, etc. Only .gitkeep and the README are committed, so the directory
+# and its convention are visible on a fresh clone.
+tmp/*
+!tmp/.gitkeep
+!tmp/README.md
+
+# Claude Code session state
+.claude/
