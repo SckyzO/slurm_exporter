@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2022 fix for the same class of bug (commit `77080e0`) was inadvertently
   reverted at that point.
 
+- **`sacct_efficiency` collector — graceful shutdown on SIGTERM/SIGINT
+  (issue #18, PR #19 by @UeliDeSchwert):**
+  The background refresh goroutine was started with `context.Background()`,
+  which is never cancelled. On SIGTERM/SIGINT, the HTTP server stopped but
+  the goroutine — possibly mid-`sacct` invocation — was only terminated
+  when the OS killed the process. Now wired through `signal.NotifyContext`,
+  so the context is cancelled cleanly on signal. The main loop also waits
+  up to 5 seconds for the goroutine to exit (via the new `Done()` channel)
+  before returning, so any in-flight `sacct` call has a chance to complete.
+  Non-regression test added (`TestSacctEfficiencyCollector_DoneClosesOnCancel`).
 - **`gpus` collector — `slurm_gpus_other` can be negative on busy clusters
   (issue #16, PR #17 by @UeliDeSchwert):**
   `other` is computed as `total − allocated − idle`, where each value comes

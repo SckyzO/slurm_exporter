@@ -198,6 +198,36 @@ func TestSacctEfficiencyCollector_EmptyBeforeFirstRefresh(t *testing.T) {
 	assert.Empty(t, mfs, "no metrics before first refresh")
 }
 
+// TestSacctEfficiencyCollector_DoneClosesOnCancel verifies the Done() channel
+// is closed when the context passed to Start() is cancelled. This is the
+// mechanism main.go relies on for graceful shutdown on SIGTERM/SIGINT
+// (issue #18).
+func TestSacctEfficiencyCollector_DoneClosesOnCancel(t *testing.T) {
+	log := logger.NewLogger("error")
+	c := NewSacctEfficiencyCollector(log, 1*time.Hour, 1*time.Hour)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	oldExecute := Execute
+	defer func() {
+		cancel()
+		<-c.Done()
+		Execute = oldExecute
+	}()
+	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
+		return []byte(""), nil
+	}
+
+	c.Start(ctx)
+	cancel()
+
+	select {
+	case <-c.Done():
+		// success
+	case <-time.After(1 * time.Second):
+		t.Fatal("Done() did not close within 1s after cancel — graceful shutdown broken")
+	}
+}
+
 func TestSacctEfficiencyCollector_ErrorKeepsPreviousCache(t *testing.T) {
 	// The collector starts a background refresh goroutine that calls the
 	// package-level Execute. atomic.Int64 keeps the counter race-free, and
