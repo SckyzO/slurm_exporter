@@ -95,7 +95,9 @@ func parsePartitionCPUs(data []byte, partitions map[string]*PartitionMetrics) {
 		if len(splitLine) < 2 {
 			continue
 		}
-		partition := splitLine[0]
+		// Strip the default-partition marker (*) so labels are consistent with
+		// nodes.go and other partition consumers — see issue #20.
+		partition := strings.TrimRight(splitLine[0], "*")
 		if _, exists := partitions[partition]; !exists {
 			partitions[partition] = &PartitionMetrics{}
 		}
@@ -122,7 +124,9 @@ func parsePartitionGPUs(data []byte, partitions map[string]*PartitionMetrics) {
 			continue
 		}
 		numNodes, _ := strconv.ParseFloat(fields[0], 64)
-		partition := fields[1]
+		// Strip the default-partition marker (*) so labels are consistent with
+		// nodes.go and other partition consumers — see issue #20.
+		partition := strings.TrimRight(fields[1], "*")
 		nodeGpus := parseGpuCount(fields[2], partitionGpuRe)
 		allocatedGpus := parseGpuCount(fields[3], partitionGpuRe)
 		if _, exists := partitions[partition]; !exists {
