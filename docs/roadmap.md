@@ -50,16 +50,11 @@ in PR/issue comments, and internal observations during recent releases.
 
 ## v2.0 (uncommitted, open-ended)
 
-- **Reorganise the repository layout**: move
-  `dashboards_grafana/` → `monitoring/grafana/dashboards/`, add
-  `monitoring/alerts/slurm.yml` (alerting rules), `monitoring/prometheus/rules.yml`
-  (recording rules), and `monitoring/prometheus/scrape.yml` (example
-  scrape_config). Leave a README in `dashboards_grafana/` pointing to the
-  new path so external automations don't break silently.
 - **Refondre le panel "Terminal Job States Over Time"** on
-  `04-slurm-usage.json` once `sacct_efficiency` exposes the per-state
-  counts above. Today the panel uses queue-collector metrics that stay
-  at zero because `squeue` doesn't surface terminal states.
+  `monitoring/grafana/dashboards/04-slurm-usage.json` once
+  `sacct_efficiency` exposes the per-state counts (see v1.9). Today
+  the panel uses queue-collector metrics that stay at zero because
+  `squeue` doesn't surface terminal states.
 
 ---
 

@@ -1,0 +1,177 @@
+---
+# Prometheus alerting rules for slurm_exporter.
+#
+# Load this file in Prometheus with:
+#
+#   rule_files:
+#     - /etc/prometheus/rules/slurm_alerts.yml
+#     - /etc/prometheus/rules/slurm_rules.yml   # required for the failure-rate alerts
+#
+# Conventions used in this file:
+# - severity: warning | critical    (Alertmanager routing)
+# - component: hpc                  (filtering)
+# Add your own site-specific labels (team, runbook_url, dashboard_url, etc.)
+# either in this file or via Prometheus `external_labels` / Alertmanager
+# routing rules — kept out of here to keep the file portable.
+#
+# Thresholds below are reasonable defaults; adjust to your cluster size and
+# operational tolerance.
+
+groups:
+  - name: slurm.alerts
+    rules:
+      # ──────────────────────────────────────────────────────────────────
+      # Node health
+      # ──────────────────────────────────────────────────────────────────
+
+      - alert: SlurmNodeCritical
+        expr: >
+          max by (node, cluster, env, instance, status) (
+            slurm_node_cpu_total{status=~"down.*|fail.*|err.*"}
+          ) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: hpc
+        annotations:
+          summary: 'Slurm node {{ $labels.node }} critical'
+          description: 'Node {{ $labels.node }} (cluster {{ $labels.cluster }}) is in CRITICAL state in Slurm: {{ $labels.status }}.'
+
+      - alert: SlurmNodeWarning
+        expr: >
+          max by (node, cluster, env, instance, status) (
+            slurm_node_cpu_total{status=~"drain.*|maint.*"}
+          ) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: hpc
+        annotations:
+          summary: 'Slurm node {{ $labels.node }} unavailable'
+          description: 'Node {{ $labels.node }} (cluster {{ $labels.cluster }}) is unavailable in Slurm: {{ $labels.status }}.'
+
+      - alert: SlurmPartitionNodesDown
+        expr: slurm_nodes_down > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: hpc
+        annotations:
+          summary: 'Slurm partition nodes down on cluster {{ $labels.cluster }}'
+          description: '{{ $value }} nodes are in DOWN state on cluster {{ $labels.cluster }} (partition {{ $labels.partition }}). Partition capacity is reduced.'
+
+      - alert: SlurmPartitionNodesDown
+        expr: slurm_nodes_down > 5
+        for: 10m
+        labels:
+          severity: critical
+          component: hpc
+        annotations:
+          summary: 'Many Slurm nodes down on cluster {{ $labels.cluster }}'
+          description: '{{ $value }} nodes are in DOWN state on cluster {{ $labels.cluster }} (partition {{ $labels.partition }}). Significant capacity loss.'
+
+      # ──────────────────────────────────────────────────────────────────
+      # Job queue health
+      # ──────────────────────────────────────────────────────────────────
+
+      - alert: SlurmJobsPendingHigh
+        expr: slurm_jobs_pending > 500
+        for: 15m
+        labels:
+          severity: warning
+          component: hpc
+        annotations:
+          summary: 'High Slurm pending job queue on cluster {{ $labels.cluster }}'
+          description: 'Cluster {{ $labels.cluster }} has {{ $value }} pending jobs (threshold: 500) for more than 15 minutes. Resource contention or scheduler backlog suspected.'
+
+      - alert: SlurmJobsPendingHigh
+        expr: slurm_jobs_pending > 1000
+        for: 15m
+        labels:
+          severity: critical
+          component: hpc
+        annotations:
+          summary: 'Critical Slurm pending job queue on cluster {{ $labels.cluster }}'
+          description: 'Cluster {{ $labels.cluster }} has {{ $value }} pending jobs (threshold: 1000) for more than 15 minutes. Severe resource starvation.'
+
+      # ──────────────────────────────────────────────────────────────────
+      # Job failure rate (requires rules.yml for the recording rule)
+      # ──────────────────────────────────────────────────────────────────
+
+      - alert: SlurmJobFailureRateHigh
+        expr: cluster:slurm_job_failure_rate:ratio15m > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          component: hpc
+        annotations:
+          summary: 'High Slurm job failure rate on cluster {{ $labels.cluster }}'
+          description: 'Cluster {{ $labels.cluster }} has a job failure rate of {{ printf "%.1f" $value }}% over the last 15 minutes (threshold: 10%). Investigate common job errors or environment issues.'
+
+      - alert: SlurmJobFailureRateHigh
+        expr: cluster:slurm_job_failure_rate:ratio15m > 0.25
+        for: 15m
+        labels:
+          severity: critical
+          component: hpc
+        annotations:
+          summary: 'Critical Slurm job failure rate on cluster {{ $labels.cluster }}'
+          description: 'Cluster {{ $labels.cluster }} has a critical job failure rate of {{ printf "%.1f" $value }}% over the last 15 minutes (threshold: 25%). Systemic failure.'
+
+      # ──────────────────────────────────────────────────────────────────
+      # Scheduler health
+      # ──────────────────────────────────────────────────────────────────
+
+      - alert: SlurmSchedulerCycleSlow
+        expr: slurm_scheduler_last_cycle > 5000000
+        for: 5m
+        labels:
+          severity: warning
+          component: hpc
+        annotations:
+          summary: 'Slurm scheduler cycle slow on cluster {{ $labels.cluster }}'
+          description: 'Slurm scheduler on cluster {{ $labels.cluster }} last cycle took {{ printf "%.0f" $value }}µs (threshold: 5s). Job dispatch may be delayed.'
+
+      - alert: SlurmSchedulerCycleSlow
+        expr: slurm_scheduler_last_cycle > 30000000
+        for: 5m
+        labels:
+          severity: critical
+          component: hpc
+        annotations:
+          summary: 'Slurm scheduler cycle critical on cluster {{ $labels.cluster }}'
+          description: 'Slurm scheduler on cluster {{ $labels.cluster }} last cycle took {{ printf "%.0f" $value }}µs (threshold: 30s). Scheduler is effectively stalled.'
+
+      - alert: SlurmSchedulerDBDQueueHigh
+        expr: slurm_scheduler_dbd_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: hpc
+        annotations:
+          summary: 'Slurm DBD queue high on cluster {{ $labels.cluster }}'
+          description: 'Slurm DBD queue on cluster {{ $labels.cluster }} has {{ $value }} pending records (threshold: 100). SlurmDBD may be unreachable or overloaded.'
+
+      # ──────────────────────────────────────────────────────────────────
+      # GPU availability
+      # ──────────────────────────────────────────────────────────────────
+
+      - alert: SlurmNoGPUsAvailable
+        expr: slurm_gpus_idle == 0 and slurm_gpus_total > 0
+        for: 30m
+        labels:
+          severity: warning
+          component: hpc
+        annotations:
+          summary: 'No idle GPUs on cluster {{ $labels.cluster }}'
+          description: 'Cluster {{ $labels.cluster }} has no idle GPUs for more than 30 minutes. GPU demand is fully saturating available resources.'
+
+      - alert: SlurmNoGPUsAvailable
+        expr: slurm_gpus_idle == 0 and slurm_gpus_total > 0 and slurm_jobs_pending > 10
+        for: 30m
+        labels:
+          severity: critical
+          component: hpc
+        annotations:
+          summary: 'No idle GPUs and pending GPU jobs on cluster {{ $labels.cluster }}'
+          description: 'Cluster {{ $labels.cluster }} has no idle GPUs and pending GPU jobs for more than 30 minutes. Users are being blocked.'

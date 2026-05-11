@@ -254,7 +254,7 @@ cmd_import_dashboards() {
     local creds
     creds=$(echo -n "${GRAFANA_USER}:${GRAFANA_PASS}" | base64)
 
-    for f in "$REPO_ROOT/dashboards_grafana/"*.json; do
+    for f in "$REPO_ROOT/monitoring/grafana/dashboards/"*.json; do
         [ -f "$f" ] || continue
         result=$(python3 - "$f" "$GRAFANA_URL" "$creds" << 'PY'
 import json, sys, urllib.request, urllib.error

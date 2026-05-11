@@ -1,0 +1,27 @@
+---
+# Prometheus recording rules for slurm_exporter.
+#
+# These pre-compute commonly-used expressions so dashboards and alerts can
+# query them without redoing the maths on every render.
+#
+# Load this file in Prometheus with:
+#
+#   rule_files:
+#     - /etc/prometheus/rules/slurm_rules.yml
+#
+# Note on `slurm_scheduler_jobs_*`: these are gauges that reset on every
+# `slurmctld` restart or `scontrol reconfigure`. Prometheus `rate()` over
+# a long window will dip transiently at every reset; the `for: 15m`
+# clauses on the matching alerts smooth this out in practice.
+
+groups:
+  - name: slurm.rules
+    rules:
+      # Cluster-wide job failure ratio over 15 minutes.
+      # Numerator   : jobs that ended in FAILED state per second (sdiag).
+      # Denominator : jobs submitted to the scheduler per second (sdiag).
+      # The "(rate(...) > 0)" guard avoids 0/0 NaN on idle clusters.
+      - record: cluster:slurm_job_failure_rate:ratio15m
+        expr: >
+          rate(slurm_scheduler_jobs_failed[15m])
+          / (rate(slurm_scheduler_jobs_submitted[15m]) > 0)

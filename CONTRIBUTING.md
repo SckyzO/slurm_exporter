@@ -90,7 +90,7 @@ make build && make test && golangci-lint run ./...
 Integration tests (steps 4-9) are required for any change to:
 - Collector code (`internal/collector/`)
 - Main entrypoint (`cmd/slurm_exporter/`)
-- Grafana dashboards (`dashboards_grafana/`)
+- Grafana dashboards (`monitoring/grafana/dashboards/`)
 - Test cluster scripts (`scripts/testing/`)
 
 ---
@@ -126,7 +126,7 @@ Every new collector must have:
 - Use `clamp_min(denominator, 1)` on any division
 - Set `decimals: 1` on all `percent`/`percentunit` fields
 - Include a link to the GitHub repo in `links[]`
-- Add the dashboard to `dashboards_grafana/README.md`
+- Add the dashboard to `monitoring/grafana/dashboards/README.md`
 
 ### Commit messages
 

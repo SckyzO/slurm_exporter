@@ -415,7 +415,7 @@ Open in browser (or via Playwright/Chromium for the AI agent):
 http://localhost:3000  (login admin / admin)
 ```
 
-Walk through every dashboard in `dashboards_grafana/`. For each:
+Walk through every dashboard in `monitoring/grafana/dashboards/`. For each:
 - No "No data" on panels that should have data.
 - No PromQL parse errors (red banner).
 - Time ranges show plausible values.

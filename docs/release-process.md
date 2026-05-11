@@ -209,7 +209,7 @@ For v1.8.2 we explicitly verified:
   that previously dropped a node, confirm the node now appears).
 - Renamed metrics use the new names (e.g. `slurm_scheduler_jobs_submitted`
   without `_total`).
-- Dashboards in `dashboards_grafana/` still render — `make redeploy-dashboards`
+- Dashboards in `monitoring/grafana/dashboards/` still render — `make redeploy-dashboards`
   reimports them and Grafana is reachable at `http://localhost:3000`.
 
 ### Diff exposed metrics against docs
@@ -249,7 +249,7 @@ For every change that affects user-visible behavior:
 | `docs/metrics-examples.md` | Any new metric in a section where a representative sample would help users |
 | `docs/configuration.md` | Any new flag, default change, or behavior toggle |
 | `README.md` | Headline features only |
-| `dashboards_grafana/*.json` | Any rename, drop of a metric that's actually used in a panel, or addition of a high-value metric that deserves its own panel |
+| `monitoring/grafana/dashboards/*.json` | Any rename, drop of a metric that's actually used in a panel, or addition of a high-value metric that deserves its own panel |
 | Companion `monitoring-stacks/alerts/slurm.yml` | Any metric rename, drop, or new opt-in collector that recording rules / alerts depend on |
 
 For breaking changes, include a **migration table** in CHANGELOG:

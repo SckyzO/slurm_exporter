@@ -90,7 +90,7 @@ If you want to build the exporter yourself, you can do so using the provided Mak
 
 ## 📈 Grafana Dashboards
 
-Ten ready-to-use Grafana dashboards are provided in the [`dashboards_grafana/`](dashboards_grafana/) directory.
+Ten ready-to-use Grafana dashboards are provided in the [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/) directory.
 All dashboards use a `$datasource` template variable and are compatible with Grafana 12+.
 
 | # | Dashboard | UID | Description |
@@ -111,13 +111,13 @@ All dashboards use a `$datasource` template variable and are compatible with Gra
 **Option 1 — Copy JSON files** to your Grafana provisioning directory:
 
 ```bash
-cp dashboards_grafana/*.json /etc/grafana/provisioning/dashboards/
+cp monitoring/grafana/dashboards/*.json /etc/grafana/provisioning/dashboards/
 ```
 
 **Option 2 — Import via API:**
 
 ```bash
-for f in dashboards_grafana/*.json; do
+for f in monitoring/grafana/dashboards/*.json; do
   curl -s -X POST http://admin:password@grafana-host:3000/api/dashboards/db \
     -H "Content-Type: application/json" \
     -d "{\"dashboard\": $(cat $f), \"overwrite\": true, \"folderId\": 0}"
@@ -133,31 +133,31 @@ done
 ## 📸 Screenshots
 
 > Screenshots taken on a 20-node test cluster (alice/bob/carol/dave/eve/frank, multiple accounts and partitions).
-> Click any thumbnail to open the full-size image. See [`dashboards_grafana/README.md`](dashboards_grafana/README.md) for the full dashboard documentation.
+> Click any thumbnail to open the full-size image. See [`monitoring/grafana/dashboards/README.md`](monitoring/grafana/dashboards/README.md) for the full dashboard documentation.
 
 <table>
 <tr>
 <td align="center" width="33%">
 
 **Cluster Overview**<br>
-<a href="dashboards_grafana/screenshots/overview-1.png">
-  <img src="dashboards_grafana/screenshots/overview-1.png" width="100%" alt="Cluster Overview">
+<a href="monitoring/grafana/dashboards/screenshots/overview-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/overview-1.png" width="100%" alt="Cluster Overview">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Jobs & Queue**<br>
-<a href="dashboards_grafana/screenshots/jobs-1.png">
-  <img src="dashboards_grafana/screenshots/jobs-1.png" width="100%" alt="Jobs & Queue">
+<a href="monitoring/grafana/dashboards/screenshots/jobs-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/jobs-1.png" width="100%" alt="Jobs & Queue">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Node Detail** *(scalable 100k+ nodes)*<br>
-<a href="dashboards_grafana/screenshots/nodes-1.png">
-  <img src="dashboards_grafana/screenshots/nodes-1.png" width="100%" alt="Node Detail">
+<a href="monitoring/grafana/dashboards/screenshots/nodes-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/nodes-1.png" width="100%" alt="Node Detail">
 </a>
 
 </td>
@@ -166,24 +166,24 @@ done
 <td align="center" width="33%">
 
 **Cluster Usage Statistics**<br>
-<a href="dashboards_grafana/screenshots/usage-1.png">
-  <img src="dashboards_grafana/screenshots/usage-1.png" width="100%" alt="Cluster Usage Statistics">
+<a href="monitoring/grafana/dashboards/screenshots/usage-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/usage-1.png" width="100%" alt="Cluster Usage Statistics">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Scheduler**<br>
-<a href="dashboards_grafana/screenshots/scheduler-1.png">
-  <img src="dashboards_grafana/screenshots/scheduler-1.png" width="100%" alt="Scheduler">
+<a href="monitoring/grafana/dashboards/screenshots/scheduler-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/scheduler-1.png" width="100%" alt="Scheduler">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Exporter Health**<br>
-<a href="dashboards_grafana/screenshots/health-1.png">
-  <img src="dashboards_grafana/screenshots/health-1.png" width="100%" alt="Exporter Health">
+<a href="monitoring/grafana/dashboards/screenshots/health-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/health-1.png" width="100%" alt="Exporter Health">
 </a>
 
 </td>
@@ -192,24 +192,24 @@ done
 <td align="center" width="33%">
 
 **Reservations & Licenses**<br>
-<a href="dashboards_grafana/screenshots/reservations-1.png">
-  <img src="dashboards_grafana/screenshots/reservations-1.png" width="100%" alt="Reservations & Licenses">
+<a href="monitoring/grafana/dashboards/screenshots/reservations-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/reservations-1.png" width="100%" alt="Reservations & Licenses">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Accounting** *(new in v1.7.0)*<br>
-<a href="dashboards_grafana/screenshots/accounting-1.png">
-  <img src="dashboards_grafana/screenshots/accounting-1.png" width="100%" alt="Accounting">
+<a href="monitoring/grafana/dashboards/screenshots/accounting-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/accounting-1.png" width="100%" alt="Accounting">
 </a>
 
 </td>
 <td align="center" width="33%">
 
 **Exporter Performance** *(new in v1.8.0)*<br>
-<a href="dashboards_grafana/screenshots/exporter-perf-1.png">
-  <img src="dashboards_grafana/screenshots/exporter-perf-1.png" width="100%" alt="Exporter Performance">
+<a href="monitoring/grafana/dashboards/screenshots/exporter-perf-1.png">
+  <img src="monitoring/grafana/dashboards/screenshots/exporter-perf-1.png" width="100%" alt="Exporter Performance">
 </a>
 
 </td>
@@ -217,7 +217,7 @@ done
 <tr>
 <td align="center" colspan="3">
 
-*All 10 dashboards documented in [`dashboards_grafana/README.md`](dashboards_grafana/README.md)*
+*All 10 dashboards documented in [`monitoring/grafana/dashboards/README.md`](monitoring/grafana/dashboards/README.md)*
 
 </td>
 </tr>
