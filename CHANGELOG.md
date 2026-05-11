@@ -64,6 +64,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2022 fix for the same class of bug (commit `77080e0`) was inadvertently
   reverted at that point.
 
+- **Startup fails if `sbatch`/`salloc`/`srun` are absent (issue #24, PR #25 by
+  @UeliDeSchwert):**
+  `ValidateBinaries()` required `sbatch`, `salloc`, and `srun` in addition to
+  the Slurm monitoring tools actually used by the exporter. These three
+  job-submission binaries are never invoked by any collector and are often
+  absent on read-only monitoring containers or minimal Slurm client
+  installations, causing the exporter to refuse to start with
+  `--slurm.bin-path` set. They are now removed from the required list.
+  Companion follow-up below restores informational visibility.
+
+### ✨ Improvements
+
+- **`slurm_info` collector — expose job submission tool versions when
+  available:**
+  Following the issue #24 fix that dropped `sbatch`/`salloc`/`srun` from the
+  strict startup validation, they are now reintroduced in the `slurm_info`
+  collector as **silent optionals**: emitted only when present on the host,
+  with no log entry or metric when absent. Lookup uses `os.Stat` against
+  `--slurm.bin-path` (or `exec.LookPath` against `$PATH` when empty),
+  avoiding any subprocess spawn. Required binaries continue to emit a
+  `slurm_info{binary="X",version="not_found"}` series with value `0` when
+  missing, so operators can still alert on their absence.
+
 - **`partitions` collector — default partition `*` suffix not stripped
   (issue #20, PR #21 by @UeliDeSchwert):**
   Slurm appends `*` to the default partition name in `sinfo` output
