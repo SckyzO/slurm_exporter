@@ -24,6 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2022 fix for the same class of bug (commit `77080e0`) was inadvertently
   reverted at that point.
 
+- **`partitions` collector — default partition `*` suffix not stripped
+  (issue #20, PR #21 by @UeliDeSchwert):**
+  Slurm appends `*` to the default partition name in `sinfo` output
+  (e.g. `compute*`). The `nodes` collector already strips this suffix
+  (`nodes.go:169`), but `partitions.go` did not, producing
+  `slurm_partition_cpus_*` and `slurm_partition_gpus_*` with
+  `partition="compute*"` while every other metric used `partition="compute"`.
+  PromQL joins on the partition label silently returned no data for the
+  default partition. Fixed by applying the same `strings.TrimRight(..., "*")`
+  in both the CPU path and the GPU path; two unit tests verify the
+  asterisk-suffixed input is stored under the bare key.
+- **`queue` collector — same `*` suffix bug, defensive companion fix:**
+  `squeue -o "%P"` emits `compute*` for the default partition on some
+  Slurm versions; the queue collector now applies the same
+  `TrimRight(..., "*")` so `slurm_queue_*` and `slurm_cores_*` labels
+  stay aligned with the partitions and nodes collectors.
+  Non-regression test added.
 - **`sacct_efficiency` collector — graceful shutdown on SIGTERM/SIGINT
   (issue #18, PR #19 by @UeliDeSchwert):**
   The background refresh goroutine was started with `context.Background()`,
