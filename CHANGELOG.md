@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.2] - 2026-05-11
 
+### ⚠️ Breaking Changes
+
+- **`scheduler` collector — `slurm_scheduler_jobs_*_total` renamed and
+  retyped (issue #22, PR #23 by @UeliDeSchwert):**
+  The five sdiag-derived counters introduced in v1.8.0 were declared as
+  `prometheus.CounterValue` but `sdiag` resets these values to zero on
+  every `slurmctld` restart or `scontrol reconfigure`. A Counter that
+  decreases violates the Prometheus data model and breaks `rate()` /
+  `increase()` at the reset boundary. The `_total` suffix is also
+  reserved for Counters by Prometheus naming conventions.
+
+  | Old (Counter) | New (Gauge) |
+  | --- | --- |
+  | `slurm_scheduler_jobs_submitted_total` | `slurm_scheduler_jobs_submitted` |
+  | `slurm_scheduler_jobs_started_total`   | `slurm_scheduler_jobs_started` |
+  | `slurm_scheduler_jobs_completed_total` | `slurm_scheduler_jobs_completed` |
+  | `slurm_scheduler_jobs_canceled_total`  | `slurm_scheduler_jobs_canceled` |
+  | `slurm_scheduler_jobs_failed_total`    | `slurm_scheduler_jobs_failed` |
+
+  **Migration:**
+  - Replace the metric names in any external dashboards / recording rules /
+    alerts.
+  - Drop any `rate()` or `increase()` wrappers — these were already
+    producing incorrect results across slurmctld restarts. Use the raw
+    Gauge value (cumulative since last reset) or `deriv()` for a
+    short-window throughput estimate.
+  - Help text on each metric documents the reset behavior.
+
+  Rationale for shipping this in a patch release: the metrics were only
+  introduced six weeks ago (v1.8.0, 2026-04-02), shipped in two releases
+  (v1.8.0 and v1.8.1), are not referenced in any in-repo dashboard, and
+  had a real correctness bug under any non-trivial cluster reconfigure.
+  The disruption window is small and the longer the broken Counter ships,
+  the more downstream consumers we'd break later.
+
+  The `dashboards_grafana/05-slurm-scheduler.json` dashboard ships in this
+  release with a new **"Job Lifecycle (since slurmctld start)"** row
+  exposing the five renamed metrics — the first in-repo visualisation
+  of these counters.
+
 ### 🐛 Bug Fixes
 
 - **`node` collector — long node names silently dropped (issue #10):**
