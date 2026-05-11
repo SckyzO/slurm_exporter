@@ -155,21 +155,44 @@ summary, no `Co-authored-by:`.
 
 ## 5. Validate continuously
 
+**Every command below runs inside a containerised toolchain** — Docker is
+the only requirement on the developer machine, the result is identical on
+every host. The image is defined in [`scripts/docker/tools/`](../scripts/docker/tools/)
+and built lazily on first use.
+
 After every commit, run:
 
 ```bash
-make check    # vet + golangci-lint + tests
+make check    # vet + golangci-lint + tests (containerised)
 ```
 
-Before the release ships, run the heavier checks at least once:
+**Before tagging, both of these must be green — release blockers:**
 
 ```bash
-make race     # race detector
-make build    # full ldflags build
+make check    # exit 0 required
+make report   # exit 0 → grade ≥ B; aim for A or A+
+```
+
+`make report` is the offline equivalent of
+[goreportcard.com](https://goreportcard.com): runs `gofmt -s`, `go vet`,
+`gocyclo`, `ineffassign`, `misspell`, and a `LICENSE` check, prints a
+per-check score, and assigns a global grade. It exits non-zero below
+grade B so it can gate CI / pre-commit. The score matches what
+goreportcard.com would publish.
+
+Also run at least once before tagging:
+
+```bash
+make race     # race detector (containerised)
+make build    # full ldflags build (native)
 ```
 
 If `make race` fails on a pre-existing test (not something you introduced),
 fix it in this release if cheap, otherwise file a follow-up issue.
+
+If `make report` drops a grade vs. master (e.g. a new function above
+gocyclo threshold), either refactor before tagging or annotate explicitly
+with `//nolint:gocyclo` and a rationale comment.
 
 ---
 
