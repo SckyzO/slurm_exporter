@@ -1,0 +1,5 @@
+a048 163840 193000 16/0/0/16 mixed long
+a048 163840 193000 16/0/0/16 mixed short
+my-very-long-hostname-001 163840 193000 16/0/0/16 idle long
+my-very-long-hostname-001 163840 193000 16/0/0/16 idle short
+b003 296960 386000 29/3/0/32 down long
