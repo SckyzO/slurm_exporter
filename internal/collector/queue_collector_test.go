@@ -52,6 +52,49 @@ func TestQueueCollector_Describe(t *testing.T) {
 	assert.GreaterOrEqual(t, count, 20)
 }
 
+// TestQueueCollector_EmitsSuspendedMetrics is a non-regression test for the
+// silent data loss fixed by PR #13 / issue #12: `slurm_queue_suspended` and
+// `slurm_cores_suspended` were declared and counted but never pushed to
+// Prometheus in Collect(). The fixture contains at least one SUSPENDED job.
+func TestQueueCollector_EmitsSuspendedMetrics(t *testing.T) {
+	data, err := os.ReadFile("../../test_data/squeue.txt")
+	require.NoError(t, err)
+
+	oldExecute := Execute
+	defer func() { Execute = oldExecute }()
+	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
+		return data, nil
+	}
+
+	for _, withUserLabel := range []bool{true, false} {
+		t.Run(fmtBool("withUserLabel", withUserLabel), func(t *testing.T) {
+			log := logger.NewLogger("error")
+			c := NewQueueCollector(log, withUserLabel)
+			reg := prometheus.NewRegistry()
+			require.NoError(t, reg.Register(c))
+
+			mfs, err := reg.Gather()
+			require.NoError(t, err)
+
+			names := make(map[string]bool)
+			for _, mf := range mfs {
+				names[mf.GetName()] = true
+			}
+			assert.True(t, names["slurm_queue_suspended"],
+				"slurm_queue_suspended must be emitted when SUSPENDED jobs are present")
+			assert.True(t, names["slurm_cores_suspended"],
+				"slurm_cores_suspended must be emitted when SUSPENDED jobs are present")
+		})
+	}
+}
+
+func fmtBool(label string, v bool) string {
+	if v {
+		return label + "=true"
+	}
+	return label + "=false"
+}
+
 func TestQueueCollector_ErrorEmitsGlobalTotals(t *testing.T) {
 	// Even on error, global job totals must be emitted (always-present guarantee)
 	oldExecute := Execute
