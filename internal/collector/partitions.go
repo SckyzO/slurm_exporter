@@ -20,10 +20,16 @@ func PartitionsData(logger *logger.Logger) ([]byte, error) {
 
 /*
 PartitionsGpuData executes the sinfo command to retrieve partition GPU information.
-Expected sinfo output format: "Partition,Gres,GresUsed" (PartitionName,Total/Alloc GPUs).
+Expected sinfo output format: space-separated columns
+"Nodes Partition Gres GresUsed".
+
+Trailing ":" forces variable column widths; fixed widths (was Partition:30,
+Gres:50, GresUsed:50) silently truncate long partition names or rich GRES
+specs (e.g. multi-type GPU + MIG slices), producing wrong GPU counts.
+See https://github.com/SckyzO/slurm_exporter/issues/10.
 */
 func PartitionsGpuData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "sinfo", []string{"-h", "--Format=Nodes:10 ,Partition:30 ,Gres:50 ,GresUsed:50", "--state=idle,allocated"})
+	return Execute(logger, "sinfo", []string{"-h", "--Format=Nodes: ,Partition: ,Gres: ,GresUsed:", "--state=idle,allocated"})
 }
 
 /*
@@ -201,6 +207,9 @@ func (pc *PartitionsCollector) Collect(ch chan<- prometheus.Metric) {
 	if err != nil {
 		pc.logger.Error("Failed to parse partitions metrics", "err", err)
 		return
+	}
+	if len(pm) == 0 {
+		pc.logger.Warn("partitions collector parsed zero partitions — sinfo/squeue returned no data or output format unexpected; no slurm_partition_* series will be exposed this scrape")
 	}
 	for p := range pm {
 		ch <- prometheus.MustNewConstMetric(pc.cpuAllocated, prometheus.GaugeValue, pm[p].cpuAllocated, p)
