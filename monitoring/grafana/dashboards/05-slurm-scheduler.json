@@ -1172,7 +1172,7 @@
       "type": "stat",
       "id": 50,
       "title": "Jobs Submitted",
-      "description": "Jobs submitted to the scheduler since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag. Resets to 0 on reconfigure.",
+      "description": "Jobs submitted since the last slurmctld restart or `scontrol reconfigure`. Resets to 0 on reconfigure.",
       "gridPos": { "h": 4, "w": 4, "x": 0, "y": 40 },
       "options": {
         "colorMode": "background",
@@ -1205,7 +1205,7 @@
       "type": "stat",
       "id": 51,
       "title": "Jobs Started",
-      "description": "Jobs started (dispatched) since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "description": "Jobs started (dispatched) since the last slurmctld restart or `scontrol reconfigure`.",
       "gridPos": { "h": 4, "w": 4, "x": 4, "y": 40 },
       "options": {
         "colorMode": "background",
@@ -1238,7 +1238,7 @@
       "type": "stat",
       "id": 52,
       "title": "Jobs Completed",
-      "description": "Jobs completed since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "description": "Jobs completed since the last slurmctld restart or `scontrol reconfigure`.",
       "gridPos": { "h": 4, "w": 4, "x": 8, "y": 40 },
       "options": {
         "colorMode": "background",
@@ -1271,7 +1271,7 @@
       "type": "stat",
       "id": 53,
       "title": "Jobs Canceled",
-      "description": "Jobs canceled since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "description": "Jobs canceled since the last slurmctld restart or `scontrol reconfigure`.",
       "gridPos": { "h": 4, "w": 4, "x": 12, "y": 40 },
       "options": {
         "colorMode": "background",
@@ -1304,7 +1304,7 @@
       "type": "stat",
       "id": 54,
       "title": "Jobs Failed",
-      "description": "Jobs failed since the last slurmctld restart or `scontrol reconfigure`. Source: sdiag.",
+      "description": "Jobs failed since the last slurmctld restart or `scontrol reconfigure`.",
       "gridPos": { "h": 4, "w": 4, "x": 16, "y": 40 },
       "options": {
         "colorMode": "background",

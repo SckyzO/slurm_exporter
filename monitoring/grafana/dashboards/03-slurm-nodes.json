@@ -484,7 +484,7 @@
       "type": "barchart",
       "id": 11,
       "title": "Node States per Partition",
-      "description": "Distribution of node states per partition. Scalable — based on aggregate metrics.",
+      "description": "Distribution of node states per partition.",
       "gridPos": {
         "h": 8,
         "w": 14,
@@ -699,7 +699,7 @@
       "type": "table",
       "id": 12,
       "title": "Partition Summary",
-      "description": "Per-partition node state counts. Always scalable.",
+      "description": "Per-partition node state counts.",
       "gridPos": {
         "h": 8,
         "w": 10,
@@ -908,7 +908,7 @@
       "type": "table",
       "id": 13,
       "title": "Down & Drain Nodes",
-      "description": "Nodes in degraded state. Scalable to any cluster size — only shows problematic nodes. Empty table = healthy cluster.",
+      "description": "Nodes in degraded state. Empty table = healthy cluster.",
       "gridPos": {
         "h": 8,
         "w": 24,

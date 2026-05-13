@@ -513,7 +513,7 @@
       "type": "bargauge",
       "id": 11,
       "title": "Call Count per Command (last 5 min)",
-      "description": "Number of Slurm CLI executions per command. sinfo should be ~1/scrape after Axe 2 optimisation.",
+      "description": "Number of Slurm CLI executions per command. `sinfo` should be ~1 per scrape thanks to caching.",
       "gridPos": {
         "h": 8,
         "w": 12,

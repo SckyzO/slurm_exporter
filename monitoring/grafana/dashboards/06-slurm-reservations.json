@@ -854,7 +854,7 @@
           "refId": "D"
         }
       ],
-      "description": "License metrics (slurm_license_*) are only emitted when Slurm licenses are configured (scontrol show licenses). Empty = no licenses configured."
+      "description": "Empty = no licenses configured on the cluster."
     },
     {
       "datasource": {
@@ -933,7 +933,7 @@
           "instant": true
         }
       ],
-      "description": "License metrics (slurm_license_*) are only emitted when Slurm licenses are configured (scontrol show licenses). Empty = no licenses configured."
+      "description": "Empty = no licenses configured on the cluster."
     }
   ],
   "refresh": "30s",
