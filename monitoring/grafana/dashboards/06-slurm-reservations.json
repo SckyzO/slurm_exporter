@@ -37,6 +37,12 @@
     },
     {
       "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
       "id": "table",
       "name": "Table",
       "version": ""
@@ -280,7 +286,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "type": "timeseries",
+      "type": "stat",
       "id": 20,
       "title": "Reservation Start & End Times",
       "gridPos": {
@@ -290,36 +296,34 @@
         "y": 10
       },
       "options": {
-        "legend": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-            "last",
-            "max"
+            "lastNotNull"
           ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "auto",
+        "wideLayout": true
       },
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
           },
           "unit": "dateTimeAsLocal"
         },
@@ -331,7 +335,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_reservation_start_time_seconds",
+          "expr": "slurm_reservation_start_time_seconds * 1000",
           "legendFormat": "Start {{reservation_name}}",
           "refId": "A",
           "instant": true
@@ -341,7 +345,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "slurm_reservation_end_time_seconds",
+          "expr": "slurm_reservation_end_time_seconds * 1000",
           "legendFormat": "End {{reservation_name}}",
           "refId": "B",
           "instant": true
