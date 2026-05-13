@@ -3145,7 +3145,7 @@
       "type": "timeseries",
       "id": 210,
       "title": "User FairShare Over Time",
-      "description": "FairShare factor per user (0=lowest priority, 1=highest). Requires --collector.fairshare.user-metrics=true (default).",
+      "description": "FairShare factor per user (0=lowest priority, 1=highest).",
       "gridPos": {
         "h": 8,
         "w": 12,

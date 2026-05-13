@@ -4567,7 +4567,7 @@
       "type": "timeseries",
       "id": 111,
       "title": "slurm_user_fairshare — FairShare factor per user",
-      "description": "Requires --collector.fairshare.user-metrics=true (default).",
+      "description": "FairShare factor per user (0=lowest priority, 1=highest). Emitted by default; toggle with `--collector.fairshare.user-metrics`.",
       "gridPos": {
         "h": 6,
         "w": 12,
