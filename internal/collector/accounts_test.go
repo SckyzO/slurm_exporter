@@ -37,8 +37,8 @@ func TestParseAccountsMetrics(t *testing.T) {
 	assert.Equal(t, 3.0, am["account_b"].pending)
 }
 
-// Without TrimSpace, "padded_acct           " would leak into the Prometheus
-// label and ParseFloat on "4   " would silently return 0.
+// Without TrimSpace, the label carries trailing whitespace and ParseFloat
+// on "4   " returns 0 — both silently.
 func TestParseAccountsMetrics_TrimsPadding(t *testing.T) {
 	input := []byte("9999                |padded_acct         |RUNNING             |1                   |4                   |cpu=4,mem=8G,node=1,gres/gpu=1")
 	am := ParseAccountsMetrics(input)

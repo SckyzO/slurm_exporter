@@ -15,13 +15,13 @@ var (
 	accountJobRunning   = regexp.MustCompile(`^running`)
 	accountJobSuspended = regexp.MustCompile(`^suspended`)
 
-	// [:/]gpu accepts both "gres/gpu" and "gres:gpu" prefixes — some Slurm
-	// versions emit the colon form. [:/=] accepts ":" for legacy %b output
-	// and "=" for tres-alloc output. Typed variants ("gres/gpu:a100") work.
+	// Some Slurm versions emit "gres:gpu" instead of "gres/gpu", and the
+	// count separator differs between tres-alloc (=) and legacy %b (:).
+	// Typed GPUs like "gres/gpu:a100=2" parse through the same way.
 	tresGPURe = regexp.MustCompile(`gres[:/]gpu[^,\s]*[:/=](\d+)`)
 )
 
-// parseGPUsFromTRES returns 0 when the field is "N/A" or has no GPU entry.
+// parseGPUsFromTRES returns 0 when the field is "N/A" or doesn't mention GPUs.
 func parseGPUsFromTRES(tres string) float64 {
 	matches := tresGPURe.FindStringSubmatch(tres)
 	if len(matches) < 2 {
@@ -33,8 +33,8 @@ func parseGPUsFromTRES(tres string) float64 {
 
 // AccountsData runs squeue grouped by Slurm account.
 //
-// The trailing colon on `tres-alloc:` is load-bearing: without it, squeue
-// truncates the last field to its 20-char default and the GPU suffix is lost.
+// The trailing colon on `tres-alloc:` is required: without it, squeue caps
+// the last field at 20 characters and the GPU suffix is silently dropped.
 func AccountsData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "squeue", []string{
 		"-a", "-r", "-h",
@@ -51,7 +51,7 @@ type JobMetrics struct {
 }
 
 // ParseAccountsMetrics parses "JobID|Account|State|NumNodes|NumCPUs|tres-alloc".
-// TrimSpace is required: squeue -O pads each column to a minimum width.
+// TrimSpace strips the padding squeue -O adds to every column.
 func ParseAccountsMetrics(input []byte) map[string]*JobMetrics {
 	accounts := make(map[string]*JobMetrics)
 	for line := range strings.SplitSeq(string(input), "\n") {

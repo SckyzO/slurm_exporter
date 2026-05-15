@@ -16,8 +16,8 @@ var (
 	userJobSuspended = regexp.MustCompile(`^suspended`)
 )
 
-// UsersData runs squeue grouped by user. See AccountsData for the `tres-alloc:`
-// trailing-colon gotcha that prevents 20-char truncation of the last field.
+// UsersData runs squeue grouped by user. The trailing colon on `tres-alloc:`
+// is required for the same reason as in AccountsData — see that function.
 func UsersData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "squeue", []string{
 		"-a", "-r", "-h",
@@ -34,7 +34,7 @@ type UserJobMetrics struct {
 }
 
 // ParseUsersMetrics parses "JobID|User|State|NumNodes|NumCPUs|tres-alloc".
-// TrimSpace is required: squeue -O pads each column to a minimum width.
+// TrimSpace strips the padding squeue -O adds to every column.
 func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 	users := make(map[string]*UserJobMetrics)
 	for line := range strings.SplitSeq(string(input), "\n") {
