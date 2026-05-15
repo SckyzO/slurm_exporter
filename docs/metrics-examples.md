@@ -31,7 +31,7 @@ slurm_exporter_collector_success{collector="queue"} 1
 
 ## `accounts` collector
 
-Command: `squeue -a -r -h -o "%A|%a|%T|%D|%C|%b"`
+Command: `squeue -a -r -h -O "JobID:|,Account:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:"`
 
 ```
 # HELP slurm_account_cpus_running Running CPUs for account
@@ -559,7 +559,7 @@ slurm_user_rpc_stats_total_time{user="alice"} 22800
 
 ## `users` collector
 
-Command: `squeue -a -r -h -o "%A|%u|%T|%D|%C|%b"`
+Command: `squeue -a -r -h -O "JobID:|,UserName:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:"`
 
 ```
 # HELP slurm_user_cpus_running Running CPUs for user

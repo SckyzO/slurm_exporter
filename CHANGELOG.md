@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.3] - 2026-05-16
+
+### 🐛 Bug Fixes
+
+- **`accounts` and `users` collectors — `slurm_account_gpus_running` and
+  `slurm_user_gpus_running` silently drop jobs submitted with `--gpus` or
+  `--gpus-per-node` (issue #35, reported by @ncreddine):**
+  Both collectors parsed the GRES count from `squeue -o "%b"`
+  (`tres-per-node`). That field reflects only resources requested via
+  `--gres` and returns `N/A` for the newer `--gpus[-per-node]` flags,
+  causing `parseGPUsFromTRES("N/A")` to fall to 0. Accounts and users
+  whose entire GPU footprint came through `--gpus[-per-node]` were
+  invisible on those two metrics while `slurm_account_cpus_running` and
+  `slurm_account_jobs_running` reported correctly.
+
+  Switched both collectors to `squeue -O ...,tres-alloc`, which is the
+  effective allocation total across all submission flags (documented
+  identically on Slurm 20.11 → 25.05). The per-node multiplication
+  (`gpus_per_node * num_nodes`) was removed since `tres-alloc` already
+  reports the total. Regression coverage in `accounts_test.go` and
+  `users_test.go` includes `--gpus`, `--gpus-per-node`, `--gres=gpu:N`,
+  and typed-GPU variants (`gres/gpu:a100=N`).
+
+  **Operator-visible impact:** on clusters where users submit GPU jobs
+  with `--gpus[-per-node]`, `slurm_account_gpus_running` and
+  `slurm_user_gpus_running` will step up at the next scrape after upgrade.
+  Values for jobs using `--gres` are unchanged. Update any saturation
+  alerts that were calibrated against the previously-undercounted
+  values.
+
 ## [1.8.2] - 2026-05-11
 
 ### ⚠️ Breaking Changes

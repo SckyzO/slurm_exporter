@@ -10,22 +10,18 @@ import (
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
-// Pre-compiled regexes for job state and TRES GPU parsing.
 var (
 	accountJobPending   = regexp.MustCompile(`^pending`)
 	accountJobRunning   = regexp.MustCompile(`^running`)
 	accountJobSuspended = regexp.MustCompile(`^suspended`)
 
-	// tresGPURe matches GPU counts in TRES strings from squeue %b output.
-	// Real formats observed: "gres/gpu:4", "gres:gpu:4", "N/A"
-	// Also handles typed GPUs: "gres/gpu:a100:2", "gres:gpu:nvidia_gb200:4"
-	// The [:/]gpu prefix tolerates both separators — some Slurm versions emit
-	// the colon form (see issue #28).
+	// Some Slurm versions emit "gres:gpu" instead of "gres/gpu", and the
+	// count separator differs between tres-alloc (=) and legacy %b (:).
+	// Typed GPUs like "gres/gpu:a100=2" parse through the same way.
 	tresGPURe = regexp.MustCompile(`gres[:/]gpu[^,\s]*[:/=](\d+)`)
 )
 
-// parseGPUsFromTRES extracts the GPU count per node from a TRES string.
-// Returns 0 when the field is "N/A" or contains no GPU entry.
+// parseGPUsFromTRES returns 0 when the field is "N/A" or doesn't mention GPUs.
 func parseGPUsFromTRES(tres string) float64 {
 	matches := tresGPURe.FindStringSubmatch(tres)
 	if len(matches) < 2 {
@@ -35,10 +31,15 @@ func parseGPUsFromTRES(tres string) float64 {
 	return count
 }
 
-// AccountsData runs squeue to retrieve job/CPU/GPU counts grouped by Slurm account.
-// Output format: "%A|%a|%T|%D|%C|%b" (JobID|Account|State|NumNodes|CPUs|TRES).
+// AccountsData runs squeue grouped by Slurm account.
+//
+// The trailing colon on `tres-alloc:` is required: without it, squeue caps
+// the last field at 20 characters and the GPU suffix is silently dropped.
 func AccountsData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{"-a", "-r", "-h", "-o", "%A|%a|%T|%D|%C|%b"})
+	return Execute(logger, "squeue", []string{
+		"-a", "-r", "-h",
+		"-O", "JobID:|,Account:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:",
+	})
 }
 
 type JobMetrics struct {
@@ -49,8 +50,8 @@ type JobMetrics struct {
 	suspended   float64
 }
 
-// ParseAccountsMetrics parses squeue output into a map of account -> job metrics.
-// Input format: "%A|%a|%T|%D|%C|%b" (JobID|Account|State|NumNodes|CPUs|TRES).
+// ParseAccountsMetrics parses "JobID|Account|State|NumNodes|NumCPUs|tres-alloc".
+// TrimSpace strips the padding squeue -O adds to every column.
 func ParseAccountsMetrics(input []byte) map[string]*JobMetrics {
 	accounts := make(map[string]*JobMetrics)
 	for line := range strings.SplitSeq(string(input), "\n") {
@@ -61,22 +62,19 @@ func ParseAccountsMetrics(input []byte) map[string]*JobMetrics {
 		if len(fields) < 6 {
 			continue
 		}
-		account := fields[1]
+		account := strings.TrimSpace(fields[1])
 		if _, exists := accounts[account]; !exists {
 			accounts[account] = &JobMetrics{}
 		}
-		state := strings.ToLower(fields[2])
-		numNodes, _ := strconv.ParseFloat(fields[3], 64)
-		cpus, _ := strconv.ParseFloat(fields[4], 64)
+		state := strings.ToLower(strings.TrimSpace(fields[2]))
+		cpus, _ := strconv.ParseFloat(strings.TrimSpace(fields[4]), 64)
 		switch {
 		case accountJobPending.MatchString(state):
 			accounts[account].pending++
 		case accountJobRunning.MatchString(state):
 			accounts[account].running++
 			accounts[account].runningCpus += cpus
-			// TRES field shows GPUs per node — multiply by node count for total.
-			gpusPerNode := parseGPUsFromTRES(fields[5])
-			accounts[account].runningGPUs += gpusPerNode * numNodes
+			accounts[account].runningGPUs += parseGPUsFromTRES(fields[5])
 		case accountJobSuspended.MatchString(state):
 			accounts[account].suspended++
 		}
@@ -93,7 +91,6 @@ type AccountsCollector struct {
 	logger      *logger.Logger
 }
 
-// NewAccountsCollector creates a collector for per-account job metrics.
 func NewAccountsCollector(logger *logger.Logger) *AccountsCollector {
 	labels := []string{"account"}
 	return &AccountsCollector{
