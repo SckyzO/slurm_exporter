@@ -10,22 +10,14 @@ import (
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
-// Pre-compiled regexes for job state matching in the users collector.
 var (
 	userJobPending   = regexp.MustCompile(`^pending`)
 	userJobRunning   = regexp.MustCompile(`^running`)
 	userJobSuspended = regexp.MustCompile(`^suspended`)
 )
 
-// UsersData runs squeue to retrieve job/CPU/GPU counts grouped by user.
-// Uses tres-alloc (effective allocation) instead of the legacy %b (TRES_per_node),
-// which returned "N/A" for jobs submitted with --gpus or --gpus-per-node and silently
-// dropped them from slurm_user_gpus_running (see issue #35).
-//
-// The trailing colon on `tres-alloc:` forces variable column width — see
-// AccountsData for the truncation gotcha (issue #10 class).
-//
-// Output format: "JobID|User|State|NumNodes|NumCPUs|tres-alloc".
+// UsersData runs squeue grouped by user. See AccountsData for the `tres-alloc:`
+// trailing-colon gotcha that prevents 20-char truncation of the last field.
 func UsersData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "squeue", []string{
 		"-a", "-r", "-h",
@@ -41,10 +33,8 @@ type UserJobMetrics struct {
 	suspended   float64
 }
 
-// ParseUsersMetrics parses squeue output into a map of user -> job metrics.
-// Input format: "JobID|User|State|NumNodes|NumCPUs|tres-alloc".
-// TrimSpace is applied to every field because squeue -O pads each column to a
-// minimum width and the trailing tres-alloc field carries no suffix separator.
+// ParseUsersMetrics parses "JobID|User|State|NumNodes|NumCPUs|tres-alloc".
+// TrimSpace is required: squeue -O pads each column to a minimum width.
 func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 	users := make(map[string]*UserJobMetrics)
 	for line := range strings.SplitSeq(string(input), "\n") {
@@ -75,8 +65,6 @@ func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 	return users
 }
 
-// UsersGetMetrics fetches and parses user job metrics.
-// UsersGetMetrics fetches and parses user job metrics.
 func UsersGetMetrics(logger *logger.Logger) (map[string]*UserJobMetrics, error) {
 	data, err := UsersData(logger)
 	if err != nil {

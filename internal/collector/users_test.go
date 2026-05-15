@@ -12,8 +12,7 @@ import (
 )
 
 func TestParseUsersMetrics_Basic(t *testing.T) {
-	// Format: JobID|User|State|NumNodes|NumCPUs|tres-alloc
-	// Padding omitted for brevity; TrimSpace coverage lives in a dedicated test.
+	// Padding omitted here; TrimSpace coverage lives in TestParseUsersMetrics_FromTestData.
 	input := `1|alice|RUNNING|1|4|cpu=4,mem=8G,node=1,gres/gpu=1
 2|alice|RUNNING|1|8|cpu=8,mem=16G,node=1
 3|bob|PENDING|1|2|cpu=2,mem=4G,node=1
@@ -44,8 +43,7 @@ func TestParseUsersMetrics_Empty(t *testing.T) {
 }
 
 func TestParseUsersMetrics_IgnoresMalformed(t *testing.T) {
-	// Lines that lack the expected 6 pipe-separated fields are skipped.
-	// Without the guard, fields[5] (tres-alloc) access would panic.
+	// Without the < 6 fields guard, fields[5] access would panic.
 	input := `not-enough
 1|alice|RUNNING|1|4|cpu=4,mem=8G,node=1`
 	um := ParseUsersMetrics([]byte(input))
@@ -58,19 +56,15 @@ func TestParseUsersMetrics_FromTestData(t *testing.T) {
 	require.NoError(t, err)
 	um := ParseUsersMetrics(data)
 
-	// Issue #35: carol used --gpus-per-node=4, dave used --gpus=8. Both were
-	// silently dropped under the legacy %b field — now both must be counted.
 	require.Contains(t, um, "carol")
-	assert.Equal(t, float64(4), um["carol"].runningGPUs, "issue #35: --gpus-per-node")
+	assert.Equal(t, float64(4), um["carol"].runningGPUs, "--gpus-per-node must be counted")
 	require.Contains(t, um, "dave")
-	assert.Equal(t, float64(8), um["dave"].runningGPUs, "issue #35: --gpus")
+	assert.Equal(t, float64(8), um["dave"].runningGPUs, "--gpus must be counted")
 
-	// eve: 3 RUNNING jobs mixing untyped, typed, and large-allocation GPUs.
 	require.Contains(t, um, "eve")
 	assert.Equal(t, float64(3), um["eve"].running)
 	assert.Equal(t, float64(26), um["eve"].runningGPUs, "8 + 2 + 16 = 26 GPUs")
 
-	// frank: CPU-only RUNNING job, no GPU.
 	require.Contains(t, um, "frank")
 	assert.Equal(t, float64(1), um["frank"].running)
 	assert.Equal(t, float64(0), um["frank"].runningGPUs)
@@ -101,7 +95,7 @@ func TestUsersCollector_Collect(t *testing.T) {
 	assert.True(t, names["slurm_user_jobs_running"])
 	assert.True(t, names["slurm_user_cpus_running"])
 	assert.True(t, names["slurm_user_jobs_pending"])
-	assert.True(t, names["slurm_user_gpus_running"], "GPU metric must be emitted when tres-alloc shows GPUs")
+	assert.True(t, names["slurm_user_gpus_running"], "must be emitted when tres-alloc has gres/gpu")
 }
 
 func TestUsersCollector_Describe(t *testing.T) {

@@ -12,7 +12,7 @@ The exporter provides a wide range of metrics, each collected by a specific, tog
 
 Provides job statistics aggregated by Slurm account.
 
-- **Command:** `squeue -a -r -h -o "%A|%a|%T|%C"`
+- **Command:** `squeue -a -r -h -O "JobID:|,Account:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:"`
 
 | Metric | Description | Labels |
 |---|---|---|
@@ -286,7 +286,7 @@ Provides internal performance metrics from the `slurmctld` daemon, parsed from
 
 Provides job statistics aggregated by user.
 
-- **Command:** `squeue -a -r -h -o "%A|%u|%T|%C"`
+- **Command:** `squeue -a -r -h -O "JobID:|,UserName:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:"`
 
 | Metric | Description | Labels |
 |---|---|---|
