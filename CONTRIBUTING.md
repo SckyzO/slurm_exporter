@@ -166,6 +166,34 @@ The target: total scrape time < 5s on a 10 000-node cluster at 30s interval.
 
 ---
 
+## Common Pitfalls
+
+### `squeue -O` / `sinfo --Format` field truncation
+
+Slurm's long-format `-O field` defaults the field width to **20 characters**
+when no `size` is specified. The documentation calls this a "minimum size" but
+in practice **the last field is truncated**, silently losing data past column
+20. The same applies to `sinfo --Format`.
+
+**Always add a trailing `:` to every field**, or an explicit width:
+
+```go
+// WRONG — truncates tres-alloc to 20 chars, GPU suffix is lost:
+"-O", "JobID:|,Account:|,State:|,tres-alloc"
+
+// RIGHT — trailing colon forces variable column width:
+"-O", "JobID:|,Account:|,State:|,tres-alloc:"
+```
+
+Related historical bugs in this repo:
+- issue #10 (sinfo NodeList truncated on long node names)
+- issue #35 (squeue tres-alloc truncated, GPU suffix lost)
+
+When you parse the resulting fields, also `strings.TrimSpace` every column —
+the `:|` syntax pipe-delimits but leaves padding inside each column.
+
+---
+
 ## Releasing
 
 Releases are automated via GoReleaser on tag push, but everything before the
