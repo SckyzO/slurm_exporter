@@ -19,7 +19,7 @@ Provides job statistics aggregated by Slurm account.
 | `slurm_account_jobs_pending` | Pending jobs for account | `account` |
 | `slurm_account_jobs_running` | Running jobs for account | `account` |
 | `slurm_account_cpus_running` | Running CPUs for account | `account` |
-| `slurm_account_gpus_running` | Running GPUs for account (from TRES) | `account` |
+| `slurm_account_gpus_running` | Running GPUs for account (from `tres-alloc`, covers `--gres`, `--gpus`, `--gpus-per-node`) | `account` |
 | `slurm_account_jobs_suspended` | Suspended jobs for account | `account` |
 
 ### `cpus` Collector
@@ -293,7 +293,7 @@ Provides job statistics aggregated by user.
 | `slurm_user_jobs_pending` | Pending jobs for user | `user` |
 | `slurm_user_jobs_running` | Running jobs for user | `user` |
 | `slurm_user_cpus_running` | Running CPUs for user | `user` |
-| `slurm_user_gpus_running` | Running GPUs for user (from TRES) | `user` |
+| `slurm_user_gpus_running` | Running GPUs for user (from `tres-alloc`, covers `--gres`, `--gpus`, `--gpus-per-node`) | `user` |
 | `slurm_user_jobs_suspended` | Suspended jobs for user | `user` |
 
 ---

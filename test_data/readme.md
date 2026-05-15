@@ -8,8 +8,11 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/accounts.go`
 
-- `squeue -a -r -h -o "%A|%a|%T|%D|%C|%b"`: job/CPU/GPU counts by account.
+- `squeue -a -r -h -O "JobID:|,Account:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc"`: job/CPU/GPU counts by account.
   - Test file: **`squeue_tres.txt`**
+  - Uses `tres-alloc` (effective allocation, total) instead of the legacy `%b`
+    (TRES per node) so that jobs submitted with `--gpus` or `--gpus-per-node`
+    are accounted for (see issue #35).
 
 ## `collector/cpus.go`
 
@@ -99,8 +102,9 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/users.go`
 
-- `squeue -a -r -h -o "%A|%u|%T|%D|%C|%b"`: job/CPU/GPU counts by user.
-  - Test file: **`squeue_tres.txt`** (same format as accounts)
+- `squeue -a -r -h -O "JobID:|,UserName:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc"`: job/CPU/GPU counts by user.
+  - Test file: **`squeue_tres_users.txt`**
+  - Same `tres-alloc` rationale as accounts (issue #35).
 
 ---
 

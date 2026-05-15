@@ -17,14 +17,20 @@ var (
 	userJobSuspended = regexp.MustCompile(`^suspended`)
 )
 
-/*
-UsersData executes the squeue command to retrieve job information by user.
-Expected squeue output format: "%A|%u|%T|%C" (Job ID|User|State|CPUs).
-*/
 // UsersData runs squeue to retrieve job/CPU/GPU counts grouped by user.
-// Output format: "%A|%u|%T|%D|%C|%b" (JobID|User|State|NumNodes|CPUs|TRES).
+// Uses tres-alloc (effective allocation) instead of the legacy %b (TRES_per_node),
+// which returned "N/A" for jobs submitted with --gpus or --gpus-per-node and silently
+// dropped them from slurm_user_gpus_running (see issue #35).
+//
+// The trailing colon on `tres-alloc:` forces variable column width — see
+// AccountsData for the truncation gotcha (issue #10 class).
+//
+// Output format: "JobID|User|State|NumNodes|NumCPUs|tres-alloc".
 func UsersData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{"-a", "-r", "-h", "-o", "%A|%u|%T|%D|%C|%b"})
+	return Execute(logger, "squeue", []string{
+		"-a", "-r", "-h",
+		"-O", "JobID:|,UserName:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:",
+	})
 }
 
 type UserJobMetrics struct {
@@ -35,38 +41,35 @@ type UserJobMetrics struct {
 	suspended   float64
 }
 
-/*
-ParseUsersMetrics parses the output of the squeue command for user-specific job metrics.
-It expects input in the format: "JobID|User|State|CPUs".
-*/
-// ParseUsersMetrics parses raw squeue output into a map of user -> job metrics.
+// ParseUsersMetrics parses squeue output into a map of user -> job metrics.
+// Input format: "JobID|User|State|NumNodes|NumCPUs|tres-alloc".
+// TrimSpace is applied to every field because squeue -O pads each column to a
+// minimum width and the trailing tres-alloc field carries no suffix separator.
 func ParseUsersMetrics(input []byte) map[string]*UserJobMetrics {
 	users := make(map[string]*UserJobMetrics)
 	for line := range strings.SplitSeq(string(input), "\n") {
-		if strings.Contains(line, "|") {
-			fields := strings.Split(line, "|")
-			if len(fields) < 4 {
-				continue
-			}
-			user := fields[1]
-			_, key := users[user]
-			if !key {
-				users[user] = &UserJobMetrics{}
-			}
-			state := strings.ToLower(fields[2])
-			numNodes, _ := strconv.ParseFloat(fields[3], 64)
-			cpus, _ := strconv.ParseFloat(fields[4], 64)
-			switch {
-			case userJobPending.MatchString(state):
-				users[user].pending++
-			case userJobRunning.MatchString(state):
-				users[user].running++
-				users[user].runningCpus += cpus
-				gpusPerNode := parseGPUsFromTRES(fields[5])
-				users[user].runningGPUs += gpusPerNode * numNodes
-			case userJobSuspended.MatchString(state):
-				users[user].suspended++
-			}
+		if !strings.Contains(line, "|") {
+			continue
+		}
+		fields := strings.SplitN(line, "|", 6)
+		if len(fields) < 6 {
+			continue
+		}
+		user := strings.TrimSpace(fields[1])
+		if _, exists := users[user]; !exists {
+			users[user] = &UserJobMetrics{}
+		}
+		state := strings.ToLower(strings.TrimSpace(fields[2]))
+		cpus, _ := strconv.ParseFloat(strings.TrimSpace(fields[4]), 64)
+		switch {
+		case userJobPending.MatchString(state):
+			users[user].pending++
+		case userJobRunning.MatchString(state):
+			users[user].running++
+			users[user].runningCpus += cpus
+			users[user].runningGPUs += parseGPUsFromTRES(fields[5])
+		case userJobSuspended.MatchString(state):
+			users[user].suspended++
 		}
 	}
 	return users
