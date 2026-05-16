@@ -37,13 +37,17 @@
 #
 # See docker/README.md for the slurm-client-bundled (standard) variant.
 
-# Extract libmunge from a Debian 13 stage. We only copy the .so file into
-# the distroless runtime, no apt machinery, no daemon binary.
+# Extract libmunge from a Debian 13 stage. The shell `cp` consolidates the
+# arch-specific Debian multi-arch path (x86_64-linux-gnu vs aarch64-linux-gnu)
+# into a fixed /libs/ directory — the next COPY then doesn't need TARGETARCH.
 FROM debian:13-slim AS munge-extractor
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         libmunge2 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /libs \
+    && cp -P /usr/lib/*-linux-gnu/libmunge.so.2     /libs/ \
+    && cp -P /usr/lib/*-linux-gnu/libmunge.so.2.0.0 /libs/
 
 # ---
 
@@ -54,8 +58,10 @@ FROM gcr.io/distroless/cc-debian12:nonroot
 # spares operators from having to mount /usr/lib*/libmunge.so.2 manually,
 # which varies across host distributions (/usr/lib64 on RHEL, /usr/lib/
 # x86_64-linux-gnu on Debian).
-COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2 /usr/lib/x86_64-linux-gnu/libmunge.so.2
-COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0 /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0
+# /usr/lib/ is in the default glibc search path on distroless cc-debian12,
+# so host-mounted binaries find libmunge.so.2 there regardless of arch.
+COPY --from=munge-extractor /libs/libmunge.so.2     /usr/lib/libmunge.so.2
+COPY --from=munge-extractor /libs/libmunge.so.2.0.0 /usr/lib/libmunge.so.2.0.0
 
 COPY slurm_exporter /usr/local/bin/slurm_exporter
 
