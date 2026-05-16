@@ -1,28 +1,32 @@
-# Running slurm_exporter in a container
+Prometheus exporter for the [Slurm workload manager](https://slurm.schedmd.com/),
+shipped as two purpose-built container images.
 
-This page covers running `slurm_exporter` as a Docker container, including the
-constraints inherent to Slurm itself (MUNGE authentication, client/server
-version compatibility) that you don't have when running the binary directly.
+[![Release](https://img.shields.io/github/v/release/SckyzO/slurm_exporter?label=release)](https://github.com/SckyzO/slurm_exporter/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/SckyzO/slurm_exporter/release.yml?label=build)](https://github.com/SckyzO/slurm_exporter/actions/workflows/release.yml)
+[![Pulls](https://img.shields.io/docker/pulls/sckyzo/slurm-exporter)](https://hub.docker.com/r/sckyzo/slurm-exporter)
+[![Image size — standard](https://img.shields.io/docker/image-size/sckyzo/slurm-exporter/latest?label=size%20%28standard%29)](https://hub.docker.com/r/sckyzo/slurm-exporter/tags)
+[![Image size — minimal](https://img.shields.io/docker/image-size/sckyzo/slurm-exporter/latest-minimal?label=size%20%28minimal%29)](https://hub.docker.com/r/sckyzo/slurm-exporter/tags)
+[![License](https://img.shields.io/github/license/SckyzO/slurm_exporter)](https://github.com/SckyzO/slurm_exporter/blob/master/LICENSE)
 
-## Two image variants
+## Tags & variants
 
-The project publishes two images. Pick the one that matches your cluster:
+Two image flavors, both published as **multi-arch manifests** (linux/amd64 +
+linux/arm64) to **two registries**:
 
-| Variant | Tag | Bundled slurm-client | When to use it |
+| Use case | Tag pattern | Base | When |
 |---|---|---|---|
-| **Standard** | `:vX.Y.Z` / `:latest` | Yes, Slurm 25.11.x (Ubuntu 26.04 repos) | Cluster running Slurm 23.x — 26.x packaged from your distro. Just works. |
-| **Minimal** | `:vX.Y.Z-minimal` / `:latest-minimal` | No | Cluster running a Slurm version outside the 23–26 window, OR Slurm built from source / OHPC with custom plugins. You mount the cluster's Slurm install into the container. |
+| **Standard** | `:vX.Y.Z`, `:X.Y`, `:X`, `:latest` | Ubuntu 26.04 + slurm-client 25.11 | Cluster runs Slurm 23.x — 26.x packaged from a distro. Just works. |
+| **Minimal** | `:vX.Y.Z-minimal`, `:X.Y-minimal`, `:X-minimal`, `:latest-minimal` | distroless/cc-debian12 + libmunge | Slurm built from source / OHPC / outside the 23-26 window. Mount your own slurm-client via `--slurm.bin-path`. |
 
-Both variants ship `munge` (daemon + library) and run as a non-root user:
-- **Standard** runs as `slurmexporter` (uid `9341`, gid `munge`).
-- **Minimal** runs as `nonroot` (uid `65532`, the standard distroless user).
+Available at:
 
-The host's `munge.socket.2` is typically created with mode `0777`, so any
-unprivileged uid in the container can use it. If your cluster runs munged
-with a stricter umask, mount the socket through with explicit perms or
-adjust the container user.
+- `docker.io/sckyzo/slurm-exporter`
+- `ghcr.io/sckyzo/slurm_exporter` (mirror)
 
-## TL;DR — Standard variant
+Pre-release tags (`vX.Y.Z-rc1` etc.) push only the pinned version and never
+overwrite the floating tags.
+
+## Quick start
 
 ```bash
 docker run -d --name slurm_exporter \
@@ -30,12 +34,50 @@ docker run -d --name slurm_exporter \
   -v /etc/slurm:/etc/slurm:ro \
   -v /var/run/munge:/var/run/munge:ro \
   -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
-  ghcr.io/sckyzo/slurm_exporter:latest
+  sckyzo/slurm-exporter:latest
 
 curl -s http://localhost:9341/metrics | head
 ```
 
-## TL;DR — Minimal variant (BYO Slurm install)
+If that returns metrics, you're done. If it doesn't, read on.
+
+## What this image does
+
+The exporter shells out to the Slurm CLI tools (`sinfo`, `squeue`, `sdiag`,
+`scontrol`, `sshare`, `sacct`) and exposes their output as Prometheus
+metrics on `/metrics`. It needs three things from the host to talk to
+slurmctld:
+
+| Mount | Why |
+|---|---|
+| `/etc/slurm/slurm.conf` | Tells the Slurm CLI where to find slurmctld. |
+| `/var/run/munge/munge.socket.2` | Local socket of the MUNGE daemon that signs every Slurm RPC. |
+| `/etc/munge/munge.key` | Cluster-wide MUNGE shared key. |
+
+Without any one of them, the CLI fails with either
+`slurm_load_partitions: Unable to contact slurm controller` (slurm.conf
+missing) or `Could not connect to munge socket` (socket missing).
+
+The image ships `libmunge.so.2` so host-mounted binaries find their munge
+dependency at runtime; the `munged` daemon itself is **not** in the image
+— both variants use the host's munged through the mounted socket.
+
+## Standard vs minimal — which one ?
+
+Pick **standard** (`:latest`) if your cluster runs Slurm 23.x → 26.x from a
+distro package. The image bundles slurm-client matching that range and
+just works out of the box.
+
+Pick **minimal** (`:latest-minimal`) if any of the following apply:
+
+- Your cluster runs a Slurm version outside the 23-26 window.
+- Slurm is built from source / OHPC with custom plugins (PMIx, custom
+  job_submit, SPANK hooks…).
+- You need the smallest possible attack surface (distroless: no shell, no
+  package manager, no userland beyond the dynamic loader and libstdc++).
+
+The minimal variant needs the host's Slurm install mounted in. Quick
+example:
 
 ```bash
 docker run -d --name slurm_exporter \
@@ -45,289 +87,52 @@ docker run -d --name slurm_exporter \
   -v /var/run/munge:/var/run/munge:ro \
   -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
   -e LD_LIBRARY_PATH=/opt/slurm/lib \
-  ghcr.io/sckyzo/slurm_exporter:latest-minimal \
+  sckyzo/slurm-exporter:latest-minimal \
   --slurm.bin-path=/opt/slurm/bin
 ```
 
-Adjust `/opt/slurm` to wherever your cluster's Slurm prefix lives. The image
-runtime is Ubuntu 26.04 with glibc 2.43, which is forward-compatible with
-binaries built against RHEL 8 (glibc 2.28), RHEL 9 / Rocky 9 (glibc 2.34),
-Debian 12 (glibc 2.36), and Debian 13 (glibc 2.41). If your build environment
-is more recent than that, you'll need to rebuild the runtime stage from a
-matching base.
-
-If that works, you're done. If it doesn't, read on.
-
-## What the container needs from the host
-
-The exporter shells out to the Slurm CLI tools (`sinfo`, `squeue`, `sdiag`,
-`scontrol`, `sshare`, `sacct`) to collect metrics. Those tools live inside the
-image, but they need three things from the cluster:
-
-| Mount | Why |
-|---|---|
-| `/etc/slurm/slurm.conf` | Tells the Slurm CLI where to find slurmctld and how the cluster is configured. |
-| `/var/run/munge/munge.socket.2` | Local socket of the MUNGE daemon that signs every Slurm RPC. The container talks to the host's munged through it. |
-| `/etc/munge/munge.key` | The cluster-wide MUNGE shared key. Read by the CLI tools when contacting munged. |
-
-If you skip any of these, the CLI tools fail with `slurm_load_partitions:
-Unable to contact slurm controller` (slurm.conf missing) or `Could not
-connect to munge socket` (munge socket missing).
-
-The image ships `libmunge.so.2` so the Slurm CLI tools (either bundled in
-the standard variant or host-mounted in the minimal variant) find their
-munge dependency at runtime. The `munged` daemon itself is **not** in the
-image — both variants are designed to use the host's munged through the
-mounted socket.
-
-## Slurm version compatibility
-
-The image ships with **Slurm 25.11.x** (from Ubuntu 26.04). Slurm guarantees
-client/server compatibility within a window of two major versions, which in
-practice covers slurmctld 23.x through 26.x.
-
-If your slurmctld is on a version outside that window — for example, an older
-22.x cluster — rebuild the runtime stage from a base image that matches your
-Slurm version. The cleanest
-way is to clone the repo and edit the runtime `FROM` line, then `make
-docker-build`.
-
-For most production clusters running 23.x or 24.x, the published image works
-out of the box.
+The runtime is Ubuntu 26.04 with glibc 2.43 (standard) or distroless
+cc-debian12 with the same glibc family (minimal) — both forward-compatible
+with binaries built against RHEL 8 (glibc 2.28), RHEL 9 / Rocky 9 (2.34),
+Debian 12 (2.36), and Debian 13 (2.41).
 
 ## Compose
 
-The compose file under `docker/docker-compose.yml` is a self-contained
-example for the most common case: a node that already has a working
-slurm-client + munged setup (slurmctld host, a login node, a dedicated
-monitoring VM enrolled in the cluster).
-
-```bash
-docker compose -f docker/docker-compose.yml up -d
-docker compose -f docker/docker-compose.yml logs -f slurm_exporter
-```
-
-### Path overrides (env vars)
-
-The compose paths default to a standard Linux Slurm install. If your
-distribution puts things elsewhere, override them at run time or in a
-`.env` file next to the compose:
-
-| Variable | Default | Override when… |
-|---|---|---|
-| `SLURM_CONF_DIR` | `/etc/slurm` | older Debian/Ubuntu use `/etc/slurm-llnl`, source-installed or OHPC clusters often use `/opt/slurm/etc` |
-| `MUNGE_RUN_DIR` | `/var/run/munge` | some systemd-based distros use `/run/munge` |
-| `MUNGE_KEY` | `/etc/munge/munge.key` | non-default install location or a key staged separately |
-| `IMAGE` | `ghcr.io/sckyzo/slurm_exporter:latest` | testing a locally-built tag |
-| `HOST_PORT` | `9341` | host port already taken by another exporter |
-
-Example for an older Debian cluster running munged via `/run/munge`:
-
-```bash
-SLURM_CONF_DIR=/etc/slurm-llnl \
-MUNGE_RUN_DIR=/run/munge \
-  docker compose -f docker/docker-compose.yml up -d
-```
-
-### Running a locally-built image
-
-```bash
-make docker-build               # builds slurm_exporter:dev
-IMAGE=slurm_exporter:dev make docker-run
-```
-
-## Makefile targets
-
-| Target | What it does |
-|---|---|
-| `make docker-build` | Builds the image locally as `slurm_exporter:dev`. Embeds the current `git describe` as the version. |
-| `make docker-run` | Starts the compose stack (uses `IMAGE` env if set, otherwise pulls latest from GHCR). |
-| `make docker-stop` | `docker compose down`. |
-| `make docker-clean` | Removes the local `slurm_exporter:dev` image. |
-
-These targets are for local iteration. The release image is built and
-published automatically by GoReleaser on tag push — see the release process
-doc.
-
-## Deployment scenarios
-
-### Scenario A — on the slurmctld host itself
-
-Simplest case. The slurmctld machine already has slurm.conf, munged running,
-and the MUNGE key in place.
+A complete compose file ships in the repo under
+[`docker/docker-compose.yml`](https://github.com/SckyzO/slurm_exporter/blob/master/docker/docker-compose.yml).
+Compact form:
 
 ```yaml
 services:
   slurm_exporter:
-    image: ghcr.io/sckyzo/slurm_exporter:latest
-    network_mode: host          # exposes 9341 on the host
+    image: sckyzo/slurm-exporter:latest
+    container_name: slurm_exporter
+    restart: unless-stopped
+    ports:
+      - "9341:9341"
     volumes:
       - /etc/slurm:/etc/slurm:ro
       - /var/run/munge:/var/run/munge:ro
       - /etc/munge/munge.key:/etc/munge/munge.key:ro
-    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
 ```
 
-### Scenario B — a remote monitoring node
+### Path overrides
 
-A node that isn't part of the cluster, but has the MUNGE key copied over and
-its own munged running locally.
+The compose paths default to a standard Linux Slurm install. Override at
+run-time or in a `.env` next to the compose:
 
-```yaml
-services:
-  slurm_exporter:
-    image: ghcr.io/sckyzo/slurm_exporter:latest
-    ports:
-      - "9341:9341"
-    volumes:
-      # slurm.conf must point at the cluster's slurmctld via a hostname that
-      # the container can resolve.
-      - ./slurm.conf:/etc/slurm/slurm.conf:ro
-      - /var/run/munge:/var/run/munge:ro
-      - /etc/munge/munge.key:/etc/munge/munge.key:ro
-```
-
-### Scenario C — Kubernetes
-
-Two viable patterns:
-
-- **DaemonSet on slurmctld host(s)**: mount the host paths via `hostPath`
-  volumes, requires the slurmctld to run on a known set of nodes.
-- **Deployment with secret/configmap**: package slurm.conf as a `ConfigMap`
-  and `munge.key` as a `Secret`, plus a `munged` sidecar container (separate
-  image, since our image doesn't ship the daemon) that exposes its socket
-  via an `emptyDir` volume shared with the exporter container. More portable
-  but more moving parts.
-
-A Helm chart is on the roadmap.
-
-## Image freshness & retention
-
-Container images go stale: a base image like `ubuntu:26.04` receives security
-patches continuously (glibc, openssl, etc.), and an image we build today
-freezes those packages at their current version. To stay safe, the project
-publishes refreshed images on the following cadence:
-
-| Event | What happens | Tag(s) updated |
+| Variable | Default | Override when… |
 |---|---|---|
-| Release tag pushed (`vX.Y.Z`) | Full build + publish via GoReleaser | `:vX.Y.Z`, `:vX.Y`, `:vX`, `:latest` (and `-minimal` counterparts) |
-| Weekly cron (Monday, 04:00 UTC) | Rebuild of the two latest stable lines with the up-to-date base image | `:vX.Y.Z` re-pushed (new digest, same tag), plus a dated immutable tag `:vX.Y.Z-YYYYMMDD` |
-
-The dated `-YYYYMMDD` tags are **immutable** — once published, their digest
-never changes. Use them in GitOps when you need bit-for-bit determinism. The
-unsuffixed `:vX.Y.Z` tag is a **moving alias** to the latest build of that
-version: pull it when you want the freshest security patches applied to a
-specific exporter version.
-
-### Retention policy
-
-Tags accumulate over time. The project cleans them up monthly so the registry
-stays readable:
-
-| Tag class | Example | Retention |
-|---|---|---|
-| Semver release | `:v1.8.3`, `:v1.8.3-minimal` | Kept forever |
-| Floating aliases | `:latest`, `:latest-minimal`, `:v1.8`, `:v1` | Kept forever (always overwritten) |
-| Dated immutable | `:v1.8.3-20260516` | Last 10 per version kept; older ones pruned |
-
-That gives roughly two and a half months of rollback per version with weekly
-rebuilds — enough for forensic investigation, short of being a long-term
-archive. If you need to pin a build older than that, mirror the digest into
-your own registry.
-
-### Verifying what you're running
-
-Every published image carries OCI annotations that let you inspect what it
-contains and when it was built:
-
-```bash
-docker inspect ghcr.io/sckyzo/slurm_exporter:v1.8.3 \
-  --format '{{json .Config.Labels}}' | jq
-```
-
-Look for `org.opencontainers.image.created` (build timestamp),
-`org.opencontainers.image.revision` (git commit), and
-`org.opencontainers.image.version` (exporter version).
-
-### Signature verification (cosign)
-
-Every published image manifest is signed using Sigstore keyless signing —
-the build identity is the GitHub Actions workflow that produced it, attested
-by the runner's OIDC token. No key material on either side.
-
-To verify a pulled image:
-
-```bash
-cosign verify ghcr.io/sckyzo/slurm_exporter:v1.8.3 \
-  --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com
-```
-
-The same command works for the `-minimal` variant and for the Docker Hub
-copies (`docker.io/sckyzo/slurm-exporter:...`). A successful verification
-prints the certificate subject and proves the image was built by the
-expected workflow on the expected repo at the expected commit.
-
-The release checksum file is signed the same way:
-
-```bash
-cosign verify-blob \
-  --certificate slurm_exporter_checksums.txt.pem \
-  --signature slurm_exporter_checksums.txt.sig \
-  --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  slurm_exporter_checksums.txt
-```
-
-### Software Bill of Materials (SBOM)
-
-Each release archive ships with a CycloneDX SBOM (`*.sbom.json`) listing
-every Go module compiled into the binary, including transitive dependencies
-and their versions. Suitable for upload into compliance tools
-(Dependency-Track, Anchore, etc.).
-
-```bash
-# Download SBOM alongside the release artefacts
-gh release download v1.8.3 -p '*sbom.json'
-
-# Inspect with jq
-jq '.components[] | {name, version, purl}' \
-  slurm_exporter-1.8.3-linux-amd64.tar.gz.sbom.json
-```
-
-### Vulnerability scanning
-
-Both images are scanned on every PR that touches `Dockerfile*`, `go.mod`,
-or `go.sum` (see `.github/workflows/trivy-scan.yml`). The scan blocks the
-merge on any HIGH/CRITICAL CVE that has a fix available upstream. Unfixable
-CVEs (no upstream patch yet) are reported in the summary but don't block
-the PR — they're not actionable at PR time.
-
-A weekly scheduled scan re-runs the same checks against the published
-images so new CVEs reported after release surface as workflow failures.
-
-## Security posture
-
-Both variants:
-
-- run as a dedicated non-root user (standard: `slurmexporter` uid `9341`;
-  minimal: `nonroot` uid `65532`)
-- expose a read-only filesystem with `tmpfs:/tmp` in the example compose
-- drop all Linux capabilities, no `privileged`, no new privileges
-
-The **minimal** variant runs on `gcr.io/distroless/cc-debian12:nonroot` — no
-shell, no package manager, no userland beyond what the dynamic loader and
-libstdc++ need. Smallest attack surface possible while still supporting
-dynamically-linked Slurm binaries mounted from the host.
-
-The **standard** variant runs on Ubuntu 26.04. The slurm-client install
-pulls in standard utilities (bash, coreutils, etc.) — necessary to make
-the bundled `sinfo` / `squeue` etc. usable, but a larger surface than
-distroless. Pick the minimal variant when threat-modeling matters more
-than the convenience of bundled binaries.
-
-Lock down bind mounts to read-only and keep the `cap_drop` /
-`no-new-privileges` settings from the example compose regardless of variant.
+| `SLURM_CONF_DIR` | `/etc/slurm` | older Debian/Ubuntu use `/etc/slurm-llnl`, source-installed often use `/opt/slurm/etc` |
+| `MUNGE_RUN_DIR` | `/var/run/munge` | some systemd-based distros use `/run/munge` |
+| `MUNGE_KEY` | `/etc/munge/munge.key` | non-default install location |
+| `IMAGE` | `ghcr.io/sckyzo/slurm_exporter:latest` | testing a locally-built tag |
+| `HOST_PORT` | `9341` | host port already taken |
 
 ## Prometheus scrape config
 
@@ -339,15 +144,118 @@ scrape_configs:
     scrape_interval: 30s
 ```
 
+## Supply chain
+
+Every published artifact ships with three signals consumers can verify:
+
+### Image signatures (cosign / Sigstore keyless)
+
+Every manifest is signed by the GitHub Actions workflow that built it,
+attested by the runner's OIDC token. No keys on either side.
+
+```bash
+cosign verify sckyzo/slurm-exporter:latest \
+  --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The release checksums file is signed the same way (`*.pem` + `*.sig`
+alongside `slurm_exporter_checksums.txt` on the GitHub release).
+
+### Software Bill of Materials
+
+Each release archive ships with a **CycloneDX SBOM** (`*.sbom.json`)
+listing every Go module compiled into the binary plus their versions and
+PURLs. Suitable for Dependency-Track, Anchore Enterprise, and similar.
+
+```bash
+gh release download v1.8.3 -p '*sbom.json'
+jq '.components[] | {name, version, purl}' slurm_exporter-1.8.3-linux-amd64.tar.gz.sbom.json
+```
+
+### Vulnerability scanning
+
+Both images are scanned with [Trivy](https://github.com/aquasecurity/trivy)
+on every PR that touches the Dockerfiles or Go dependencies, and weekly
+against the published images. The PR scan blocks the merge on HIGH/CRITICAL
+CVEs that have a fix upstream. Workflow:
+[`.github/workflows/trivy-scan.yml`](https://github.com/SckyzO/slurm_exporter/blob/master/.github/workflows/trivy-scan.yml).
+
+## Security posture
+
+Both variants:
+
+- run as a dedicated non-root user (standard: `slurmexporter` uid `9341`,
+  gid `munge` ; minimal: `nonroot` uid `65532`)
+- expose a read-only filesystem with `tmpfs:/tmp` in the example compose
+- drop all Linux capabilities, no `privileged`, no new privileges
+
+The minimal variant runs on `gcr.io/distroless/cc-debian12:nonroot` — no
+shell, no package manager. The standard variant runs on Ubuntu 26.04 with
+the slurm-client utilities available — convenient but a larger surface.
+Pick minimal if threat-modeling matters more than the convenience of
+bundled binaries.
+
+## Image freshness & retention
+
+| Event | What happens |
+|---|---|
+| Release tag pushed (`vX.Y.Z`) | Full GoReleaser run: build, push to both registries, sign, generate SBOM, attach to GitHub release. |
+| Weekly cron (Monday 04:00 UTC) | Two latest stable lines rebuilt against the up-to-date base image. Same tag is re-pushed with a fresh digest, plus a dated immutable tag `:vX.Y.Z-YYYYMMDD`. |
+| Monthly cleanup | Dated immutable tags older than the last ten per version are pruned. Semver tags and floating aliases are kept forever. |
+
+Pin `:vX.Y.Z-YYYYMMDD` for bit-for-bit GitOps determinism. Use the
+unsuffixed `:vX.Y.Z` (or `:latest`) when you want the freshest base-image
+patches applied to that version.
+
+## Verifying what you're running
+
+OCI labels carry the build metadata:
+
+```bash
+docker inspect sckyzo/slurm-exporter:latest \
+  --format '{{json .Config.Labels}}' | jq
+```
+
+Look for `org.opencontainers.image.created` (build timestamp),
+`org.opencontainers.image.revision` (git commit), and
+`org.opencontainers.image.version`.
+
+## Deployment scenarios
+
+The repo's [`docker/README.md`](https://github.com/SckyzO/slurm_exporter/blob/master/docker/README.md)
+covers the three patterns in detail:
+
+- **Scenario A** — Exporter on the slurmctld host itself (simplest, host
+  networking, just mount the three paths above).
+- **Scenario B** — Remote monitoring node with its own munged + a copy of
+  the cluster's munge.key.
+- **Scenario C** — Kubernetes (DaemonSet on slurmctld nodes, or Deployment
+  with ConfigMap/Secret + a munged sidecar from a separate image).
+
+A Helm chart is on the roadmap.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
-| `Could not connect to munge socket` in exporter logs | The `/var/run/munge` mount is missing, or the host's munged isn't running. |
-| `slurm_load_partitions: Unable to contact slurm controller` | Either slurm.conf is missing/wrong, or the container can't reach slurmctld on port 6817. |
-| `error: Munge encode failed: Invalid credential` | The `munge.key` inside the container doesn't match the cluster's key. |
-| `Unable to register: Zero Bytes were transmitted or received` | Slurm version mismatch between the container's slurm-client and the cluster's slurmctld. |
-| Metrics endpoint returns 200 but most metrics are missing | The Slurm CLI tools work but slurmctld is rejecting some calls — check `--log.level=debug` for the actual error per collector. |
+| `Could not connect to munge socket` | `/var/run/munge` not mounted, or host munged isn't running. |
+| `slurm_load_partitions: Unable to contact slurm controller` | slurm.conf missing/wrong, or no network route to slurmctld on `:6817`. |
+| `error: Munge encode failed: Invalid credential` | `munge.key` in the container doesn't match the cluster's. |
+| `Unable to register: Zero Bytes were transmitted or received` | Slurm version mismatch — try the variant that matches your cluster. |
+| `/metrics` returns 200 but most metrics are empty | CLI tools work but slurmctld rejects some calls. Run with `--log.level=debug`. |
 
-For everything else, run with `--log.level=debug` and look for the
-`Failed to get <X> data` lines — they include the underlying Slurm error.
+For everything else, enable debug logging (`--log.level=debug`) and look
+at the `Failed to get <X> data` lines — they include the underlying Slurm
+error.
+
+## Links
+
+- **Source code & full documentation**: [github.com/SckyzO/slurm_exporter](https://github.com/SckyzO/slurm_exporter)
+- **Report a bug / request a feature**: [issue tracker](https://github.com/SckyzO/slurm_exporter/issues)
+- **Release notes**: [CHANGELOG.md](https://github.com/SckyzO/slurm_exporter/blob/master/CHANGELOG.md)
+- **GHCR mirror**: [ghcr.io/sckyzo/slurm_exporter](https://github.com/users/SckyzO/packages/container/package/slurm_exporter)
+
+## License
+
+GPL-3.0 — see [LICENSE](https://github.com/SckyzO/slurm_exporter/blob/master/LICENSE).
