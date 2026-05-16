@@ -47,6 +47,195 @@ archives:
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
 
+# Docker images. Two variants (standard + minimal), each built for amd64 and
+# arm64. Per-arch images are pushed first; the docker_manifests section below
+# combines them into multi-arch manifests and adds the floating tags
+# (vX.Y, vX, latest) for stable releases.
+#
+# Build-args mirror what the local make targets pass so the OCI labels carry
+# the same metadata whether you build via GoReleaser or via the Makefile.
+dockers:
+  # Standard variant, amd64
+  - id: standard-amd64
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title=slurm_exporter"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.FullCommit}}"
+      - "--build-arg=BRANCH={{.Branch}}"
+      - "--build-arg=BUILD_USER=goreleaser"
+      - "--build-arg=BUILD_DATE={{.Date}}"
+
+  # Standard variant, arm64
+  - id: standard-arm64
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-arm64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title=slurm_exporter"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.FullCommit}}"
+      - "--build-arg=BRANCH={{.Branch}}"
+      - "--build-arg=BUILD_USER=goreleaser"
+      - "--build-arg=BUILD_DATE={{.Date}}"
+
+  # Minimal variant, amd64
+  - id: minimal-amd64
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-amd64"
+    dockerfile: Dockerfile.minimal
+    use: buildx
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title=slurm_exporter (minimal)"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.FullCommit}}"
+      - "--build-arg=BRANCH={{.Branch}}"
+      - "--build-arg=BUILD_USER=goreleaser"
+      - "--build-arg=BUILD_DATE={{.Date}}"
+
+  # Minimal variant, arm64
+  - id: minimal-arm64
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-arm64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-arm64"
+    dockerfile: Dockerfile.minimal
+    use: buildx
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title=slurm_exporter (minimal)"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.FullCommit}}"
+      - "--build-arg=BRANCH={{.Branch}}"
+      - "--build-arg=BUILD_USER=goreleaser"
+      - "--build-arg=BUILD_DATE={{.Date}}"
+
+# Multi-arch manifests, one set per registry. The :{{ .Version }} and
+# :{{ .Version }}-minimal tags are always pushed. Floating tags (latest,
+# vX.Y, vX) are skipped on pre-releases (v1.9.0-rc1, etc.) so the rolling
+# pointers always reference a stable release.
+docker_manifests:
+  # ─── GHCR — standard ────────────────────────────────────────────────────────
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:{{ .Major }}"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:latest"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  # ─── GHCR — minimal ─────────────────────────────────────────────────────────
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-arm64"
+
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:{{ .Major }}.{{ .Minor }}-minimal"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:{{ .Major }}-minimal"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "ghcr.io/sckyzo/slurm_exporter:latest-minimal"
+    image_templates:
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-amd64"
+      - "ghcr.io/sckyzo/slurm_exporter:{{ .Version }}-minimal-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  # ─── Docker Hub — standard ──────────────────────────────────────────────────
+  - name_template: "docker.io/sckyzo/slurm-exporter:{{ .Version }}"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-arm64"
+
+  - name_template: "docker.io/sckyzo/slurm-exporter:{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "docker.io/sckyzo/slurm-exporter:{{ .Major }}"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "docker.io/sckyzo/slurm-exporter:latest"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  # ─── Docker Hub — minimal ───────────────────────────────────────────────────
+  - name_template: "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-arm64"
+
+  - name_template: "docker.io/sckyzo/slurm-exporter:{{ .Major }}.{{ .Minor }}-minimal"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "docker.io/sckyzo/slurm-exporter:{{ .Major }}-minimal"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
+  - name_template: "docker.io/sckyzo/slurm-exporter:latest-minimal"
+    image_templates:
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-amd64"
+      - "docker.io/sckyzo/slurm-exporter:{{ .Version }}-minimal-arm64"
+    skip_push: '{{ ne .Prerelease "" }}'
+
 changelog:
   sort: asc
   use: github
