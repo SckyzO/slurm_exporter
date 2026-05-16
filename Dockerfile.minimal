@@ -2,9 +2,10 @@
 #
 # slurm_exporter — minimal variant.
 #
-# Does not bundle slurm-client. Ships only:
-#   - the slurm_exporter binary
-#   - libmunge.so.2 (extracted from a Debian 12 builder stage so the host's
+# Ships only:
+#   - the slurm_exporter binary (expected in the build context — provided by
+#     GoReleaser or the Makefile's docker-build target)
+#   - libmunge.so.2 (extracted from a Debian 13 builder stage so the host's
 #     Slurm binaries find their munge dependency at runtime)
 #   - the distroless cc-debian12 runtime (glibc + libstdc++ + ld-linux)
 #
@@ -19,7 +20,8 @@
 # Distroless gives us no shell, no package manager, and a fixed nonroot
 # user — the standard hardened runtime for Prometheus-ecosystem exporters.
 # Forward-compatible with binaries built against RHEL 8 / 9 / Rocky 9 /
-# Debian 12, which covers virtually every Slurm cluster in production.
+# Debian 12 / Debian 13, which covers virtually every Slurm cluster in
+# production.
 #
 # Quick example:
 #
@@ -35,34 +37,8 @@
 #
 # See docker/README.md for the slurm-client-bundled (standard) variant.
 
-FROM golang:1.26-alpine AS builder
-
-WORKDIR /src
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY . .
-
-ARG VERSION=dev
-ARG COMMIT=
-ARG BRANCH=
-ARG BUILD_USER=docker
-ARG BUILD_DATE=
-
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-s -w \
-        -X github.com/prometheus/common/version.Version=${VERSION} \
-        -X github.com/prometheus/common/version.Revision=${COMMIT} \
-        -X github.com/prometheus/common/version.Branch=${BRANCH} \
-        -X github.com/prometheus/common/version.BuildUser=${BUILD_USER} \
-        -X github.com/prometheus/common/version.BuildDate=${BUILD_DATE}" \
-    -o /out/slurm_exporter ./cmd/slurm_exporter
-
-# ---
-
-# Extract libmunge from a normal Debian stage. We only copy the .so file
-# into the distroless runtime, no apt machinery, no daemon binary.
+# Extract libmunge from a Debian 13 stage. We only copy the .so file into
+# the distroless runtime, no apt machinery, no daemon binary.
 FROM debian:13-slim AS munge-extractor
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -81,7 +57,7 @@ FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2 /usr/lib/x86_64-linux-gnu/libmunge.so.2
 COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0 /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0
 
-COPY --from=builder /out/slurm_exporter /usr/local/bin/slurm_exporter
+COPY slurm_exporter /usr/local/bin/slurm_exporter
 
 EXPOSE 9341
 

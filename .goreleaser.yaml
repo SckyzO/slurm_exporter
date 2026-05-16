@@ -47,6 +47,45 @@ archives:
 checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
 
+# Supply-chain artefacts. Three things are produced and verifiable on every
+# release:
+#
+#   1. SBOM (CycloneDX) per archive — what's inside each tarball/zip.
+#   2. Cosign signature on the checksum file — proves the release artefacts
+#      weren't tampered with after build.
+#   3. Cosign signatures on every Docker manifest — see docker_signs below.
+#
+# All signatures are keyless via Sigstore: the build identity is the GitHub
+# Actions workflow itself, attested by the runner's OIDC token. Consumers
+# verify with `cosign verify <image>` (see docker/README.md).
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--yes"
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+    artifacts: checksum
+    output: true
+
+docker_signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    artifacts: manifests
+    output: true
+    args:
+      - sign
+      - "--yes"
+      - "${artifact}@${digest}"
+
 # Docker images. Two variants (standard + minimal), each built for amd64 and
 # arm64. Per-arch images are pushed first; the docker_manifests section below
 # combines them into multi-arch manifests and adds the floating tags

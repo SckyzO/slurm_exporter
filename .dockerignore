@@ -1,0 +1,36 @@
+# Keep the Docker build context small. The single-stage Dockerfiles only
+# need the slurm_exporter binary at the root and the Dockerfile itself —
+# nothing else from the repo is consumed during `docker build`.
+
+# Go source and build artefacts (we ship the pre-compiled binary)
+cmd/
+internal/
+test_data/
+docs/
+monitoring/
+scripts/
+go/
+bin/
+dist/
+*.go
+
+# Module files
+go.mod
+go.sum
+
+# Project metadata that doesn't affect the image
+.git/
+.github/
+.gitignore
+.gitattributes
+.golangci.yml
+.goreleaser.yaml
+.goreleaser.dev.yaml
+CHANGELOG.md
+CLAUDE.md
+CONTRIBUTING.md
+README.md
+LICENSE
+Makefile
+systemd/
+tmp/

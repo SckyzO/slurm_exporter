@@ -2,45 +2,19 @@
 #
 # slurm_exporter — Prometheus exporter for the Slurm workload manager.
 #
-# Two stages:
-#   1. builder    Go 1.26-alpine, produces a static slurm_exporter binary.
-#   2. runtime    Ubuntu 26.04, ships the binary plus the Slurm CLI tools
-#                 (sinfo, squeue, sdiag, scontrol, sshare, sacct) that the
-#                 exporter shells out to.
+# Single-stage runtime image. The slurm_exporter binary is expected to be
+# present in the build context next to this Dockerfile. That's how GoReleaser
+# drives Docker builds: it cross-compiles the binary first, then writes it to
+# a temporary build context alongside the Dockerfile before running
+# `docker build`. The Makefile's docker-build target follows the same
+# convention (see `make docker-build`).
 #
-# The runtime image needs three things from the host to talk to slurmctld:
+# The runtime needs three things from the host to talk to slurmctld:
 #   - /etc/slurm/slurm.conf            (slurmctld endpoint and cluster config)
 #   - /var/run/munge/munge.socket.2    (authentication daemon socket)
 #   - /etc/munge/munge.key             (cluster-wide MUNGE shared key)
 #
-# See docker/README.md for compose examples and the troubleshooting guide.
-
-FROM golang:1.26-alpine AS builder
-
-WORKDIR /src
-
-# Cache module downloads in a separate layer.
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY . .
-
-ARG VERSION=dev
-ARG COMMIT=
-ARG BRANCH=
-ARG BUILD_USER=docker
-ARG BUILD_DATE=
-
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-s -w \
-        -X github.com/prometheus/common/version.Version=${VERSION} \
-        -X github.com/prometheus/common/version.Revision=${COMMIT} \
-        -X github.com/prometheus/common/version.Branch=${BRANCH} \
-        -X github.com/prometheus/common/version.BuildUser=${BUILD_USER} \
-        -X github.com/prometheus/common/version.BuildDate=${BUILD_DATE}" \
-    -o /out/slurm_exporter ./cmd/slurm_exporter
-
-# ---
+# See docker/README.md for compose examples and troubleshooting.
 
 FROM ubuntu:26.04
 
@@ -55,21 +29,23 @@ RUN apt-get update && \
         munge \
         ca-certificates \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/bin/pebble
+# Ubuntu 26.04 ships an unmanaged /usr/bin/pebble (Canonical's init system)
+# that we never use. It still embeds an older Go stdlib that Trivy flags as
+# HIGH CVEs. Removing it shrinks the image by ~10 MB and clears the noise.
 
 # Dedicated unprivileged user, member of the munge group so the container
 # can write into the munge socket inherited from the host.
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin \
         --uid 9341 --gid munge slurmexporter
 
-COPY --from=builder /out/slurm_exporter /usr/local/bin/slurm_exporter
+COPY slurm_exporter /usr/local/bin/slurm_exporter
 
 USER slurmexporter
 
 EXPOSE 9341
 
-# OCI annotations — re-declared in this stage so the ARG values from the
-# builder stage flow into the runtime image's labels.
 ARG VERSION=dev
 ARG COMMIT=
 ARG BUILD_DATE=
