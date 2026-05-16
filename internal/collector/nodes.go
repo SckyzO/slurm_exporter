@@ -55,80 +55,95 @@ func NodesGetMetrics(logger *logger.Logger, part string) (*NodesMetrics, error) 
 // InitFeatureSet is a no-op kept for backwards compatibility.
 func InitFeatureSet(_ *NodesMetrics, _ string) {}
 
-/*
-ParseNodesMetrics parses the output of the sinfo command for node metrics.
-Expected input format: "%D|%T|%b" (Nodes|State|Features).
-*/
-func ParseNodesMetrics(input []byte) *NodesMetrics {
-	var nm NodesMetrics
-	var featureSet string
-	lines := strings.Split(string(input), "\n")
-
-	// Sort and remove all the duplicates from the 'sinfo' output
-	slices.Sort(lines)
-	linesUniq := slices.Compact(lines)
-
-	nm.alloc = make(map[string]float64)
-	nm.comp = make(map[string]float64)
-	nm.down = make(map[string]float64)
-	nm.drain = make(map[string]float64)
-	nm.err = make(map[string]float64)
-	nm.fail = make(map[string]float64)
-	nm.idle = make(map[string]float64)
-	nm.inval = make(map[string]float64)
-	nm.maint = make(map[string]float64)
-	nm.mix = make(map[string]float64)
-	nm.resv = make(map[string]float64)
-	nm.other = make(map[string]float64)
-	nm.planned = make(map[string]float64)
-	nm.total = make(map[string]float64)
-
-	for _, line := range linesUniq {
-		if strings.Contains(line, "|") {
-			split := strings.Split(line, "|")
-			if len(split) < 3 {
-				continue
-			}
-			state := split[1]
-			count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
-			features := strings.Split(split[2], ",")
-			slices.Sort(features)
-			featureSet = strings.Join(features, ",")
-			if featureSet == "(null)" {
-				featureSet = "null"
-			}
-			InitFeatureSet(&nm, featureSet)
-			switch {
-			case nodeStateAlloc.MatchString(state):
-				nm.alloc[featureSet] += count
-			case nodeStateComp.MatchString(state):
-				nm.comp[featureSet] += count
-			case nodeStateDown.MatchString(state):
-				nm.down[featureSet] += count
-			case nodeStateDrain.MatchString(state):
-				nm.drain[featureSet] += count
-			case nodeStateFail.MatchString(state):
-				nm.fail[featureSet] += count
-			case nodeStateErr.MatchString(state):
-				nm.err[featureSet] += count
-			case nodeStateIdle.MatchString(state):
-				nm.idle[featureSet] += count
-			case nodeStateInval.MatchString(state):
-				nm.inval[featureSet] += count
-			case nodeStateMaint.MatchString(state):
-				nm.maint[featureSet] += count
-			case nodeStateMix.MatchString(state):
-				nm.mix[featureSet] += count
-			case nodeStateResv.MatchString(state):
-				nm.resv[featureSet] += count
-			case nodeStatePlanned.MatchString(state):
-				nm.planned[featureSet] += count
-			default:
-				nm.other[featureSet] += count
-			}
-		}
+// newNodesMetrics returns a NodesMetrics with every per-feature-set bucket
+// initialized to an empty map. Shared by ParseNodesMetrics and
+// ParseNodesMetricsGlobal so the bucket list stays in one place.
+func newNodesMetrics() *NodesMetrics {
+	return &NodesMetrics{
+		alloc:   make(map[string]float64),
+		comp:    make(map[string]float64),
+		down:    make(map[string]float64),
+		drain:   make(map[string]float64),
+		err:     make(map[string]float64),
+		fail:    make(map[string]float64),
+		idle:    make(map[string]float64),
+		inval:   make(map[string]float64),
+		maint:   make(map[string]float64),
+		mix:     make(map[string]float64),
+		resv:    make(map[string]float64),
+		other:   make(map[string]float64),
+		planned: make(map[string]float64),
+		total:   make(map[string]float64),
 	}
-	return &nm
+}
+
+// addNodeStateCount classifies state and adds count to the matching
+// feature-set bucket. Unrecognized states fall into the "other" bucket.
+func addNodeStateCount(nm *NodesMetrics, state, featureSet string, count float64) {
+	switch {
+	case nodeStateAlloc.MatchString(state):
+		nm.alloc[featureSet] += count
+	case nodeStateComp.MatchString(state):
+		nm.comp[featureSet] += count
+	case nodeStateDown.MatchString(state):
+		nm.down[featureSet] += count
+	case nodeStateDrain.MatchString(state):
+		nm.drain[featureSet] += count
+	case nodeStateFail.MatchString(state):
+		nm.fail[featureSet] += count
+	case nodeStateErr.MatchString(state):
+		nm.err[featureSet] += count
+	case nodeStateIdle.MatchString(state):
+		nm.idle[featureSet] += count
+	case nodeStateInval.MatchString(state):
+		nm.inval[featureSet] += count
+	case nodeStateMaint.MatchString(state):
+		nm.maint[featureSet] += count
+	case nodeStateMix.MatchString(state):
+		nm.mix[featureSet] += count
+	case nodeStateResv.MatchString(state):
+		nm.resv[featureSet] += count
+	case nodeStatePlanned.MatchString(state):
+		nm.planned[featureSet] += count
+	default:
+		nm.other[featureSet] += count
+	}
+}
+
+// normalizeFeatureSet sorts the comma-separated feature list and replaces
+// the literal "(null)" sentinel with "null" for clean Prometheus labels.
+func normalizeFeatureSet(raw string) string {
+	features := strings.Split(raw, ",")
+	slices.Sort(features)
+	featureSet := strings.Join(features, ",")
+	if featureSet == "(null)" {
+		featureSet = "null"
+	}
+	return featureSet
+}
+
+// ParseNodesMetrics parses the output of `sinfo -h -o "%D|%T|%b"`
+// (Nodes|State|Features) into a single NodesMetrics aggregating across
+// the whole queried scope.
+func ParseNodesMetrics(input []byte) *NodesMetrics {
+	nm := newNodesMetrics()
+	lines := strings.Split(string(input), "\n")
+	slices.Sort(lines)
+	for _, line := range slices.Compact(lines) {
+		if !strings.Contains(line, "|") {
+			continue
+		}
+		split := strings.Split(line, "|")
+		if len(split) < 3 {
+			continue
+		}
+		count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
+		state := split[1]
+		featureSet := normalizeFeatureSet(split[2])
+		InitFeatureSet(nm, featureSet)
+		addNodeStateCount(nm, state, featureSet, count)
+	}
+	return nm
 }
 
 /*
@@ -147,17 +162,14 @@ func NodesDataGlobal(log *logger.Logger) ([]byte, error) {
 	return Execute(log, "sinfo", []string{"-h", "-o", "%R|%D|%T|%b"})
 }
 
-// ParseNodesMetricsGlobal parses the global sinfo output (with partition column)
-// into a map of partition name → NodesMetrics.
+// ParseNodesMetricsGlobal parses the global sinfo output (with partition
+// column) into a map of partition name -> NodesMetrics.
 // Input format: "%R|%D|%T|%b" (Partition|Nodes|State|Features).
 func ParseNodesMetricsGlobal(input []byte) map[string]*NodesMetrics {
 	result := make(map[string]*NodesMetrics)
-
 	lines := strings.Split(string(input), "\n")
 	slices.Sort(lines)
-	linesUniq := slices.Compact(lines)
-
-	for _, line := range linesUniq {
+	for _, line := range slices.Compact(lines) {
 		if !strings.Contains(line, "|") {
 			continue
 		}
@@ -169,61 +181,11 @@ func ParseNodesMetricsGlobal(input []byte) map[string]*NodesMetrics {
 		part := strings.TrimRight(strings.TrimSpace(split[0]), "*")
 		count, _ := strconv.ParseFloat(strings.TrimSpace(split[1]), 64)
 		state := split[2]
-		features := strings.Split(split[3], ",")
-		slices.Sort(features)
-		featureSet := strings.Join(features, ",")
-		if featureSet == "(null)" {
-			featureSet = "null"
-		}
-
+		featureSet := normalizeFeatureSet(split[3])
 		if _, ok := result[part]; !ok {
-			result[part] = &NodesMetrics{
-				alloc:   make(map[string]float64),
-				comp:    make(map[string]float64),
-				down:    make(map[string]float64),
-				drain:   make(map[string]float64),
-				err:     make(map[string]float64),
-				fail:    make(map[string]float64),
-				idle:    make(map[string]float64),
-				inval:   make(map[string]float64),
-				maint:   make(map[string]float64),
-				mix:     make(map[string]float64),
-				resv:    make(map[string]float64),
-				other:   make(map[string]float64),
-				planned: make(map[string]float64),
-				total:   make(map[string]float64),
-			}
+			result[part] = newNodesMetrics()
 		}
-		nm := result[part]
-
-		switch {
-		case nodeStateAlloc.MatchString(state):
-			nm.alloc[featureSet] += count
-		case nodeStateComp.MatchString(state):
-			nm.comp[featureSet] += count
-		case nodeStateDown.MatchString(state):
-			nm.down[featureSet] += count
-		case nodeStateDrain.MatchString(state):
-			nm.drain[featureSet] += count
-		case nodeStateFail.MatchString(state):
-			nm.fail[featureSet] += count
-		case nodeStateErr.MatchString(state):
-			nm.err[featureSet] += count
-		case nodeStateIdle.MatchString(state):
-			nm.idle[featureSet] += count
-		case nodeStateInval.MatchString(state):
-			nm.inval[featureSet] += count
-		case nodeStateMaint.MatchString(state):
-			nm.maint[featureSet] += count
-		case nodeStateMix.MatchString(state):
-			nm.mix[featureSet] += count
-		case nodeStateResv.MatchString(state):
-			nm.resv[featureSet] += count
-		case nodeStatePlanned.MatchString(state):
-			nm.planned[featureSet] += count
-		default:
-			nm.other[featureSet] += count
-		}
+		addNodeStateCount(result[part], state, featureSet, count)
 	}
 	return result
 }
