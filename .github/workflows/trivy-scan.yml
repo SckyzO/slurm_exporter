@@ -38,7 +38,7 @@ jobs:
           load: true
           tags: slurm_exporter:scan
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: slurm_exporter:scan
           severity: HIGH,CRITICAL
@@ -59,7 +59,7 @@ jobs:
           load: true
           tags: slurm_exporter:scan-minimal
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: slurm_exporter:scan-minimal
           severity: HIGH,CRITICAL
