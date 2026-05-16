@@ -67,11 +67,17 @@ image, but they need three things from the cluster:
 |---|---|
 | `/etc/slurm/slurm.conf` | Tells the Slurm CLI where to find slurmctld and how the cluster is configured. |
 | `/var/run/munge/munge.socket.2` | Local socket of the MUNGE daemon that signs every Slurm RPC. The container talks to the host's munged through it. |
-| `/etc/munge/munge.key` | The cluster-wide MUNGE shared key. Required if you run `munged` inside the container instead (advanced). |
+| `/etc/munge/munge.key` | The cluster-wide MUNGE shared key. Read by the CLI tools when contacting munged. |
 
 If you skip any of these, the CLI tools fail with `slurm_load_partitions:
 Unable to contact slurm controller` (slurm.conf missing) or `Could not
 connect to munge socket` (munge socket missing).
+
+The image ships `libmunge.so.2` so the Slurm CLI tools (either bundled in
+the standard variant or host-mounted in the minimal variant) find their
+munge dependency at runtime. The `munged` daemon itself is **not** in the
+image — both variants are designed to use the host's munged through the
+mounted socket.
 
 ## Slurm version compatibility
 
@@ -187,8 +193,10 @@ Two viable patterns:
 - **DaemonSet on slurmctld host(s)**: mount the host paths via `hostPath`
   volumes, requires the slurmctld to run on a known set of nodes.
 - **Deployment with secret/configmap**: package slurm.conf as a `ConfigMap`
-  and `munge.key` as a `Secret`, run an `initContainer` to launch munged.
-  More portable but more moving parts.
+  and `munge.key` as a `Secret`, plus a `munged` sidecar container (separate
+  image, since our image doesn't ship the daemon) that exposes its socket
+  via an `emptyDir` volume shared with the exporter container. More portable
+  but more moving parts.
 
 A Helm chart is on the roadmap.
 

@@ -4,8 +4,12 @@
 #
 # Does not bundle slurm-client. Ships only:
 #   - the slurm_exporter binary
-#   - munged + libmunge (extracted from a Debian 12 builder stage)
+#   - libmunge.so.2 (extracted from a Debian 12 builder stage so the host's
+#     Slurm binaries find their munge dependency at runtime)
 #   - the distroless cc-debian12 runtime (glibc + libstdc++ + ld-linux)
+#
+# The munged daemon is NOT shipped — the compose mounts the host's munge
+# socket, so a second munged in the container would be dead weight.
 #
 # Final image weighs around 36 MB — three times smaller than the Ubuntu
 # build, and the smallest viable size for a binary that has to dlopen
@@ -57,22 +61,23 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 # ---
 
-# Extract munged + libmunge from a normal Debian stage. We only copy the
-# binary and the .so files into the distroless runtime, no apt machinery.
+# Extract libmunge from a normal Debian stage. We only copy the .so file
+# into the distroless runtime, no apt machinery, no daemon binary.
 FROM debian:12-slim AS munge-extractor
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        munge \
+        libmunge2 \
     && rm -rf /var/lib/apt/lists/*
 
 # ---
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 
-# Munge runtime — daemon binary and library. The user must mount
-# /etc/munge/munge.key and either /var/run/munge (host socket) or run
-# munged inside the container as part of an entrypoint script.
-COPY --from=munge-extractor /usr/sbin/munged /usr/sbin/munged
+# libmunge is needed by the host-mounted Slurm binaries (sinfo, squeue,
+# scontrol, …) which are dynamically linked against it. Shipping it here
+# spares operators from having to mount /usr/lib*/libmunge.so.2 manually,
+# which varies across host distributions (/usr/lib64 on RHEL, /usr/lib/
+# x86_64-linux-gnu on Debian).
 COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2 /usr/lib/x86_64-linux-gnu/libmunge.so.2
 COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0 /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0
 
