@@ -13,8 +13,14 @@ The project publishes two images. Pick the one that matches your cluster:
 | **Standard** | `:vX.Y.Z` / `:latest` | Yes, Slurm 23.11.x (Ubuntu 24.04 repos) | Cluster running Slurm 22.x — 24.x packaged from your distro. Just works. |
 | **Minimal** | `:vX.Y.Z-minimal` / `:latest-minimal` | No | Cluster running a Slurm version outside the 22–24 window, OR Slurm built from source / OHPC with custom plugins. You mount the cluster's Slurm install into the container. |
 
-Both variants ship `munge` (daemon + library) and a non-root user (uid `9341`,
-group `munge`) so the container can use the host's MUNGE socket.
+Both variants ship `munge` (daemon + library) and run as a non-root user:
+- **Standard** runs as `slurmexporter` (uid `9341`, gid `munge`).
+- **Minimal** runs as `nonroot` (uid `65532`, the standard distroless user).
+
+The host's `munge.socket.2` is typically created with mode `0777`, so any
+unprivileged uid in the container can use it. If your cluster runs munged
+with a stricter umask, mount the socket through with explicit perms or
+adjust the container user.
 
 ## TL;DR — Standard variant
 
@@ -236,17 +242,26 @@ Look for `org.opencontainers.image.created` (build timestamp),
 
 ## Security posture
 
-The published image:
+Both variants:
 
-- runs as a dedicated non-root user (`slurmexporter`, uid `9341`, gid
-  `munge`)
-- uses `read_only: true` filesystem with `tmpfs:/tmp` in the example compose
-- drops all Linux capabilities, no `privileged`, no new privileges
-- ships only the Slurm CLI tools (no shell beyond what slurm-client pulls in)
+- run as a dedicated non-root user (standard: `slurmexporter` uid `9341`;
+  minimal: `nonroot` uid `65532`)
+- expose a read-only filesystem with `tmpfs:/tmp` in the example compose
+- drop all Linux capabilities, no `privileged`, no new privileges
 
-If you run from a less-trusted host, lock down the bind mounts to read-only
-and keep the `cap_drop` / `no-new-privileges` settings from the example
-compose.
+The **minimal** variant runs on `gcr.io/distroless/cc-debian12:nonroot` — no
+shell, no package manager, no userland beyond what the dynamic loader and
+libstdc++ need. Smallest attack surface possible while still supporting
+dynamically-linked Slurm binaries mounted from the host.
+
+The **standard** variant runs on Ubuntu 24.04. The slurm-client install
+pulls in standard utilities (bash, coreutils, etc.) — necessary to make
+the bundled `sinfo` / `squeue` etc. usable, but a larger surface than
+distroless. Pick the minimal variant when threat-modeling matters more
+than the convenience of bundled binaries.
+
+Lock down bind mounts to read-only and keep the `cap_drop` /
+`no-new-privileges` settings from the example compose regardless of variant.
 
 ## Prometheus scrape config
 
