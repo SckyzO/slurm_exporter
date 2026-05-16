@@ -121,6 +121,14 @@ check: vet lint test
 report: tools-image
 	@$(IN_TOOLS) -c '$(TOOLS_CTX)/goreport.sh'
 
+# Reports the state of Go module dependencies in a tabular form: which direct
+# deps are up to date, which indirect ones have an upgrade available, and
+# whether each pending bump is patch / minor / major. Read-only; never runs
+# `go get` automatically — that's left for `go get -u ./... && go mod tidy`.
+.PHONY: report-deps
+report-deps: tools-image
+	@$(IN_TOOLS) -c '$(TOOLS_CTX)/deps-report.sh'
+
 # Run the built binary
 .PHONY: run
 run: $(GOBIN)
