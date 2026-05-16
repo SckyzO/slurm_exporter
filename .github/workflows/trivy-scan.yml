@@ -7,6 +7,10 @@
 #
 # Also runs weekly on a cron against the published images so we catch new
 # CVEs reported after release.
+#
+# The Dockerfiles are single-stage and expect ./slurm_exporter to be present
+# in the build context — so this workflow compiles the binary first, mirroring
+# what GoReleaser does for releases and `make docker-build` for local dev.
 
 name: Trivy scan
 
@@ -29,6 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Build Go binary
+        run: CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build standard image
         uses: docker/build-push-action@v6
         with:
@@ -50,6 +60,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Build Go binary
+        run: CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build minimal image
         uses: docker/build-push-action@v6
         with:
