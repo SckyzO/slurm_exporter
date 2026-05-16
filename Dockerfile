@@ -29,7 +29,11 @@ RUN apt-get update && \
         munge \
         ca-certificates \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/bin/pebble
+# Ubuntu 26.04 ships an unmanaged /usr/bin/pebble (Canonical's init system)
+# that we never use. It still embeds an older Go stdlib that Trivy flags as
+# HIGH CVEs. Removing it shrinks the image by ~10 MB and clears the noise.
 
 # Dedicated unprivileged user, member of the munge group so the container
 # can write into the munge socket inherited from the host.
