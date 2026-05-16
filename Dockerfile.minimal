@@ -1,0 +1,105 @@
+# syntax=docker/dockerfile:1.7
+#
+# slurm_exporter — minimal variant.
+#
+# Does not bundle slurm-client. Ships only:
+#   - the slurm_exporter binary
+#   - libmunge.so.2 (extracted from a Debian 12 builder stage so the host's
+#     Slurm binaries find their munge dependency at runtime)
+#   - the distroless cc-debian12 runtime (glibc + libstdc++ + ld-linux)
+#
+# The munged daemon is NOT shipped — the compose mounts the host's munge
+# socket, so a second munged in the container would be dead weight.
+#
+# Final image weighs around 36 MB — three times smaller than the Ubuntu
+# build, and the smallest viable size for a binary that has to dlopen
+# libmunge.so at runtime. Operators bring their own Slurm install
+# (binaries + libraries) and point the exporter at it with --slurm.bin-path.
+#
+# Distroless gives us no shell, no package manager, and a fixed nonroot
+# user — the standard hardened runtime for Prometheus-ecosystem exporters.
+# Forward-compatible with binaries built against RHEL 8 / 9 / Rocky 9 /
+# Debian 12, which covers virtually every Slurm cluster in production.
+#
+# Quick example:
+#
+#   docker run -d --name slurm_exporter \
+#     -p 9341:9341 \
+#     -v /opt/slurm:/opt/slurm:ro \
+#     -v /etc/slurm:/etc/slurm:ro \
+#     -v /var/run/munge:/var/run/munge:ro \
+#     -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
+#     -e LD_LIBRARY_PATH=/opt/slurm/lib \
+#     ghcr.io/sckyzo/slurm_exporter:latest-minimal \
+#     --slurm.bin-path=/opt/slurm/bin
+#
+# See docker/README.md for the slurm-client-bundled (standard) variant.
+
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ARG VERSION=dev
+ARG COMMIT=
+ARG BRANCH=
+ARG BUILD_USER=docker
+ARG BUILD_DATE=
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags "-s -w \
+        -X github.com/prometheus/common/version.Version=${VERSION} \
+        -X github.com/prometheus/common/version.Revision=${COMMIT} \
+        -X github.com/prometheus/common/version.Branch=${BRANCH} \
+        -X github.com/prometheus/common/version.BuildUser=${BUILD_USER} \
+        -X github.com/prometheus/common/version.BuildDate=${BUILD_DATE}" \
+    -o /out/slurm_exporter ./cmd/slurm_exporter
+
+# ---
+
+# Extract libmunge from a normal Debian stage. We only copy the .so file
+# into the distroless runtime, no apt machinery, no daemon binary.
+FROM debian:12-slim AS munge-extractor
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libmunge2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+
+# libmunge is needed by the host-mounted Slurm binaries (sinfo, squeue,
+# scontrol, …) which are dynamically linked against it. Shipping it here
+# spares operators from having to mount /usr/lib*/libmunge.so.2 manually,
+# which varies across host distributions (/usr/lib64 on RHEL, /usr/lib/
+# x86_64-linux-gnu on Debian).
+COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2 /usr/lib/x86_64-linux-gnu/libmunge.so.2
+COPY --from=munge-extractor /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0 /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.0
+
+COPY --from=builder /out/slurm_exporter /usr/local/bin/slurm_exporter
+
+EXPOSE 9341
+
+ARG VERSION=dev
+ARG COMMIT=
+ARG BUILD_DATE=
+
+LABEL org.opencontainers.image.source="https://github.com/SckyzO/slurm_exporter" \
+      org.opencontainers.image.title="slurm_exporter (minimal)" \
+      org.opencontainers.image.description="Prometheus exporter for the Slurm workload manager (minimal variant, bring your own slurm-client)" \
+      org.opencontainers.image.licenses="GPL-3.0-only" \
+      org.opencontainers.image.documentation="https://github.com/SckyzO/slurm_exporter/blob/master/docker/README.md" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
+# distroless cc-debian12:nonroot already runs as uid 65532. No USER directive
+# needed; the image enforces it.
+
+ENTRYPOINT ["/usr/local/bin/slurm_exporter"]
+CMD ["--web.listen-address=:9341"]

@@ -1,0 +1,48 @@
+# slurm_exporter — example compose for a node that has MUNGE running and a
+# valid slurm.conf pointing at the cluster's slurmctld.
+#
+# Typical use cases:
+#   - run on the slurmctld host itself
+#   - run on any node already enrolled in the cluster (login node, monitoring
+#     host, etc.) — the MUNGE daemon and slurm.conf must be reachable
+#
+# Paths to mount from the host are configurable via environment variables.
+# Defaults assume a standard Linux Slurm install. If your distribution uses
+# different paths (e.g. /etc/slurm-llnl on older Debian, /opt/slurm/etc on a
+# source-installed cluster, /run/munge on some systemd setups), set the env
+# vars before running or put them in a `.env` file next to this compose.
+#
+#   SLURM_CONF_DIR   directory containing slurm.conf      default: /etc/slurm
+#   MUNGE_RUN_DIR    directory holding munge.socket.2     default: /var/run/munge
+#   MUNGE_KEY        path to the cluster's munge.key      default: /etc/munge/munge.key
+#   IMAGE            slurm_exporter image to run          default: ghcr.io/sckyzo/slurm_exporter:latest
+#   HOST_PORT        host-side port for /metrics          default: 9341
+#
+# See docker/README.md for the remote-node and Kubernetes scenarios.
+
+services:
+  slurm_exporter:
+    image: ${IMAGE:-ghcr.io/sckyzo/slurm_exporter:latest}
+    container_name: slurm_exporter
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-9341}:9341"
+    volumes:
+      # Cluster configuration. The Slurm CLI tools inside the container read
+      # slurm.conf to find slurmctld. Read-only is fine.
+      - ${SLURM_CONF_DIR:-/etc/slurm}:/etc/slurm:ro
+      # MUNGE authentication. The socket is what slurm-client uses to sign
+      # every RPC; the key is needed if you run munged inside the container
+      # instead of mounting the host socket.
+      - ${MUNGE_RUN_DIR:-/var/run/munge}:/var/run/munge:ro
+      - ${MUNGE_KEY:-/etc/munge/munge.key}:/etc/munge/munge.key:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    command:
+      - --web.listen-address=:9341
+      - --log.level=info

@@ -126,6 +126,62 @@ report: tools-image
 run: $(GOBIN)
 	$(GOBIN)
 
+# ─── Docker images (local debug) ─────────────────────────────────────────────
+# Two variants:
+#   - standard  (Dockerfile)         bundles slurm-client 23.11 from Ubuntu
+#   - minimal   (Dockerfile.minimal) ships only the exporter, mount your own
+# Release images are built and published by GoReleaser on tag push; these
+# targets only exist for local iteration.
+
+DOCKER_IMAGE         ?= slurm_exporter
+DOCKER_TAG           ?= dev
+DOCKER_REF           := $(DOCKER_IMAGE):$(DOCKER_TAG)
+DOCKER_REF_MINIMAL   := $(DOCKER_IMAGE):$(DOCKER_TAG)-minimal
+
+# Build args shared by both variants.
+DOCKER_BUILD_ARGS = \
+	--build-arg VERSION=$$(git describe --tags --dirty 2>/dev/null || echo dev) \
+	--build-arg COMMIT=$$(git rev-parse HEAD) \
+	--build-arg BRANCH=$$(git rev-parse --abbrev-ref HEAD) \
+	--build-arg BUILD_USER="$$(git config user.email)" \
+	--build-arg BUILD_DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+.PHONY: docker-build
+docker-build:
+	@echo "Building $(DOCKER_REF)"
+	docker build $(DOCKER_BUILD_ARGS) -t $(DOCKER_REF) .
+	@echo "✓ $(DOCKER_REF)"
+
+.PHONY: docker-build-minimal
+docker-build-minimal:
+	@echo "Building $(DOCKER_REF_MINIMAL)"
+	docker build $(DOCKER_BUILD_ARGS) -f Dockerfile.minimal -t $(DOCKER_REF_MINIMAL) .
+	@echo "✓ $(DOCKER_REF_MINIMAL)"
+
+.PHONY: docker-build-all
+docker-build-all: docker-build docker-build-minimal
+
+.PHONY: docker-run
+docker-run:
+	@echo "Starting compose stack (override IMAGE=$(DOCKER_REF))"
+	IMAGE=$(DOCKER_REF) docker compose -f docker/docker-compose.yml up -d
+	@echo "✓ Metrics at http://localhost:9341/metrics"
+
+.PHONY: docker-run-minimal
+docker-run-minimal:
+	@echo "Starting minimal compose stack (override IMAGE=$(DOCKER_REF_MINIMAL))"
+	IMAGE=$(DOCKER_REF_MINIMAL) docker compose -f docker/docker-compose.minimal.yml up -d
+	@echo "✓ Metrics at http://localhost:9341/metrics"
+
+.PHONY: docker-stop
+docker-stop:
+	-docker compose -f docker/docker-compose.yml down
+	-docker compose -f docker/docker-compose.minimal.yml down
+
+.PHONY: docker-clean
+docker-clean:
+	-docker rmi $(DOCKER_REF) $(DOCKER_REF_MINIMAL) 2>/dev/null
+
 # Clean up the build artifacts
 .PHONY: clean
 clean:
