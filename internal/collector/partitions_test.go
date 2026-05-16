@@ -13,6 +13,33 @@ import (
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
+// pickPartitionFixtureFilename maps a (command, args) pair from the partitions
+// collector to the fixture file that should be returned by the mock Execute.
+// Returns "" when the call shape is unexpected — callers turn that into an error.
+func pickPartitionFixtureFilename(command string, args []string) string {
+	switch command {
+	case "sinfo":
+		if len(args) >= 3 && args[1] == "-o" && args[2] == "%R,%C" {
+			return "sinfo_partitions_cpu.txt"
+		}
+		if len(args) >= 2 && strings.Contains(args[1], "--Format=") &&
+			strings.Contains(args[1], "Gres") && strings.Contains(args[1], "GresUsed") {
+			return "sinfo_partitions_gpu.txt"
+		}
+	case "squeue":
+		if len(args) < 6 {
+			return ""
+		}
+		if strings.Contains(args[5], "PENDING") {
+			return "squeue_partitions_pending_job.txt"
+		}
+		if strings.Contains(args[5], "RUNNING") {
+			return "squeue_partitions_running_job.txt"
+		}
+	}
+	return ""
+}
+
 func TestParsePartitionsMetricsWithRealOutput(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
@@ -25,32 +52,10 @@ func TestParsePartitionsMetricsWithRealOutput(t *testing.T) {
 		}
 		t.Run(slurmVersion, func(t *testing.T) {
 			Execute = func(logger *logger.Logger, command string, args []string) ([]byte, error) {
-				var filename string
-
-				switch command {
-				case "sinfo":
-					if len(args) >= 3 && args[1] == "-o" && args[2] == "%R,%C" {
-						filename = "sinfo_partitions_cpu.txt"
-					} else if len(args) >= 2 && strings.Contains(args[1], "--Format=") {
-						if strings.Contains(args[1], "Gres") && strings.Contains(args[1], "GresUsed") {
-							filename = "sinfo_partitions_gpu.txt"
-						}
-					}
-				case "squeue":
-					if len(args) >= 6 {
-						if strings.Contains(args[5], "PENDING") {
-							filename = "squeue_partitions_pending_job.txt"
-						}
-						if strings.Contains(args[5], "RUNNING") {
-							filename = "squeue_partitions_running_job.txt"
-						}
-					}
-				}
-
+				filename := pickPartitionFixtureFilename(command, args)
 				if filename == "" {
 					return nil, fmt.Errorf("unhandled command: %s %v", command, args)
 				}
-
 				path := filepath.Join(dir, filename)
 				data, err := os.ReadFile(path)
 				if err != nil {
@@ -70,7 +75,6 @@ func TestParsePartitionsMetricsWithRealOutput(t *testing.T) {
 					pm.jobPending, pm.jobRunning)
 			}
 
-			// Verify known partitions exist and have plausible values
 			require.Contains(t, metrics, "cpu")
 			assert.Greater(t, metrics["cpu"].cpuTotal, 0.0)
 
