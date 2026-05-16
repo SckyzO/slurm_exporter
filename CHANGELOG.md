@@ -35,6 +35,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alerts that were calibrated against the previously-undercounted
   values.
 
+### ✨ Features
+
+- **Docker image — standard and minimal variants (PR #43, #48):**
+  First-class container support. Two flavors published to
+  `ghcr.io/sckyzo/slurm_exporter` and `docker.io/sckyzo/slurm-exporter`,
+  both as multi-arch manifests (linux/amd64 + linux/arm64):
+
+  | Variant | Base | Size | Use when |
+  | --- | --- | --- | --- |
+  | Standard (`:1.8.3`, `:latest`) | Ubuntu 26.04 + slurm-client 25.11 | ~160 MB | Cluster runs Slurm 23.x — 26.x packaged from a distro |
+  | Minimal (`:1.8.3-minimal`, `:latest-minimal`) | distroless/cc-debian12 + libmunge only | ~36 MB | Cluster runs Slurm built from source / OHPC; bring your own slurm-client via `--slurm.bin-path` |
+
+  Tag matrix per release: `:vX.Y.Z`, `:X.Y`, `:X`, `:latest` (and their
+  `-minimal` counterparts). Pre-release tags push only the pinned
+  version and don't touch the floating pointers. End-to-end smoke-tested
+  against Slurm 25.11.2.
+
+  Compose examples and full deployment scenarios documented in
+  `docker/README.md`. Local iteration via `make docker-build`,
+  `make docker-run`, `make docker-build-minimal`, etc.
+
+- **Dependabot + `make report-deps` (PR #44):**
+  Weekly automated dependency PRs across four ecosystems (gomod,
+  github-actions, two Dockerfiles). Related deps grouped:
+  `golang.org/x/*`, `github.com/prometheus/*`, `github.com/stretchr/*`
+  each bundle into one PR.
+
+  Complementary `make report-deps` Makefile target prints a tabular
+  snapshot of every Go module — direct deps with their current version,
+  indirect deps with available bumps, color-coded patch / minor / major
+  classification. Runs in the containerized toolchain, no host Go
+  required.
+
+### 🔧 Improvements
+
+- **Go Report Card score: 100% across every check (PRs #38–#41):**
+  Refactored the five functions that were above the `gocyclo` threshold
+  of 15 — `parseReservations` (16 → 5), `TestParsePartitionsMetricsWithRealOutput`
+  (18 → 6), `ParseNodesMetrics` and `ParseNodesMetricsGlobal` (17/18 →
+  4/5 via shared helpers), `ParseSchedulerMetrics` (21 → 8 by splitting
+  the field switch into four domain helpers). No behavior change — same
+  state regexes, same default buckets, same field semantics. `make
+  report` now scores 100% on every check (gofmt, go vet, gocyclo,
+  ineffassign, misspell, license).
+
+- **Go toolchain aligned on 1.26 (PR #42):**
+  `go.mod` minimum bumped from 1.25.0 to 1.26.0 (toolchain already
+  pinned at go1.26.1). CI workflows (`release.yml`, `dev-release.yml`)
+  align on Go 1.26. The `make check`/`make report` tools image was
+  already on `golang:1.26-alpine`.
+
+  Same PR refreshed six indirect deps to their latest patch/minor:
+  `golang.org/x/crypto`, `x/net`, `x/sys`, `x/text`,
+  `github.com/mdlayher/socket`, `github.com/klauspost/compress`.
+
+- **Standard image: Slurm 25.11 + Ubuntu 26.04 base (PR #46):**
+  Bumped the standard variant base from Ubuntu 24.04 (Slurm 23.11) to
+  Ubuntu 26.04 (Slurm 25.11.2) and glibc 2.39 → 2.43. The slurmctld
+  compatibility window extends from 22-25 to 23-26. End-to-end smoke
+  test against the local Slurm 25.11.2 cluster: 417 `slurm_*` series
+  emitted (vs 184 baseline-only previously), zero RPC errors —
+  resolves the version-mismatch caveat from the initial Docker work.
+
+- **Minimal image: Debian 13 builder + libmunge2 0.5.16 (PR #45):**
+  Bumped the libmunge extractor stage to Debian 13 slim. Distroless
+  runtime is unchanged, image size stays at 36.5 MB.
+
+- **Scripts directory regrouped by purpose (PR #47):**
+  Moved dashboard tooling (Python helpers + screenshot grabber) under
+  `scripts/dashboards/` with its own README, and `random_jobs.sh`
+  under `scripts/testing/` (its only consumer). Top-level
+  `scripts/dashboards_add_*.py` and `scripts/take_screenshots.sh`
+  paths are gone. References updated in the testing Makefile and the
+  monitoring docs. New `scripts/README.md` describes the
+  three-folder layout (`dashboards/`, `docker/tools/`, `testing/`).
+
+- **`Common Pitfalls` section in `CONTRIBUTING.md` (PR #36):**
+  Documents the `squeue -O field:` / `sinfo --Format` truncation gotcha
+  (20-char default width that actually truncates the trailing field) —
+  same class of bug as issue #10 on sinfo and #35 on squeue. Includes a
+  worked example showing the wrong vs right form. Saves the next
+  contributor half a debugging session.
+
 ## [1.8.2] - 2026-05-11
 
 ### ⚠️ Breaking Changes
