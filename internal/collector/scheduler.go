@@ -66,14 +66,93 @@ func SchedulerData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "sdiag", nil)
 }
 
+// applySchedulerCoreField assigns the simple scalar sdiag fields (thread
+// count, queue depths, scheduling rate). Returns true when the key matched.
+func applySchedulerCoreField(sm *SchedulerMetrics, key string, value float64) bool {
+	switch {
+	case schedulerPatternThreads.MatchString(key):
+		sm.threads = value
+	case schedulerPatternQueue.MatchString(key):
+		sm.queueSize = value
+	case schedulerPatternDBD.MatchString(key):
+		sm.dbdQueueSize = value
+	case schedulerPatternCyclesPer.MatchString(key):
+		sm.cyclePerMinute = value
+	default:
+		return false
+	}
+	return true
+}
+
+// applySchedulerCycleField handles "Last cycle" and "Mean cycle", which both
+// appear twice in sdiag output — first for the main scheduler, then for the
+// backfill scheduler. The counters track which occurrence is being parsed.
+func applySchedulerCycleField(sm *SchedulerMetrics, key string, value float64, lastCycleCount, meanCycleCount *int) bool {
+	switch {
+	case schedulerPatternLastCycle.MatchString(key):
+		if *lastCycleCount == 0 {
+			sm.lastCycle = value
+			*lastCycleCount++
+		} else {
+			sm.backfillLastCycle = value
+		}
+	case schedulerPatternMeanCycle.MatchString(key):
+		if *meanCycleCount == 0 {
+			sm.meanCycle = value
+			*meanCycleCount++
+		} else {
+			sm.backfillMeanCycle = value
+		}
+	default:
+		return false
+	}
+	return true
+}
+
+// applySchedulerBackfillField assigns the backfill-specific counters.
+func applySchedulerBackfillField(sm *SchedulerMetrics, key string, value float64) bool {
+	switch {
+	case schedulerPatternDepthMean.MatchString(key):
+		sm.backfillDepthMean = value
+	case schedulerPatternTotalStart.MatchString(key):
+		sm.totalBackfilledJobsSinceStart = value
+	case schedulerPatternTotalCycle.MatchString(key):
+		sm.totalBackfilledJobsSinceCycle = value
+	case schedulerPatternTotalHetero.MatchString(key):
+		sm.totalBackfilledHeterogeneous = value
+	default:
+		return false
+	}
+	return true
+}
+
+// applySchedulerJobsField assigns the job lifecycle counters
+// (submitted / started / completed / canceled / failed).
+func applySchedulerJobsField(sm *SchedulerMetrics, key string, value float64) bool {
+	switch {
+	case schedulerPatternJobsSubmitted.MatchString(key):
+		sm.jobsSubmitted = value
+	case schedulerPatternJobsStarted.MatchString(key):
+		sm.jobsStarted = value
+	case schedulerPatternJobsCompleted.MatchString(key):
+		sm.jobsCompleted = value
+	case schedulerPatternJobsCanceled.MatchString(key):
+		sm.jobsCanceled = value
+	case schedulerPatternJobsFailed.MatchString(key):
+		sm.jobsFailed = value
+	default:
+		return false
+	}
+	return true
+}
+
 // ParseSchedulerMetrics parses the output of the sdiag command.
-// It handles the fact that 'Last cycle' and 'Mean cycle' appear twice in sdiag output
-// (once for main scheduler, once for backfill scheduler).
+// "Last cycle" and "Mean cycle" appear twice (main scheduler then backfill
+// scheduler); the per-domain helpers below own those two duplications.
 func ParseSchedulerMetrics(input []byte) *SchedulerMetrics {
 	var sm SchedulerMetrics
 	lines := strings.Split(string(input), "\n")
 
-	// Counters to handle duplicate metric names in sdiag output
 	lastCycleCount := 0
 	meanCycleCount := 0
 
@@ -81,63 +160,23 @@ func ParseSchedulerMetrics(input []byte) *SchedulerMetrics {
 		if !strings.Contains(line, ":") {
 			continue
 		}
-
 		// SplitN limits to 2 parts so values containing ":" (e.g. timestamps,
 		// "Last cycle when: Wed Apr 12 11:03:21 2017") are not silently truncated.
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) < 2 {
 			continue
 		}
-
 		key := parts[0]
-		value := strings.TrimSpace(parts[1])
-		floatValue, _ := strconv.ParseFloat(value, 64)
+		value, _ := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
 
 		switch {
-		case schedulerPatternThreads.MatchString(key):
-			sm.threads = floatValue
-		case schedulerPatternQueue.MatchString(key):
-			sm.queueSize = floatValue
-		case schedulerPatternDBD.MatchString(key):
-			sm.dbdQueueSize = floatValue
-		case schedulerPatternLastCycle.MatchString(key):
-			if lastCycleCount == 0 {
-				sm.lastCycle = floatValue
-				lastCycleCount++
-			} else {
-				sm.backfillLastCycle = floatValue
-			}
-		case schedulerPatternMeanCycle.MatchString(key):
-			if meanCycleCount == 0 {
-				sm.meanCycle = floatValue
-				meanCycleCount++
-			} else {
-				sm.backfillMeanCycle = floatValue
-			}
-		case schedulerPatternCyclesPer.MatchString(key):
-			sm.cyclePerMinute = floatValue
-		case schedulerPatternDepthMean.MatchString(key):
-			sm.backfillDepthMean = floatValue
-		case schedulerPatternTotalStart.MatchString(key):
-			sm.totalBackfilledJobsSinceStart = floatValue
-		case schedulerPatternTotalCycle.MatchString(key):
-			sm.totalBackfilledJobsSinceCycle = floatValue
-		case schedulerPatternTotalHetero.MatchString(key):
-			sm.totalBackfilledHeterogeneous = floatValue
-		case schedulerPatternJobsSubmitted.MatchString(key):
-			sm.jobsSubmitted = floatValue
-		case schedulerPatternJobsStarted.MatchString(key):
-			sm.jobsStarted = floatValue
-		case schedulerPatternJobsCompleted.MatchString(key):
-			sm.jobsCompleted = floatValue
-		case schedulerPatternJobsCanceled.MatchString(key):
-			sm.jobsCanceled = floatValue
-		case schedulerPatternJobsFailed.MatchString(key):
-			sm.jobsFailed = floatValue
+		case applySchedulerCoreField(&sm, key, value):
+		case applySchedulerCycleField(&sm, key, value, &lastCycleCount, &meanCycleCount):
+		case applySchedulerBackfillField(&sm, key, value):
+		case applySchedulerJobsField(&sm, key, value):
 		}
 	}
 
-	// Parse RPC statistics sections
 	rpcStats := ParseRPCStats(lines)
 	sm.rpcStatsCount = rpcStats[0]
 	sm.rpcStatsAvgTime = rpcStats[1]
