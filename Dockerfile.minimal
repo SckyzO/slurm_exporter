@@ -63,7 +63,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 # Extract libmunge from a normal Debian stage. We only copy the .so file
 # into the distroless runtime, no apt machinery, no daemon binary.
-FROM debian:12-slim AS munge-extractor
+FROM debian:13-slim AS munge-extractor
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         libmunge2 \
