@@ -42,7 +42,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 # ---
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 # slurm-client provides sinfo/squeue/sdiag/scontrol/sshare/sacct.
 # Ubuntu 24.04 ships Slurm 23.11.x, compatible with slurmctld 22.x → 25.x in
