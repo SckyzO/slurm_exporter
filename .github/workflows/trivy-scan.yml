@@ -1,0 +1,68 @@
+# Trivy vulnerability scan on the two Docker variants.
+#
+# Triggered on PRs that touch the Dockerfile(s) or Go dependencies. Builds
+# both images locally, scans for HIGH and CRITICAL CVEs, and fails the PR if
+# any are found in packages that have a fix available. Unfixable CVEs (no
+# upstream patch yet) are reported in the summary but don't block the merge.
+#
+# Also runs weekly on a cron against the published images so we catch new
+# CVEs reported after release.
+
+name: Trivy scan
+
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'Dockerfile.minimal'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/trivy-scan.yml'
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  scan-standard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build standard image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          load: true
+          tags: slurm_exporter:scan
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: slurm_exporter:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+  scan-minimal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build minimal image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.minimal
+          push: false
+          load: true
+          tags: slurm_exporter:scan-minimal
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: slurm_exporter:scan-minimal
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table

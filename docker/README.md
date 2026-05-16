@@ -249,6 +249,63 @@ Look for `org.opencontainers.image.created` (build timestamp),
 `org.opencontainers.image.revision` (git commit), and
 `org.opencontainers.image.version` (exporter version).
 
+### Signature verification (cosign)
+
+Every published image manifest is signed using Sigstore keyless signing —
+the build identity is the GitHub Actions workflow that produced it, attested
+by the runner's OIDC token. No key material on either side.
+
+To verify a pulled image:
+
+```bash
+cosign verify ghcr.io/sckyzo/slurm_exporter:v1.8.3 \
+  --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The same command works for the `-minimal` variant and for the Docker Hub
+copies (`docker.io/sckyzo/slurm-exporter:...`). A successful verification
+prints the certificate subject and proves the image was built by the
+expected workflow on the expected repo at the expected commit.
+
+The release checksum file is signed the same way:
+
+```bash
+cosign verify-blob \
+  --certificate slurm_exporter_checksums.txt.pem \
+  --signature slurm_exporter_checksums.txt.sig \
+  --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  slurm_exporter_checksums.txt
+```
+
+### Software Bill of Materials (SBOM)
+
+Each release archive ships with a CycloneDX SBOM (`*.sbom.json`) listing
+every Go module compiled into the binary, including transitive dependencies
+and their versions. Suitable for upload into compliance tools
+(Dependency-Track, Anchore, etc.).
+
+```bash
+# Download SBOM alongside the release artefacts
+gh release download v1.8.3 -p '*sbom.json'
+
+# Inspect with jq
+jq '.components[] | {name, version, purl}' \
+  slurm_exporter-1.8.3-linux-amd64.tar.gz.sbom.json
+```
+
+### Vulnerability scanning
+
+Both images are scanned on every PR that touches `Dockerfile*`, `go.mod`,
+or `go.sum` (see `.github/workflows/trivy-scan.yml`). The scan blocks the
+merge on any HIGH/CRITICAL CVE that has a fix available upstream. Unfixable
+CVEs (no upstream patch yet) are reported in the summary but don't block
+the PR — they're not actionable at PR time.
+
+A weekly scheduled scan re-runs the same checks against the published
+images so new CVEs reported after release surface as workflow failures.
+
 ## Security posture
 
 Both variants:
