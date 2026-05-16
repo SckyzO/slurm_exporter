@@ -126,6 +126,40 @@ report: tools-image
 run: $(GOBIN)
 	$(GOBIN)
 
+# ─── Docker image (local debug) ──────────────────────────────────────────────
+# The release image is built and published by GoReleaser on tag push; these
+# targets only exist for local iteration.
+
+DOCKER_IMAGE ?= slurm_exporter
+DOCKER_TAG   ?= dev
+DOCKER_REF   := $(DOCKER_IMAGE):$(DOCKER_TAG)
+
+.PHONY: docker-build
+docker-build:
+	@echo "Building $(DOCKER_REF)"
+	docker build \
+		--build-arg VERSION=$$(git describe --tags --dirty 2>/dev/null || echo dev) \
+		--build-arg COMMIT=$$(git rev-parse HEAD) \
+		--build-arg BRANCH=$$(git rev-parse --abbrev-ref HEAD) \
+		--build-arg BUILD_USER="$$(git config user.email)" \
+		--build-arg BUILD_DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+		-t $(DOCKER_REF) .
+	@echo "✓ $(DOCKER_REF)"
+
+.PHONY: docker-run
+docker-run:
+	@echo "Starting compose stack (override IMAGE=$(DOCKER_REF))"
+	IMAGE=$(DOCKER_REF) docker compose -f docker/docker-compose.yml up -d
+	@echo "✓ Metrics at http://localhost:9341/metrics"
+
+.PHONY: docker-stop
+docker-stop:
+	docker compose -f docker/docker-compose.yml down
+
+.PHONY: docker-clean
+docker-clean:
+	-docker rmi $(DOCKER_REF) 2>/dev/null
+
 # Clean up the build artifacts
 .PHONY: clean
 clean:

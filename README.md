@@ -87,6 +87,23 @@ If you want to build the exporter yourself, you can do so using the provided Mak
 
 3. The new binary will be available at `bin/slurm_exporter`. You can then copy it to a location like `/usr/local/bin/` and set up the Systemd service as described in the section above.
 
+### 3. Docker / Compose
+
+A pre-built image is available at `ghcr.io/sckyzo/slurm_exporter`. The
+container needs three mounts from the host (slurm.conf, munge socket,
+munge key) — see [`docker/README.md`](docker/README.md) for the full
+setup, scenarios (on slurmctld host vs. remote monitoring node vs.
+Kubernetes), version compatibility notes, and troubleshooting.
+
+```bash
+docker run -d --name slurm_exporter \
+  -p 9341:9341 \
+  -v /etc/slurm:/etc/slurm:ro \
+  -v /var/run/munge:/var/run/munge:ro \
+  -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
+  ghcr.io/sckyzo/slurm_exporter:latest
+```
+
 ---
 
 ## 📈 Dashboards & Alerts
