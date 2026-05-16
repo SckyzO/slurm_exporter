@@ -5,8 +5,9 @@
 # Prerequisites: users alice, bob, carol, dave, eve, frank must exist as OS users
 # and Slurm accounts (hpc_team, ml_group, physics, bio) must be configured.
 #
-# Usage (on slurmctld host): ./scripts/random_jobs.sh [nb_jobs]
+# Usage (on slurmctld host): ./scripts/testing/random_jobs.sh [nb_jobs]
 # Usage (via docker):        docker exec slurmctld bash /path/to/random_jobs.sh [nb_jobs]
+# Or simply: make -C scripts/testing workload N=30
 
 NB=${1:-30}
 USERS=(alice bob carol dave eve frank)

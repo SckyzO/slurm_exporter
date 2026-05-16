@@ -122,7 +122,7 @@ status:
 N ?= 30
 
 workload:
-	@docker cp $(THIS_DIR)../../scripts/random_jobs.sh slurmctld:/tmp/random_jobs.sh
+	@docker cp $(THIS_DIR)random_jobs.sh slurmctld:/tmp/random_jobs.sh
 	@docker exec slurmctld bash /tmp/random_jobs.sh $(N)
 
 workload-gpu:
@@ -158,7 +158,7 @@ screenshots:
 	@bash -c 'source $(THIS_DIR)cluster.conf; \
 	    [ -f "$(THIS_DIR)cluster.local.conf" ] && source "$(THIS_DIR)cluster.local.conf" || true; \
 	    PLAYWRIGHT_IMAGE=$${PLAYWRIGHT_IMAGE} PLAYWRIGHT_VERSION=$${PLAYWRIGHT_VERSION} \
-	    bash $(THIS_DIR)../../scripts/take_screenshots.sh $(OUTPUT)'
+	    bash $(THIS_DIR)../dashboards/take_screenshots.sh $(OUTPUT)'
 
 # ── Misc ──────────────────────────────────────────────────────────────────────
 show-config:

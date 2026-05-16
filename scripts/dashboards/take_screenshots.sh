@@ -4,7 +4,7 @@
 # Takes screenshots of all Slurm Grafana dashboards via Playwright in Docker.
 # No local browser installation required.
 #
-# Usage: ./scripts/take_screenshots.sh [output_dir]
+# Usage: ./scripts/dashboards/take_screenshots.sh [output_dir]
 #   output_dir: where to save screenshots (default: /tmp/screenshots)
 #
 # Environment variables (optional, override defaults):
