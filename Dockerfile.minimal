@@ -1,25 +1,40 @@
 # syntax=docker/dockerfile:1.7
 #
-# slurm_exporter — Prometheus exporter for the Slurm workload manager.
+# slurm_exporter — minimal variant.
 #
-# Two stages:
-#   1. builder    Go 1.26-alpine, produces a static slurm_exporter binary.
-#   2. runtime    Ubuntu 24.04, ships the binary plus the Slurm CLI tools
-#                 (sinfo, squeue, sdiag, scontrol, sshare, sacct) that the
-#                 exporter shells out to.
+# This image does NOT bundle slurm-client. It only ships:
+#   - the slurm_exporter binary
+#   - the munge runtime (daemon and libraries)
+#   - ca-certificates
 #
-# The runtime image needs three things from the host to talk to slurmctld:
-#   - /etc/slurm/slurm.conf            (slurmctld endpoint and cluster config)
-#   - /var/run/munge/munge.socket.2    (authentication daemon socket)
-#   - /etc/munge/munge.key             (cluster-wide MUNGE shared key)
+# It is meant for clusters where Slurm is installed from source or via OHPC
+# with custom plugins / options that the distribution package can't match.
+# The operator mounts the cluster's Slurm install (binaries + libraries)
+# into the container and points the exporter at it with --slurm.bin-path.
 #
-# See docker/README.md for compose examples and the troubleshooting guide.
+# The runtime base is ubuntu:24.04 because glibc 2.39 is forward-compatible
+# with binaries built against RHEL 8 (2.28), RHEL 9 / Rocky 9 (2.34), and
+# Debian 12 (2.36) — which covers virtually every Slurm cluster in production.
+#
+# Quick example:
+#
+#   docker run -d --name slurm_exporter \
+#     -p 9341:9341 \
+#     -v /opt/slurm:/opt/slurm:ro \
+#     -v /etc/slurm:/etc/slurm:ro \
+#     -v /var/run/munge:/var/run/munge:ro \
+#     -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
+#     -e LD_LIBRARY_PATH=/opt/slurm/lib \
+#     ghcr.io/sckyzo/slurm_exporter:latest-minimal \
+#     --slurm.bin-path=/opt/slurm/bin
+#
+# See docker/README.md for details and the standard (slurm-client-bundled)
+# variant.
 
 FROM golang:1.26-alpine AS builder
 
 WORKDIR /src
 
-# Cache module downloads in a separate layer.
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -44,20 +59,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 FROM ubuntu:24.04
 
-# slurm-client provides sinfo/squeue/sdiag/scontrol/sshare/sacct.
-# Ubuntu 24.04 ships Slurm 23.11.x, compatible with slurmctld 22.x → 25.x in
-# practice. For clusters running an older or much newer slurmctld, rebuild
-# this stage from a base that matches your version (see docker/README.md).
+# munge gives us the daemon (in case the operator wants to run munged in the
+# container instead of mounting the host socket) and libmunge for any Slurm
+# binary that links against it. ca-certificates is useful for TLS scrape.
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        slurm-client \
         munge \
         ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Dedicated unprivileged user, member of the munge group so the container
-# can write into the munge socket inherited from the host.
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin \
         --uid 9341 --gid munge slurmexporter
 
@@ -67,15 +78,13 @@ USER slurmexporter
 
 EXPOSE 9341
 
-# OCI annotations — re-declared in this stage so the ARG values from the
-# builder stage flow into the runtime image's labels.
 ARG VERSION=dev
 ARG COMMIT=
 ARG BUILD_DATE=
 
 LABEL org.opencontainers.image.source="https://github.com/SckyzO/slurm_exporter" \
-      org.opencontainers.image.title="slurm_exporter" \
-      org.opencontainers.image.description="Prometheus exporter for the Slurm workload manager" \
+      org.opencontainers.image.title="slurm_exporter (minimal)" \
+      org.opencontainers.image.description="Prometheus exporter for the Slurm workload manager (minimal variant, bring your own slurm-client)" \
       org.opencontainers.image.licenses="GPL-3.0-only" \
       org.opencontainers.image.documentation="https://github.com/SckyzO/slurm_exporter/blob/master/docker/README.md" \
       org.opencontainers.image.version="${VERSION}" \

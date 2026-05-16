@@ -4,7 +4,19 @@ This page covers running `slurm_exporter` as a Docker container, including the
 constraints inherent to Slurm itself (MUNGE authentication, client/server
 version compatibility) that you don't have when running the binary directly.
 
-## TL;DR
+## Two image variants
+
+The project publishes two images. Pick the one that matches your cluster:
+
+| Variant | Tag | Bundled slurm-client | When to use it |
+|---|---|---|---|
+| **Standard** | `:vX.Y.Z` / `:latest` | Yes, Slurm 23.11.x (Ubuntu 24.04 repos) | Cluster running Slurm 22.x — 24.x packaged from your distro. Just works. |
+| **Minimal** | `:vX.Y.Z-minimal` / `:latest-minimal` | No | Cluster running a Slurm version outside the 22–24 window, OR Slurm built from source / OHPC with custom plugins. You mount the cluster's Slurm install into the container. |
+
+Both variants ship `munge` (daemon + library) and a non-root user (uid `9341`,
+group `munge`) so the container can use the host's MUNGE socket.
+
+## TL;DR — Standard variant
 
 ```bash
 docker run -d --name slurm_exporter \
@@ -16,6 +28,26 @@ docker run -d --name slurm_exporter \
 
 curl -s http://localhost:9341/metrics | head
 ```
+
+## TL;DR — Minimal variant (BYO Slurm install)
+
+```bash
+docker run -d --name slurm_exporter \
+  -p 9341:9341 \
+  -v /opt/slurm:/opt/slurm:ro \
+  -v /etc/slurm:/etc/slurm:ro \
+  -v /var/run/munge:/var/run/munge:ro \
+  -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
+  -e LD_LIBRARY_PATH=/opt/slurm/lib \
+  ghcr.io/sckyzo/slurm_exporter:latest-minimal \
+  --slurm.bin-path=/opt/slurm/bin
+```
+
+Adjust `/opt/slurm` to wherever your cluster's Slurm prefix lives. The image
+runtime is Ubuntu 24.04 with glibc 2.39, which is forward-compatible with
+binaries built against RHEL 8 (glibc 2.28), RHEL 9 / Rocky 9 (glibc 2.34),
+and Debian 12 (glibc 2.36). If your build environment is more recent than
+that, you'll need to rebuild the runtime stage from a matching base.
 
 If that works, you're done. If it doesn't, read on.
 
@@ -62,7 +94,29 @@ docker compose -f docker/docker-compose.yml up -d
 docker compose -f docker/docker-compose.yml logs -f slurm_exporter
 ```
 
-To run against a locally-built image instead of the published one:
+### Path overrides (env vars)
+
+The compose paths default to a standard Linux Slurm install. If your
+distribution puts things elsewhere, override them at run time or in a
+`.env` file next to the compose:
+
+| Variable | Default | Override when… |
+|---|---|---|
+| `SLURM_CONF_DIR` | `/etc/slurm` | older Debian/Ubuntu use `/etc/slurm-llnl`, source-installed or OHPC clusters often use `/opt/slurm/etc` |
+| `MUNGE_RUN_DIR` | `/var/run/munge` | some systemd-based distros use `/run/munge` |
+| `MUNGE_KEY` | `/etc/munge/munge.key` | non-default install location or a key staged separately |
+| `IMAGE` | `ghcr.io/sckyzo/slurm_exporter:latest` | testing a locally-built tag |
+| `HOST_PORT` | `9341` | host port already taken by another exporter |
+
+Example for an older Debian cluster running munged via `/run/munge`:
+
+```bash
+SLURM_CONF_DIR=/etc/slurm-llnl \
+MUNGE_RUN_DIR=/run/munge \
+  docker compose -f docker/docker-compose.yml up -d
+```
+
+### Running a locally-built image
 
 ```bash
 make docker-build               # builds slurm_exporter:dev
@@ -131,6 +185,54 @@ Two viable patterns:
   More portable but more moving parts.
 
 A Helm chart is on the roadmap.
+
+## Image freshness & retention
+
+Container images go stale: a base image like `ubuntu:24.04` receives security
+patches continuously (glibc, openssl, etc.), and an image we build today
+freezes those packages at their current version. To stay safe, the project
+publishes refreshed images on the following cadence:
+
+| Event | What happens | Tag(s) updated |
+|---|---|---|
+| Release tag pushed (`vX.Y.Z`) | Full build + publish via GoReleaser | `:vX.Y.Z`, `:vX.Y`, `:vX`, `:latest` (and `-minimal` counterparts) |
+| Weekly cron (Monday, 04:00 UTC) | Rebuild of the two latest stable lines with the up-to-date base image | `:vX.Y.Z` re-pushed (new digest, same tag), plus a dated immutable tag `:vX.Y.Z-YYYYMMDD` |
+
+The dated `-YYYYMMDD` tags are **immutable** — once published, their digest
+never changes. Use them in GitOps when you need bit-for-bit determinism. The
+unsuffixed `:vX.Y.Z` tag is a **moving alias** to the latest build of that
+version: pull it when you want the freshest security patches applied to a
+specific exporter version.
+
+### Retention policy
+
+Tags accumulate over time. The project cleans them up monthly so the registry
+stays readable:
+
+| Tag class | Example | Retention |
+|---|---|---|
+| Semver release | `:v1.8.3`, `:v1.8.3-minimal` | Kept forever |
+| Floating aliases | `:latest`, `:latest-minimal`, `:v1.8`, `:v1` | Kept forever (always overwritten) |
+| Dated immutable | `:v1.8.3-20260516` | Last 10 per version kept; older ones pruned |
+
+That gives roughly two and a half months of rollback per version with weekly
+rebuilds — enough for forensic investigation, short of being a long-term
+archive. If you need to pin a build older than that, mirror the digest into
+your own registry.
+
+### Verifying what you're running
+
+Every published image carries OCI annotations that let you inspect what it
+contains and when it was built:
+
+```bash
+docker inspect ghcr.io/sckyzo/slurm_exporter:v1.8.3 \
+  --format '{{json .Config.Labels}}' | jq
+```
+
+Look for `org.opencontainers.image.created` (build timestamp),
+`org.opencontainers.image.revision` (git commit), and
+`org.opencontainers.image.version` (exporter version).
 
 ## Security posture
 

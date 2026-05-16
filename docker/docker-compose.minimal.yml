@@ -1,0 +1,50 @@
+# slurm_exporter — minimal variant compose.
+#
+# Use this when:
+#   - your cluster runs a Slurm version not packaged by Ubuntu 24.04 (older
+#     than 23.x or newer than 24.x), OR
+#   - Slurm is compiled with custom options (PMIx, custom plugins, OHPC) and
+#     you don't want generic distro binaries.
+#
+# The image ships only the exporter and munge runtime. You must mount your
+# cluster's Slurm install (binaries + libraries) and tell the exporter where
+# to look via --slurm.bin-path. Set LD_LIBRARY_PATH if libslurm.so isn't in
+# the standard loader search path.
+#
+# Environment overrides:
+#
+#   IMAGE              image to run                       default: ghcr.io/sckyzo/slurm_exporter:latest-minimal
+#   SLURM_PREFIX       host directory containing bin/ and lib/ of your Slurm  default: /opt/slurm
+#   SLURM_CONF_DIR     directory containing slurm.conf    default: /etc/slurm
+#   MUNGE_RUN_DIR      directory holding munge.socket.2   default: /var/run/munge
+#   MUNGE_KEY          path to the cluster's munge.key    default: /etc/munge/munge.key
+#   HOST_PORT          host-side port for /metrics        default: 9341
+
+services:
+  slurm_exporter:
+    image: ${IMAGE:-ghcr.io/sckyzo/slurm_exporter:latest-minimal}
+    container_name: slurm_exporter
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-9341}:9341"
+    volumes:
+      # The cluster's Slurm install. The container exposes the binaries via
+      # --slurm.bin-path and the libraries via LD_LIBRARY_PATH below.
+      - ${SLURM_PREFIX:-/opt/slurm}:/opt/slurm:ro
+      - ${SLURM_CONF_DIR:-/etc/slurm}:/etc/slurm:ro
+      - ${MUNGE_RUN_DIR:-/var/run/munge}:/var/run/munge:ro
+      - ${MUNGE_KEY:-/etc/munge/munge.key}:/etc/munge/munge.key:ro
+    environment:
+      # Tell the dynamic loader where the cluster's libslurm.so lives.
+      LD_LIBRARY_PATH: /opt/slurm/lib
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    command:
+      - --web.listen-address=:9341
+      - --slurm.bin-path=/opt/slurm/bin
+      - --log.level=info
