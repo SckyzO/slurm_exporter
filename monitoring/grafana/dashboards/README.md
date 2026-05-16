@@ -286,7 +286,7 @@ Screenshots are generated using Playwright in a Docker container:
 
 ```bash
 # Prerequisite: Grafana running on localhost:3000
-./scripts/take_screenshots.sh /tmp/screenshots
+./scripts/dashboards/take_screenshots.sh /tmp/screenshots
 ```
 
 Or manually:
@@ -305,7 +305,7 @@ docker run --rm --network slurm_slurm-network \
   bash -c 'npm i -y playwright@1.51.1 > /dev/null && node script.js'
 ```
 
-See [`scripts/take_screenshots.sh`](../scripts/take_screenshots.sh) for the full script.
+See [`scripts/dashboards/take_screenshots.sh`](../../../scripts/dashboards/take_screenshots.sh) for the full script.
 ### 10. All Metrics Reference
 
 **File:** `10-slurm-all-metrics.json` | **UID:** `slurm-all-metrics`
