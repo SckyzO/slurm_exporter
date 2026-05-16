@@ -154,16 +154,39 @@ DOCKER_BUILD_ARGS = \
 	--build-arg BUILD_USER="$$(git config user.email)" \
 	--build-arg BUILD_DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+# Both image variants are single-stage and expect ./slurm_exporter to be
+# present in the build context. We compile the binary first (mirrors what
+# GoReleaser does for releases), copy it next to the Dockerfile, build, and
+# clean up — never commit ./slurm_exporter to git (it's in .gitignore as
+# the binary at repo root).
+#
+# The same ldflags that go into bin/slurm_exporter for `make build` go
+# into ./slurm_exporter for `make docker-build`, so `docker run … --version`
+# reports the right metadata. The Dockerfile's build-args populate the
+# OCI labels on top — same information, different surface.
+
+# ldflags pulled from the build target so both paths stay in sync.
+DOCKER_GO_LDFLAGS = -s -w \
+	-X github.com/prometheus/common/version.Version=$$(git describe --tags --dirty 2>/dev/null || echo dev) \
+	-X github.com/prometheus/common/version.Revision=$$(git rev-parse HEAD) \
+	-X github.com/prometheus/common/version.Branch=$$(git rev-parse --abbrev-ref HEAD) \
+	-X github.com/prometheus/common/version.BuildUser=$$(git config user.email) \
+	-X github.com/prometheus/common/version.BuildDate=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 .PHONY: docker-build
 docker-build:
 	@echo "Building $(DOCKER_REF)"
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(DOCKER_GO_LDFLAGS)" -o ./slurm_exporter ./cmd/slurm_exporter
 	docker build $(DOCKER_BUILD_ARGS) -t $(DOCKER_REF) .
+	@rm -f ./slurm_exporter
 	@echo "✓ $(DOCKER_REF)"
 
 .PHONY: docker-build-minimal
 docker-build-minimal:
 	@echo "Building $(DOCKER_REF_MINIMAL)"
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(DOCKER_GO_LDFLAGS)" -o ./slurm_exporter ./cmd/slurm_exporter
 	docker build $(DOCKER_BUILD_ARGS) -f Dockerfile.minimal -t $(DOCKER_REF_MINIMAL) .
+	@rm -f ./slurm_exporter
 	@echo "✓ $(DOCKER_REF_MINIMAL)"
 
 .PHONY: docker-build-all
