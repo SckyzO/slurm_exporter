@@ -115,54 +115,49 @@ func (c *ReservationsCollector) reservationsData() ([]byte, error) {
 	return Execute(c.logger, "scontrol", []string{"show", "reservation"})
 }
 
-/*
-parseReservations parses the output of the scontrol show reservation command.
-It expects input as a series of key=value pairs for each reservation, separated by blank lines.
-*/
+// setReservationField assigns one parsed key=value pair into res.
+// Unknown keys are silently ignored.
+func setReservationField(res *ReservationInfo, key, value string) {
+	switch key {
+	case "ReservationName":
+		res.Name = value
+	case "State":
+		res.State = value
+	case "Users":
+		res.Users = value
+	case "Nodes":
+		res.Nodes = value
+	case "PartitionName":
+		if value == "(null)" {
+			res.Partition = ""
+		} else {
+			res.Partition = value
+		}
+	case "Flags":
+		res.Flags = value
+	case "NodeCnt":
+		res.NodeCount, _ = strconv.ParseFloat(value, 64)
+	case "CoreCnt":
+		res.CoreCount, _ = strconv.ParseFloat(value, 64)
+	case "StartTime":
+		res.StartTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
+	case "EndTime":
+		res.EndTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
+	}
+}
+
+// parseReservations parses the output of `scontrol show reservation`. Records
+// are separated by blank lines, each record is a sequence of key=value pairs.
 func parseReservations(data []byte) ([]ReservationInfo, error) {
 	var reservations []ReservationInfo
-	// Slurm output is a set of records separated by a blank line.
-	records := strings.Split(string(data), "\n\n")
-
-	for _, record := range records {
+	for _, record := range strings.Split(string(data), "\n\n") {
 		if strings.TrimSpace(record) == "" {
 			continue
 		}
-
 		res := ReservationInfo{}
-		// Use the pre-compiled reservationKVRe to find all key=value pairs.
-		matches := reservationKVRe.FindAllStringSubmatch(record, -1)
-
-		for _, match := range matches {
-			key, value := match[1], match[2]
-			switch key {
-			case "ReservationName":
-				res.Name = value
-			case "State":
-				res.State = value
-			case "Users":
-				res.Users = value
-			case "Nodes":
-				res.Nodes = value
-			case "PartitionName":
-				if value == "(null)" {
-					res.Partition = ""
-				} else {
-					res.Partition = value
-				}
-			case "Flags":
-				res.Flags = value
-			case "NodeCnt":
-				res.NodeCount, _ = strconv.ParseFloat(value, 64)
-			case "CoreCnt":
-				res.CoreCount, _ = strconv.ParseFloat(value, 64)
-			case "StartTime":
-				res.StartTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
-			case "EndTime":
-				res.EndTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
-			}
+		for _, match := range reservationKVRe.FindAllStringSubmatch(record, -1) {
+			setReservationField(&res, match[1], match[2])
 		}
-
 		// Skip records that didn't yield a real reservation. scontrol prints
 		// "No reservations in the system" on an empty cluster; without this
 		// guard, the parser would emit a phantom ReservationInfo with an
