@@ -4,7 +4,7 @@
 #
 # Two stages:
 #   1. builder    Go 1.26-alpine, produces a static slurm_exporter binary.
-#   2. runtime    Ubuntu 24.04, ships the binary plus the Slurm CLI tools
+#   2. runtime    Ubuntu 26.04, ships the binary plus the Slurm CLI tools
 #                 (sinfo, squeue, sdiag, scontrol, sshare, sacct) that the
 #                 exporter shells out to.
 #
@@ -45,9 +45,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM ubuntu:26.04
 
 # slurm-client provides sinfo/squeue/sdiag/scontrol/sshare/sacct.
-# Ubuntu 24.04 ships Slurm 23.11.x, compatible with slurmctld 22.x → 25.x in
-# practice. For clusters running an older or much newer slurmctld, rebuild
-# this stage from a base that matches your version (see docker/README.md).
+# Ubuntu 26.04 ships Slurm 25.11.x, compatible with slurmctld 23.x → 26.x in
+# practice. For clusters running a much older or much newer slurmctld,
+# rebuild this stage from a base that matches your version (see
+# docker/README.md).
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         slurm-client \

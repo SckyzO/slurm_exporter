@@ -10,8 +10,8 @@ The project publishes two images. Pick the one that matches your cluster:
 
 | Variant | Tag | Bundled slurm-client | When to use it |
 |---|---|---|---|
-| **Standard** | `:vX.Y.Z` / `:latest` | Yes, Slurm 23.11.x (Ubuntu 24.04 repos) | Cluster running Slurm 22.x — 24.x packaged from your distro. Just works. |
-| **Minimal** | `:vX.Y.Z-minimal` / `:latest-minimal` | No | Cluster running a Slurm version outside the 22–24 window, OR Slurm built from source / OHPC with custom plugins. You mount the cluster's Slurm install into the container. |
+| **Standard** | `:vX.Y.Z` / `:latest` | Yes, Slurm 25.11.x (Ubuntu 26.04 repos) | Cluster running Slurm 23.x — 26.x packaged from your distro. Just works. |
+| **Minimal** | `:vX.Y.Z-minimal` / `:latest-minimal` | No | Cluster running a Slurm version outside the 23–26 window, OR Slurm built from source / OHPC with custom plugins. You mount the cluster's Slurm install into the container. |
 
 Both variants ship `munge` (daemon + library) and run as a non-root user:
 - **Standard** runs as `slurmexporter` (uid `9341`, gid `munge`).
@@ -50,10 +50,11 @@ docker run -d --name slurm_exporter \
 ```
 
 Adjust `/opt/slurm` to wherever your cluster's Slurm prefix lives. The image
-runtime is Ubuntu 24.04 with glibc 2.39, which is forward-compatible with
+runtime is Ubuntu 26.04 with glibc 2.43, which is forward-compatible with
 binaries built against RHEL 8 (glibc 2.28), RHEL 9 / Rocky 9 (glibc 2.34),
-and Debian 12 (glibc 2.36). If your build environment is more recent than
-that, you'll need to rebuild the runtime stage from a matching base.
+Debian 12 (glibc 2.36), and Debian 13 (glibc 2.41). If your build environment
+is more recent than that, you'll need to rebuild the runtime stage from a
+matching base.
 
 If that works, you're done. If it doesn't, read on.
 
@@ -81,13 +82,13 @@ mounted socket.
 
 ## Slurm version compatibility
 
-The image ships with **Slurm 23.11.x** (from Ubuntu 24.04). Slurm guarantees
+The image ships with **Slurm 25.11.x** (from Ubuntu 26.04). Slurm guarantees
 client/server compatibility within a window of two major versions, which in
-practice covers slurmctld 22.x through 25.x.
+practice covers slurmctld 23.x through 26.x.
 
 If your slurmctld is on a version outside that window — for example, an older
-22.05 cluster or a very recent 25.11 deployment with new RPCs — rebuild the
-runtime stage from a base image that matches your Slurm version. The cleanest
+22.x cluster — rebuild the runtime stage from a base image that matches your
+Slurm version. The cleanest
 way is to clone the repo and edit the runtime `FROM` line, then `make
 docker-build`.
 
@@ -202,7 +203,7 @@ A Helm chart is on the roadmap.
 
 ## Image freshness & retention
 
-Container images go stale: a base image like `ubuntu:24.04` receives security
+Container images go stale: a base image like `ubuntu:26.04` receives security
 patches continuously (glibc, openssl, etc.), and an image we build today
 freezes those packages at their current version. To stay safe, the project
 publishes refreshed images on the following cadence:
@@ -262,7 +263,7 @@ shell, no package manager, no userland beyond what the dynamic loader and
 libstdc++ need. Smallest attack surface possible while still supporting
 dynamically-linked Slurm binaries mounted from the host.
 
-The **standard** variant runs on Ubuntu 24.04. The slurm-client install
+The **standard** variant runs on Ubuntu 26.04. The slurm-client install
 pulls in standard utilities (bash, coreutils, etc.) — necessary to make
 the bundled `sinfo` / `squeue` etc. usable, but a larger surface than
 distroless. Pick the minimal variant when threat-modeling matters more
