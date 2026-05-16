@@ -33,12 +33,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.3'
-          cache: true
-      - name: Build Go binary
-        run: CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
+      - name: Build Go binary in a Go container
+        # Compile inside golang:1.26.3-alpine to pin the stdlib version
+        # embedded in the binary. setup-go + host build can drift to a
+        # cached older patch version; the container guarantees what Trivy
+        # will see.
+        run: |
+          docker run --rm \
+            -v "$(pwd):/src" \
+            -w /src \
+            -e CGO_ENABLED=0 \
+            -e GOOS=linux \
+            -e GOTOOLCHAIN=local \
+            golang:1.26.3-alpine \
+            go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build standard image
         uses: docker/build-push-action@v6
         with:
@@ -60,12 +68,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.26.3'
-          cache: true
-      - name: Build Go binary
-        run: CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
+      - name: Build Go binary in a Go container
+        # Compile inside golang:1.26.3-alpine to pin the stdlib version
+        # embedded in the binary. setup-go + host build can drift to a
+        # cached older patch version; the container guarantees what Trivy
+        # will see.
+        run: |
+          docker run --rm \
+            -v "$(pwd):/src" \
+            -w /src \
+            -e CGO_ENABLED=0 \
+            -e GOOS=linux \
+            -e GOTOOLCHAIN=local \
+            golang:1.26.3-alpine \
+            go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build minimal image
         uses: docker/build-push-action@v6
         with:
