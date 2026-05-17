@@ -71,7 +71,8 @@ curl -s http://localhost:9341/metrics | head
 curl -sLo slurm_exporter.tar.gz \
   https://github.com/sckyzo/slurm_exporter/releases/latest/download/slurm_exporter-$(curl -s https://api.github.com/repos/sckyzo/slurm_exporter/releases/latest | jq -r .tag_name | sed 's/^v//')-linux-amd64.tar.gz
 tar -xzf slurm_exporter.tar.gz
-sudo install slurm_exporter /usr/local/bin/
+sudo mv slurm_exporter /usr/local/bin/
+sudo chmod +x /usr/local/bin/slurm_exporter
 ```
 
 ### 🔨 From source
@@ -80,7 +81,8 @@ sudo install slurm_exporter /usr/local/bin/
 git clone https://github.com/sckyzo/slurm_exporter.git
 cd slurm_exporter
 make build
-sudo install bin/slurm_exporter /usr/local/bin/
+sudo mv bin/slurm_exporter /usr/local/bin/
+sudo chmod +x /usr/local/bin/slurm_exporter
 ```
 
 Once installed via any path, expose `:9341/metrics` and point Prometheus at it (scrape config in [`monitoring/`](monitoring/)).
@@ -110,7 +112,8 @@ Example systemd unit:
 
 ```bash
 # Copy the binary
-sudo install slurm_exporter /usr/local/bin/
+sudo mv slurm_exporter /usr/local/bin/
+sudo chmod +x /usr/local/bin/slurm_exporter
 
 # Install the unit file (adapt the ExecStart path / user)
 sudo cp systemd/slurm_exporter.service /etc/systemd/system/
