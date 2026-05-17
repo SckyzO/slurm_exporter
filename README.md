@@ -1,14 +1,16 @@
 # Prometheus Slurm Exporter 🚀
 
 [![Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/release.yml)
-[![Create Dev Release](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml/badge.svg)](https://github.com/sckyzo/slurm_exporter/actions/workflows/dev-release.yml)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/sckyzo/slurm_exporter)](https://github.com/sckyzo/slurm_exporter/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/sckyzo/slurm_exporter)](https://github.com/sckyzo/slurm_exporter/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sckyzo/slurm_exporter)](https://goreportcard.com/report/github.com/sckyzo/slurm_exporter)
+[![Docker pulls](https://img.shields.io/docker/pulls/sckyzo/slurm-exporter)](https://hub.docker.com/r/sckyzo/slurm-exporter)
+[![Image size (standard)](https://img.shields.io/docker/image-size/sckyzo/slurm-exporter/latest?label=image%20%28standard%29)](https://hub.docker.com/r/sckyzo/slurm-exporter/tags)
+[![Image size (minimal)](https://img.shields.io/docker/image-size/sckyzo/slurm-exporter/latest-minimal?label=image%20%28minimal%29)](https://hub.docker.com/r/sckyzo/slurm-exporter/tags)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 > 📸 **[View Dashboard Screenshots](#-screenshots)**
 
-Prometheus collector and exporter for metrics extracted from the [Slurm](https://slurm.schedmd.com/overview.html) resource scheduling system.
+Prometheus collector and exporter for metrics extracted from the [Slurm](https://slurm.schedmd.com/overview.html) workload manager — exposes node, partition, job, CPU, GPU, scheduler, fairshare, reservation, and license data, with ten ready-to-use Grafana dashboards and a starter set of site-neutral alerting rules.
 
 > [!NOTE]
 > Looking for a next-generation Slurm exporter with native OpenMetrics support (Slurm 25.11+)?
@@ -19,81 +21,37 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 ## 📋 Table of Contents
 
 - [✨ Features](#-features)
+- [🚀 Quick start](#-quick-start)
 - [📦 Installation](#-installation)
-- [⚙️ Configuration](docs/configuration.md) *(flags, collectors, Prometheus)*
-- [📊 Metrics Reference](docs/metrics.md) *(all 14 collectors)*
-- [🛠️ Development](docs/development.md) *(build, test, lint)*
-- [📈 Dashboards & Alerts](#-dashboards--alerts) *(Grafana JSONs + Prometheus alerting rules)*
+- [⚙️ Configuration & development](#%EF%B8%8F-configuration--development)
+- [📊 Dashboards & alerts](#-dashboards--alerts)
 - [📸 Screenshots](#-screenshots)
+- [🔐 Security & supply chain](#-security--supply-chain)
+- [🤖 Automation](#-automation)
+- [🤝 Contributing](#-contributing)
 - [📜 License](#-license)
 
 ## ✨ Features
 
-- ✅ Exports a wide range of metrics from Slurm, including nodes, partitions, jobs, CPUs, and GPUs.
-- ✅ All metric collectors are optional and can be enabled/disabled via flags.
-- ✅ Supports TLS and Basic Authentication for secure connections.
-- ✅ OpenMetrics format supported (exemplars, newer Prometheus features).
-- ✅ Per-collector health metrics (`slurm_exporter_collector_success`, `slurm_exporter_collector_duration_seconds`).
-- ✅ Liveness probe at `/healthz` for orchestrators (Kubernetes, systemd).
-- ✅ GPU metrics per account and user (`slurm_account_gpus_running`, `slurm_user_gpus_running`).
+- ✅ Wide metric coverage: nodes, partitions, jobs, CPUs, GPUs, scheduler internals (`sdiag` RPC stats), fairshare, reservations, licenses, per-user/per-account roll-ups.
+- ✅ All 14 collectors are optional and toggle via `--collector.<name>` / `--no-collector.<name>` flags.
+- ✅ GPU metrics per account and user (`slurm_account_gpus_running`, `slurm_user_gpus_running`) — covers `--gres`, `--gpus`, and `--gpus-per-node` jobs.
 - ✅ Per-reservation node state metrics (`slurm_reservation_nodes_*`).
-- ✅ Ten ready-to-use Grafana dashboards (in [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/)).
-- ✅ Site-neutral Prometheus alerting rules and recording rules (in [`monitoring/prometheus/`](monitoring/prometheus/)).
+- ✅ TLS + Basic Authentication via `--web.config.file`.
+- ✅ OpenMetrics format (exemplars, Prometheus 2.x+ features).
+- ✅ Per-collector health metrics (`slurm_exporter_collector_success`, `slurm_exporter_collector_duration_seconds`).
+- ✅ Liveness probe at `/healthz` for Kubernetes / systemd orchestration.
+- ✅ Ten ready-to-use Grafana dashboards + site-neutral Prometheus alerting rules.
+- ✅ Multi-arch Docker images (linux/amd64 + linux/arm64), signed with cosign keyless, CycloneDX SBOM per release.
+- ✅ Goreportcard A+ (100% across gofmt, go vet, gocyclo, ineffassign, misspell, license).
 
 ---
 
-## 📦 Installation
+## 🚀 Quick start
 
-There are two recommended ways to install the Slurm Exporter.
+Pick the path that fits your context.
 
-### 1. From Pre-compiled Releases
-
-This is the easiest method for most users.
-
-1. Download the latest release for your OS and architecture from the [GitHub Releases](https://github.com/sckyzo/slurm_exporter/releases) page. 📥
-2. Place the `slurm_exporter` binary in a suitable location on a node with Slurm CLI access, such as `/usr/local/bin/`.
-3. Ensure the binary is executable:
-
-   ```bash
-   chmod +x /usr/local/bin/slurm_exporter
-   ```
-
-4. (Optional) To run the exporter as a service, you can adapt the example Systemd unit file provided in this repository at [systemd/slurm_exporter.service](systemd/slurm_exporter.service).
-   - Copy it to `/etc/systemd/system/slurm_exporter.service` and customize it for your environment (especially the `ExecStart` path).
-   - Reload the Systemd daemon, then enable and start the service:
-
-     ```bash
-     sudo systemctl daemon-reload
-     sudo systemctl enable slurm_exporter
-     sudo systemctl start slurm_exporter
-     ```
-
-### 2. From Source
-
-If you want to build the exporter yourself, you can do so using the provided Makefile. 👩‍💻
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/sckyzo/slurm_exporter.git
-   cd slurm_exporter
-   ```
-
-2. Build the binary:
-
-   ```bash
-   make build
-   ```
-
-3. The new binary will be available at `bin/slurm_exporter`. You can then copy it to a location like `/usr/local/bin/` and set up the Systemd service as described in the section above.
-
-### 3. Docker / Compose
-
-A pre-built image is available at `ghcr.io/sckyzo/slurm_exporter`. The
-container needs three mounts from the host (slurm.conf, munge socket,
-munge key) — see [`docker/README.md`](docker/README.md) for the full
-setup, scenarios (on slurmctld host vs. remote monitoring node vs.
-Kubernetes), version compatibility notes, and troubleshooting.
+### 🐳 Docker (recommended)
 
 ```bash
 docker run -d --name slurm_exporter \
@@ -101,12 +59,92 @@ docker run -d --name slurm_exporter \
   -v /etc/slurm:/etc/slurm:ro \
   -v /var/run/munge:/var/run/munge:ro \
   -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
-  ghcr.io/sckyzo/slurm_exporter:latest
+  sckyzo/slurm-exporter:latest
+
+curl -s http://localhost:9341/metrics | head
 ```
+
+### 📥 Pre-compiled binary
+
+```bash
+# Linux amd64 — replace with your OS/arch
+curl -sLo slurm_exporter.tar.gz \
+  https://github.com/sckyzo/slurm_exporter/releases/latest/download/slurm_exporter-$(curl -s https://api.github.com/repos/sckyzo/slurm_exporter/releases/latest | jq -r .tag_name | sed 's/^v//')-linux-amd64.tar.gz
+tar -xzf slurm_exporter.tar.gz
+sudo install slurm_exporter /usr/local/bin/
+```
+
+### 🔨 From source
+
+```bash
+git clone https://github.com/sckyzo/slurm_exporter.git
+cd slurm_exporter
+make build
+sudo install bin/slurm_exporter /usr/local/bin/
+```
+
+Once installed via any path, expose `:9341/metrics` and point Prometheus at it (scrape config in [`monitoring/`](monitoring/)).
 
 ---
 
-## 📈 Dashboards & Alerts
+## 📦 Installation
+
+### 🐳 Docker images
+
+Two image variants are published to both **Docker Hub** (`sckyzo/slurm-exporter`) and **GHCR** (`ghcr.io/sckyzo/slurm_exporter`) as multi-arch manifests (linux/amd64 + linux/arm64).
+
+| Variant | Tag pattern | Base | When |
+|---|---|---|---|
+| **Standard** | `:vX.Y.Z`, `:X.Y`, `:X`, `:latest` | Ubuntu 26.04 + slurm-client 25.11 | Cluster runs Slurm 23.x — 26.x packaged from a distro. Just works. |
+| **Minimal** | `:vX.Y.Z-minimal`, `:X.Y-minimal`, `:X-minimal`, `:latest-minimal` | distroless/cc-debian12 + libmunge | Slurm built from source / OHPC / outside the 23-26 window. Mount your own slurm-client via `--slurm.bin-path`. |
+
+A complete reference (deployment scenarios, env-var overrides, version compatibility, troubleshooting) lives in **[`docker/README.md`](docker/README.md)**. Quick examples for compose and Kubernetes are included there.
+
+Pre-release tags (`vX.Y.Z-rc1` etc.) push only the pinned version and never overwrite floating aliases.
+
+### 📥 Pre-compiled binaries
+
+Linux, macOS, and Windows binaries (amd64 / 386 / arm64) on the [Releases](https://github.com/sckyzo/slurm_exporter/releases) page. Each archive ships with a CycloneDX SBOM and a cosign-verifiable checksum file.
+
+Example systemd unit:
+
+```bash
+# Copy the binary
+sudo install slurm_exporter /usr/local/bin/
+
+# Install the unit file (adapt the ExecStart path / user)
+sudo cp systemd/slurm_exporter.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now slurm_exporter
+```
+
+### 🔨 From source
+
+```bash
+git clone https://github.com/sckyzo/slurm_exporter.git
+cd slurm_exporter
+make build
+```
+
+The binary lands in `bin/slurm_exporter`. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full development setup (Go 1.26+, golangci-lint, the containerized `make check` / `make report` targets).
+
+---
+
+## ⚙️ Configuration & development
+
+| Topic | Where |
+|---|---|
+| Flags, collectors, Prometheus scrape config | [`docs/configuration.md`](docs/configuration.md) |
+| All exported metrics, per-collector reference | [`docs/metrics.md`](docs/metrics.md) |
+| Example `/metrics` output | [`docs/metrics-examples.md`](docs/metrics-examples.md) |
+| Build, test, lint, local test cluster | [`docs/development.md`](docs/development.md) |
+| Contribution rules + common pitfalls | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Release process | [`docs/release-process.md`](docs/release-process.md) |
+| Project roadmap | [`docs/roadmap.md`](docs/roadmap.md) |
+
+---
+
+## 📊 Dashboards & alerts
 
 All monitoring assets live under [`monitoring/`](monitoring/):
 
@@ -115,15 +153,14 @@ monitoring/
 ├── grafana/dashboards/    10 Grafana dashboards (JSON) + screenshots
 └── prometheus/
     ├── alerts.yml         Alerting rules (severity-based, site-neutral)
-    └── rules.yml          Recording rules (cluster:slurm_job_failure_rate:ratio15m)
+    └── rules.yml          Recording rules
 ```
 
-See [`monitoring/README.md`](monitoring/README.md) for end-to-end wiring (scrape config, rule_files, Alertmanager).
+End-to-end wiring (Prometheus scrape config, `rule_files`, Alertmanager) in [`monitoring/README.md`](monitoring/README.md).
 
-### Grafana Dashboards
+### Grafana dashboards
 
-Ten ready-to-use dashboards in [`monitoring/grafana/dashboards/`](monitoring/grafana/dashboards/).
-All use a `$datasource` template variable and are compatible with Grafana 12+.
+Ten dashboards, Grafana 12+, all using a `$datasource` template variable for portability.
 
 | # | Dashboard | UID | Description |
 |---|-----------|-----|-------------|
@@ -138,58 +175,22 @@ All use a `$datasource` template variable and are compatible with Grafana 12+.
 | 09 | **Exporter Performance** | `slurm-exporter-perf` | Command durations, cache freshness, error rates, scrape health (new in v1.8.0) |
 | 10 | **All Metrics Reference** | `slurm-all-metrics` | Exhaustive reference panel for every exported metric |
 
-### Import to Grafana
+Import via Grafana UI, provisioning, or API — see [`monitoring/grafana/dashboards/README.md`](monitoring/grafana/dashboards/README.md) for the three options.
 
-**Option 1 — Copy JSON files** to your Grafana provisioning directory:
+> **Scale note:** On 100k+ node clusters, always pick a specific partition on the Node Detail dashboard via the `$partition` variable. The partition summary and the Down/Drain panels are always O(partitions).
 
-```bash
-cp monitoring/grafana/dashboards/*.json /etc/grafana/provisioning/dashboards/
-```
+### Prometheus alerts & recording rules
 
-**Option 2 — Import via API:**
+Starter set in [`monitoring/prometheus/alerts.yml`](monitoring/prometheus/alerts.yml) (severity-based, site-neutral): node down/drain/maint, partition nodes down, pending-job queue backlog (warn/crit), job failure rate (warn/crit), slurmctld cycle slowness, SlurmDBD queue backlog, GPU saturation. One supporting recording rule in [`monitoring/prometheus/rules.yml`](monitoring/prometheus/rules.yml).
 
-```bash
-for f in monitoring/grafana/dashboards/*.json; do
-  curl -s -X POST http://admin:password@grafana-host:3000/api/dashboards/db \
-    -H "Content-Type: application/json" \
-    -d "{\"dashboard\": $(cat $f), \"overwrite\": true, \"folderId\": 0}"
-done
-```
-
-> **Scale note (Node Detail dashboard):** The per-node table is filtered by the `$partition` variable.
-> On clusters with 100k+ nodes, always select a specific partition to avoid loading excessive data.
-> The partition summary and problem nodes panels are always scalable regardless of cluster size.
-
-### Prometheus Alerts & Recording Rules
-
-A starter set of site-neutral alerting rules ships in
-[`monitoring/prometheus/alerts.yml`](monitoring/prometheus/alerts.yml), with
-one supporting recording rule in
-[`monitoring/prometheus/rules.yml`](monitoring/prometheus/rules.yml).
-See [`monitoring/prometheus/README.md`](monitoring/prometheus/README.md)
-for the threshold table, calibration guidance, and validation recipes.
-
-**Coverage**: node down/drain/maint, partition nodes down, pending-job queue
-backlog (warning / critical), job failure rate (warning / critical),
-slurmctld cycle slowness, SlurmDBD queue backlog, GPU saturation.
-
-**What's not in it**: `team` / `runbook_url` / `dashboard_url` labels — those
-are site-specific, add them via Prometheus `external_labels` or
-Alertmanager routing.
-
-**Load in Prometheus**:
-
-```yaml
-rule_files:
-  - /etc/prometheus/rules/slurm_alerts.yml
-  - /etc/prometheus/rules/slurm_rules.yml
-```
-
-Validate before deploying:
+Threshold table, calibration guidance, and validation recipes in [`monitoring/prometheus/README.md`](monitoring/prometheus/README.md).
 
 ```bash
+# Validate before deploying
 promtool check rules monitoring/prometheus/alerts.yml monitoring/prometheus/rules.yml
 ```
+
+Site-specific labels (`team`, `runbook_url`, `dashboard_url`) are intentionally omitted — add them via Prometheus `external_labels` or Alertmanager routing.
 
 ---
 
@@ -262,7 +263,7 @@ promtool check rules monitoring/prometheus/alerts.yml monitoring/prometheus/rule
 </td>
 <td align="center" width="33%">
 
-**Accounting** *(new in v1.7.0)*<br>
+**Accounting**<br>
 <a href="monitoring/grafana/dashboards/screenshots/accounting-1.png">
   <img src="monitoring/grafana/dashboards/screenshots/accounting-1.png" width="100%" alt="Accounting">
 </a>
@@ -270,7 +271,7 @@ promtool check rules monitoring/prometheus/alerts.yml monitoring/prometheus/rule
 </td>
 <td align="center" width="33%">
 
-**Exporter Performance** *(new in v1.8.0)*<br>
+**Exporter Performance**<br>
 <a href="monitoring/grafana/dashboards/screenshots/exporter-perf-1.png">
   <img src="monitoring/grafana/dashboards/screenshots/exporter-perf-1.png" width="100%" alt="Exporter Performance">
 </a>
@@ -286,6 +287,53 @@ promtool check rules monitoring/prometheus/alerts.yml monitoring/prometheus/rule
 </tr>
 </table>
 
+---
+
+## 🔐 Security & supply chain
+
+Every published artifact carries verifiable provenance and is scanned for known vulnerabilities before release.
+
+- 🖋️ **Signed container images** — every Docker manifest is signed via [cosign](https://github.com/sigstore/cosign) keyless ([Sigstore](https://www.sigstore.dev/) / Fulcio). The signing identity is the GitHub Actions workflow itself, attested by the runner's OIDC token. Verify with:
+  ```bash
+  cosign verify sckyzo/slurm-exporter:latest \
+    --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com
+  ```
+- 🧾 **Signed release checksums** — `slurm_exporter_checksums.txt` ships with `.pem` (certificate) and `.sig` (signature) for offline verification of every release archive.
+- 📦 **CycloneDX SBOMs** — one `*.sbom.json` per release archive lists every Go module compiled in (with versions and PURLs). Suitable for Dependency-Track, Anchore Enterprise, and similar.
+- 🛡️ **Vulnerability scanning** — Trivy scans both Docker variants on every PR that touches `Dockerfile*`, `go.mod`, or `go.sum`. PRs are blocked on HIGH/CRITICAL CVEs that have an upstream fix. A weekly cron re-scans the published images so post-release CVEs surface as workflow failures.
+- 👤 **Non-root by default** — the standard image runs as `slurmexporter` (uid 9341, gid `munge`); the minimal image runs as `nonroot` (uid 65532). Example compose drops all capabilities, mounts read-only, `no-new-privileges`.
+- 🪞 **Distroless variant** — the `:latest-minimal` tag runs on `gcr.io/distroless/cc-debian12:nonroot`: no shell, no package manager, no userland beyond the dynamic loader and libstdc++. Smallest viable attack surface for a binary that has to `dlopen` libmunge at runtime.
+- 🔁 **Reproducible build chain** — binaries built with pinned Go 1.26.3 in CI; Docker images from pinned `ubuntu:26.04` / `gcr.io/distroless/cc-debian12:nonroot` / `debian:13-slim` (libmunge extractor). All version bumps go through Dependabot PRs.
+
+Detailed verification recipes (cosign for blobs, SBOM inspection, image labels) in [`docker/README.md`](docker/README.md#supply-chain).
+
+---
+
+## 🤖 Automation
+
+The repo runs a few autonomous workflows so dependencies and images stay fresh without manual babysitting:
+
+- **Dependabot weekly** — Monday 05:00 Europe/Paris, four ecosystems (Go modules, GitHub Actions, two Docker base images). Related deps grouped (`golang.org/x/*`, `github.com/prometheus/*`, etc.).
+- **`make report-deps`** — on-demand tabular snapshot of every Go module (direct + indirect) with patch/minor/major bump classification. Runs in the containerized toolchain, no host Go required.
+- **Trivy weekly scan** — Monday 06:00 UTC against the published images; CVE regressions show as workflow failures.
+- **Docker Hub README sync** — `docker/README.md` is mirrored to the Docker Hub repo description on every push to master (and on every release).
+- **Auto Docker image refresh** — every release tag triggers GoReleaser, builds both variants for both architectures, pushes to GHCR + Docker Hub, signs every manifest, and emits SBOMs.
+
+---
+
+## 🤝 Contributing
+
+PRs and issues welcome. Before sending a contribution:
+
+- Read [`CONTRIBUTING.md`](CONTRIBUTING.md) — covers the Definition of Done, code conventions (initialisms, collector pattern, test fixtures), and the **Common Pitfalls** section (truncation gotcha on `squeue -O field:` / `sinfo --Format`, multi-arch path differences, etc.).
+- Run `make check` (containerized vet + lint + test) and `make report` (offline goreportcard, must stay ≥ B) before opening a PR.
+- One issue → one branch → one PR. Don't mix refactoring and new features in the same change.
+
+The release process and the validation playbook live in [`docs/release-process.md`](docs/release-process.md) and [`docs/validation-checklist.md`](docs/validation-checklist.md).
+
+---
+
 ## 📜 License
 
 This project is licensed under the GNU General Public License, version 3 or later.
@@ -296,7 +344,6 @@ This project is licensed under the GNU General Public License, version 3 or late
 
 ## 🍴 About this fork
 
-This project is a **fork** of [cea-hpc/slurm_exporter](https://github.com/cea-hpc/slurm_exporter),
-which itself is a fork of [vpenso/prometheus-slurm-exporter](https://github.com/vpenso/prometheus-slurm-exporter) (now apparently unmaintained).
+Fork of [cea-hpc/slurm_exporter](https://github.com/cea-hpc/slurm_exporter), itself a fork of [vpenso/prometheus-slurm-exporter](https://github.com/vpenso/prometheus-slurm-exporter) (now apparently unmaintained).
 
-Feel free to contribute or open issues!
+Looking ahead: for Slurm 25.11+ deployments with native OpenMetrics support, see the next-generation project at **[sckyzo/slurm_prometheus_exporter](https://github.com/sckyzo/slurm_prometheus_exporter/)**.
