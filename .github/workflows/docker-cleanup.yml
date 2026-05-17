@@ -1,0 +1,198 @@
+# Monthly cleanup of dated immutable Docker tags.
+#
+# The weekly refresh workflow keeps publishing new `:X.Y.Z-YYYYMMDD` tags
+# every Monday. Without a counter-balance, the registry view would
+# accumulate ~52 dated tags per base version per year across two registries
+# — unreadable.
+#
+# This workflow runs on the 1st of every month and trims the dated tags:
+#   - For each base version (X.Y.Z, X.Y.Z-minimal), keep the
+#     KEEP_PER_VERSION most recent dated tags, delete the rest.
+#   - Never touch semver tags (X.Y.Z, X.Y.Z-minimal), floating aliases
+#     (latest, latest-minimal, X.Y, X, etc.), or anything that doesn't
+#     match the dated-tag regex.
+#
+# Triggers
+#   - Cron: 1st of month at 03:00 UTC (after the previous Monday's refresh
+#     so the just-published dated tag isn't pruned in its first week).
+#   - workflow_dispatch: includes a `dry-run` toggle (default ON) so the
+#     first manual run prints what would be deleted without touching the
+#     registries.
+
+name: Monthly Docker tag cleanup
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'List what would be deleted without deleting (default ON)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  GHCR_PACKAGE: slurm_exporter
+  HUB_REPO: sckyzo/slurm-exporter
+  KEEP_PER_VERSION: 10
+  # Regex matching the dated immutable tags we manage (and only those).
+  # Examples that match: 1.8.3-20260516, 1.8.3-minimal-20260516
+  # Examples that don't:  1.8.3, 1.8.3-minimal, latest, 1.8, 1
+  DATED_RE: '^[0-9]+\.[0-9]+\.[0-9]+(-minimal)?-[0-9]{8}$'
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve dry-run mode
+        id: mode
+        env:
+          DR: ${{ inputs.dry-run }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # workflow_dispatch honours the input; cron runs are always live.
+          if [ "$EVENT" = "schedule" ]; then
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=${DR:-true}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Cleanup GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          set -eu
+          owner=sckyzo
+          pkg="${GHCR_PACKAGE}"
+
+          echo "## GHCR cleanup — ${pkg}" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+
+          # Fetch every container version (paginated).
+          page=1
+          : > /tmp/versions.json
+          while :; do
+            chunk=$(gh api -X GET \
+              "/users/${owner}/packages/container/${pkg}/versions?per_page=100&page=${page}")
+            count=$(echo "$chunk" | jq 'length')
+            echo "$chunk" >> /tmp/versions.json
+            [ "$count" -lt 100 ] && break
+            page=$((page + 1))
+          done
+
+          # Flatten into (id, tag, created_at) tuples for dated tags only.
+          jq -s --arg re "$DATED_RE" '
+            flatten
+            | map({id, created_at: .updated_at, tags: .metadata.container.tags})
+            | map(. as $v | $v.tags[] | select(test($re))
+                          | {id: $v.id, tag: ., created_at: $v.created_at})
+          ' /tmp/versions.json > /tmp/dated.json
+
+          # Group by base version, sort desc, keep KEEP_PER_VERSION newest.
+          jq --argjson keep "$KEEP_PER_VERSION" '
+            group_by(.tag | sub("-[0-9]{8}$"; ""))
+            | map(sort_by(.created_at) | reverse | .[$keep:])
+            | flatten
+          ' /tmp/dated.json > /tmp/to_delete.json
+
+          total=$(jq 'length' /tmp/to_delete.json)
+          echo "Found ${total} GHCR tag(s) to delete (dry_run=${DRY_RUN})."
+          echo "Found **${total}** GHCR tag(s) to delete (dry_run=\`${DRY_RUN}\`)." \
+            >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$total" -eq 0 ]; then
+            exit 0
+          fi
+
+          jq -r '.[] | "\(.tag)\t\(.id)\t\(.created_at)"' /tmp/to_delete.json \
+            | while IFS=$'\t' read -r tag vid created; do
+                echo "  - $tag  (id=$vid, created=$created)"
+                if [ "$DRY_RUN" != "true" ]; then
+                  gh api -X DELETE \
+                    "/users/${owner}/packages/container/${pkg}/versions/${vid}" \
+                    || echo "::warning::failed to delete GHCR tag $tag (id=$vid)"
+                fi
+              done
+
+      - name: Cleanup Docker Hub
+        env:
+          HUB_USER: ${{ secrets.DOCKER_USERNAME }}
+          HUB_PASS: ${{ secrets.DOCKER_TOKEN }}
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          set -eu
+
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "## Docker Hub cleanup — ${HUB_REPO}" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+
+          # Docker Hub needs a session token (JWT) for the DELETE endpoint.
+          jwt=$(curl -s -H "Content-Type: application/json" \
+            -d "{\"username\":\"${HUB_USER}\",\"password\":\"${HUB_PASS}\"}" \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+
+          if [ -z "$jwt" ] || [ "$jwt" = "null" ]; then
+            echo "::error::Docker Hub login failed (check DOCKER_TOKEN scope)"
+            exit 1
+          fi
+
+          # Fetch every tag (paginated).
+          : > /tmp/hub_tags.json
+          next="https://hub.docker.com/v2/repositories/${HUB_REPO}/tags/?page_size=100"
+          while [ -n "$next" ] && [ "$next" != "null" ]; do
+            chunk=$(curl -s -H "Authorization: Bearer ${jwt}" "$next")
+            echo "$chunk" | jq '.results' >> /tmp/hub_tags.json
+            next=$(echo "$chunk" | jq -r '.next // empty')
+          done
+
+          jq -s --arg re "$DATED_RE" --argjson keep "$KEEP_PER_VERSION" '
+            flatten
+            | map({name, last_updated})
+            | map(select(.name | test($re)))
+            | group_by(.name | sub("-[0-9]{8}$"; ""))
+            | map(sort_by(.last_updated) | reverse | .[$keep:])
+            | flatten
+          ' /tmp/hub_tags.json > /tmp/hub_to_delete.json
+
+          total=$(jq 'length' /tmp/hub_to_delete.json)
+          echo "Found ${total} Docker Hub tag(s) to delete (dry_run=${DRY_RUN})."
+          echo "Found **${total}** Docker Hub tag(s) to delete (dry_run=\`${DRY_RUN}\`)." \
+            >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$total" -eq 0 ]; then
+            exit 0
+          fi
+
+          jq -r '.[] | "\(.name)\t\(.last_updated)"' /tmp/hub_to_delete.json \
+            | while IFS=$'\t' read -r tag updated; do
+                echo "  - $tag  (last_updated=$updated)"
+                if [ "$DRY_RUN" != "true" ]; then
+                  http=$(curl -s -o /dev/null -w '%{http_code}' \
+                    -X DELETE -H "Authorization: Bearer ${jwt}" \
+                    "https://hub.docker.com/v2/repositories/${HUB_REPO}/tags/${tag}/")
+                  if [ "$http" != "204" ]; then
+                    echo "::warning::Docker Hub DELETE returned HTTP $http for tag $tag"
+                  fi
+                fi
+              done
+
+      - name: Summary tail
+        if: always()
+        env:
+          DRY_RUN: ${{ steps.mode.outputs.dry_run }}
+        run: |
+          {
+            echo
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "_Dry-run mode: nothing was deleted._"
+              echo "_To run for real, dispatch the workflow with \`dry-run=false\`,_"
+              echo "_or let the next cron tick handle it._"
+            else
+              echo "_Live mode: deletions were applied._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
