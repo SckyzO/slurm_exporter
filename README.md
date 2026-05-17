@@ -132,6 +132,29 @@ containerized `make check` / `make report` targets).
 | Release process | [`docs/release-process.md`](docs/release-process.md) |
 | Project roadmap | [`docs/roadmap.md`](docs/roadmap.md) |
 
+### Make targets
+
+| Category | Target | What it does |
+|---|---|---|
+| **Build** | `make build` | Compiles `bin/slurm_exporter` with version ldflags |
+| | `make clean` | Removes build artefacts (`bin/`, `dist/`, module cache) |
+| **Test** | `make test` | Runs the full unit-test suite |
+| | `make race` | Tests with the race detector (containerised) |
+| **Quality** | `make check` | `vet` + `lint` + `test`, all containerised |
+| | `make report` | Offline equivalent of goreportcard.com; fails below grade B |
+| | `make report-deps` | Tabular dependency status (current / available / patch-minor-major) |
+| **Docker** | `make docker-build` | Builds the standard image locally as `slurm_exporter:dev` |
+| | `make docker-build-minimal` | Builds the minimal (distroless) variant |
+| | `make docker-build-all` | Both variants in one go |
+| | `make docker-run` | Starts the compose stack (override `IMAGE=` for a local tag) |
+| | `make docker-run-minimal` | Same for the minimal compose |
+| | `make docker-stop` | `docker compose down` on both stacks |
+| | `make docker-clean` | Removes the locally-built images |
+| **Other** | `make run` | Runs the just-built binary |
+| | `make tools-image` | (Re)builds the `slurm_exporter-tools` container used by check/report |
+
+`make check`, `make report`, and `make report-deps` run **inside a container** — contributors only need Docker, no host Go install required.
+
 ---
 
 ## 📊 Dashboards & alerts
