@@ -21,8 +21,7 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 ## 📋 Table of Contents
 
 - [✨ Features](#-features)
-- [🚀 Quick start](#-quick-start)
-- [📦 Installation](#-installation)
+- [🚀 Get started](#-get-started)
 - [⚙️ Configuration & development](#%EF%B8%8F-configuration--development)
 - [📊 Dashboards & alerts](#-dashboards--alerts)
 - [📸 Screenshots](#-screenshots)
@@ -47,11 +46,11 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 
 ---
 
-## 🚀 Quick start
+## 🚀 Get started
 
-Pick the path that fits your context.
-
-### 🐳 Docker (recommended)
+The fastest path is the published Docker image — assuming the host has a
+working slurm-client + munged setup (slurmctld host, login node, or a
+monitoring VM already enrolled in the cluster):
 
 ```bash
 docker run -d --name slurm_exporter \
@@ -61,61 +60,49 @@ docker run -d --name slurm_exporter \
   -v /etc/munge/munge.key:/etc/munge/munge.key:ro \
   sckyzo/slurm-exporter:latest
 
-curl -s http://localhost:9341/metrics | head
+curl http://localhost:9341/metrics | head
 ```
 
-### 📥 Pre-compiled binary
+Then point Prometheus at `:9341/metrics` (sample scrape config in
+[`monitoring/`](monitoring/)).
 
-```bash
-# Linux amd64 — replace with your OS/arch
-curl -sLo slurm_exporter.tar.gz \
-  https://github.com/sckyzo/slurm_exporter/releases/latest/download/slurm_exporter-$(curl -s https://api.github.com/repos/sckyzo/slurm_exporter/releases/latest | jq -r .tag_name | sed 's/^v//')-linux-amd64.tar.gz
-tar -xzf slurm_exporter.tar.gz
-sudo mv slurm_exporter /usr/local/bin/
-sudo chmod +x /usr/local/bin/slurm_exporter
-```
-
-### 🔨 From source
-
-```bash
-git clone https://github.com/sckyzo/slurm_exporter.git
-cd slurm_exporter
-make build
-sudo mv bin/slurm_exporter /usr/local/bin/
-sudo chmod +x /usr/local/bin/slurm_exporter
-```
-
-Once installed via any path, expose `:9341/metrics` and point Prometheus at it (scrape config in [`monitoring/`](monitoring/)).
-
----
-
-## 📦 Installation
+For everything else — compose / Kubernetes / a remote monitoring node,
+or running the binary directly on a node — pick one of the three paths
+below.
 
 ### 🐳 Docker images
 
-Two image variants are published to both **Docker Hub** (`sckyzo/slurm-exporter`) and **GHCR** (`ghcr.io/sckyzo/slurm_exporter`) as multi-arch manifests (linux/amd64 + linux/arm64).
+Two variants, both published as multi-arch manifests (linux/amd64 +
+linux/arm64) to **Docker Hub** (`sckyzo/slurm-exporter`) and **GHCR**
+(`ghcr.io/sckyzo/slurm_exporter`):
 
 | Variant | Tag pattern | Base | When |
 |---|---|---|---|
 | **Standard** | `:vX.Y.Z`, `:X.Y`, `:X`, `:latest` | Ubuntu 26.04 + slurm-client 25.11 | Cluster runs Slurm 23.x — 26.x packaged from a distro. Just works. |
 | **Minimal** | `:vX.Y.Z-minimal`, `:X.Y-minimal`, `:X-minimal`, `:latest-minimal` | distroless/cc-debian12 + libmunge | Slurm built from source / OHPC / outside the 23-26 window. Mount your own slurm-client via `--slurm.bin-path`. |
 
-A complete reference (deployment scenarios, env-var overrides, version compatibility, troubleshooting) lives in **[`docker/README.md`](docker/README.md)**. Quick examples for compose and Kubernetes are included there.
+Pre-release tags (`vX.Y.Z-rc1` etc.) push only the pinned version and
+never overwrite the floating aliases.
 
-Pre-release tags (`vX.Y.Z-rc1` etc.) push only the pinned version and never overwrite floating aliases.
+Full Docker reference — compose, Kubernetes patterns, env-var overrides,
+version compatibility, troubleshooting — in
+**[`docker/README.md`](docker/README.md)**.
 
-### 📥 Pre-compiled binaries
+### 📥 Pre-compiled binary
 
-Linux, macOS, and Windows binaries (amd64 / 386 / arm64) on the [Releases](https://github.com/sckyzo/slurm_exporter/releases) page. Each archive ships with a CycloneDX SBOM and a cosign-verifiable checksum file.
+Linux, macOS, and Windows binaries (amd64 / 386 / arm64) on the
+[Releases](https://github.com/sckyzo/slurm_exporter/releases) page. Each
+archive ships with a CycloneDX SBOM and a cosign-verifiable checksum file.
 
-Example systemd unit:
+Installing as a systemd service:
 
 ```bash
-# Copy the binary
+# 1. Grab and install the binary
+tar -xzf slurm_exporter-*-linux-amd64.tar.gz
 sudo mv slurm_exporter /usr/local/bin/
 sudo chmod +x /usr/local/bin/slurm_exporter
 
-# Install the unit file (adapt the ExecStart path / user)
+# 2. Install the unit file (adapt User / ExecStart for your environment)
 sudo cp systemd/slurm_exporter.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now slurm_exporter
@@ -129,7 +116,9 @@ cd slurm_exporter
 make build
 ```
 
-The binary lands in `bin/slurm_exporter`. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full development setup (Go 1.26+, golangci-lint, the containerized `make check` / `make report` targets).
+The binary lands in `bin/slurm_exporter`. See [`CONTRIBUTING.md`](CONTRIBUTING.md)
+for the full development setup (Go 1.26+, golangci-lint, the
+containerized `make check` / `make report` targets).
 
 ---
 
