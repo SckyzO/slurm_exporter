@@ -1,0 +1,186 @@
+# Weekly rebuild of the last 2 stable image lines against the up-to-date
+# base images, so security patches in ubuntu / debian / distroless flow into
+# published artefacts without waiting for the next release tag.
+#
+# What it does
+#   - Picks the last 2 semver-stable git tags (vX.Y.Z, no prerelease suffix).
+#   - For each tag: checks out the repo at that tag, compiles the Go binary,
+#     builds and pushes both image variants as multi-arch manifests to
+#     GHCR + Docker Hub, signs every pushed manifest with cosign.
+#   - Tags pushed per release-tag:
+#       :X.Y.Z              (moving alias — re-pushed with a fresh digest)
+#       :X.Y.Z-YYYYMMDD     (new immutable tag for GitOps determinism)
+#       :X.Y.Z-minimal       and  :X.Y.Z-minimal-YYYYMMDD   (idem)
+#
+# Triggers
+#   - Cron: Mondays 04:00 UTC (one hour before the Dependabot run, so the
+#     refresh doesn't race base-image bump PRs).
+#   - workflow_dispatch: optional `tags` input to override the default
+#     "last 2 stable" auto-selection.
+#
+# Tags built before the single-stage Dockerfile migration (v1.8.2 and
+# earlier) are detected and skipped — their build context isn't compatible
+# with the current Dockerfiles.
+
+name: Weekly Docker refresh
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Comma-separated tags to rebuild (default: last 2 stable semver tags)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  GHCR_REPO: ghcr.io/sckyzo/slurm_exporter
+  HUB_REPO: docker.io/sckyzo/slurm-exporter
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute target tags
+        id: tags
+        env:
+          MANUAL_TAGS: ${{ inputs.tags }}
+        run: |
+          set -eu
+          if [ -n "${MANUAL_TAGS:-}" ]; then
+            tags="$MANUAL_TAGS"
+          else
+            tags=$(git tag --sort=-version:refname \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | head -2 | paste -sd, -)
+          fi
+          if [ -z "$tags" ]; then
+            echo "::error::No semver tags found"
+            exit 1
+          fi
+          echo "Tags to rebuild: $tags"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "date_suffix=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.3'
+          cache: false
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Log in to GHCR
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_PASS: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_PASS" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+      - name: Log in to Docker Hub
+        env:
+          HUB_USER: ${{ secrets.DOCKER_USERNAME }}
+          HUB_PASS: ${{ secrets.DOCKER_TOKEN }}
+        run: echo "$HUB_PASS" | docker login docker.io -u "$HUB_USER" --password-stdin
+
+      - name: Refresh each tag
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          DATE_SUFFIX: ${{ steps.tags.outputs.date_suffix }}
+        run: |
+          set -eu
+          IFS=',' read -ra TAG_LIST <<< "$TAGS"
+          for tag in "${TAG_LIST[@]}"; do
+            echo "::group::Refreshing $tag"
+            git checkout "$tag"
+
+            # The single-stage Dockerfile expects ./slurm_exporter in the
+            # build context. Tags before single-stage migration have a
+            # multi-stage Dockerfile that this workflow's build context
+            # can't satisfy — skip them with a warning.
+            if grep -q 'AS builder' Dockerfile; then
+              echo "::warning::$tag uses a multi-stage Dockerfile, skipping"
+              echo "::endgroup::"
+              continue
+            fi
+
+            version="${tag#v}"
+            commit=$(git rev-parse HEAD)
+            build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            dated="${version}-${DATE_SUFFIX}"
+
+            ldflags="-s -w \
+              -X github.com/prometheus/common/version.Version=${version} \
+              -X github.com/prometheus/common/version.Revision=${commit} \
+              -X github.com/prometheus/common/version.Branch=refresh \
+              -X github.com/prometheus/common/version.BuildUser=refresh-cron \
+              -X github.com/prometheus/common/version.BuildDate=${build_date}"
+
+            CGO_ENABLED=0 GOOS=linux go build -ldflags "$ldflags" \
+              -o ./slurm_exporter ./cmd/slurm_exporter
+
+            for variant in standard minimal; do
+              if [ "$variant" = "standard" ]; then
+                dockerfile=Dockerfile
+                moving_tag=$version
+                dated_tag=$dated
+              else
+                dockerfile=Dockerfile.minimal
+                moving_tag="${version}-minimal"
+                dated_tag="${version}-minimal-${DATE_SUFFIX}"
+              fi
+
+              docker buildx build \
+                --platform linux/amd64,linux/arm64 \
+                --file "$dockerfile" \
+                --build-arg VERSION="$version" \
+                --build-arg COMMIT="$commit" \
+                --build-arg BUILD_DATE="$build_date" \
+                --label "org.opencontainers.image.created=$build_date" \
+                --label "org.opencontainers.image.revision=$commit" \
+                --label "org.opencontainers.image.version=$version" \
+                --tag "${GHCR_REPO}:${moving_tag}" \
+                --tag "${GHCR_REPO}:${dated_tag}" \
+                --tag "${HUB_REPO}:${moving_tag}" \
+                --tag "${HUB_REPO}:${dated_tag}" \
+                --push .
+
+              for ref in \
+                "${GHCR_REPO}:${moving_tag}" \
+                "${GHCR_REPO}:${dated_tag}" \
+                "${HUB_REPO}:${moving_tag}" \
+                "${HUB_REPO}:${dated_tag}"; do
+                cosign sign --yes "$ref"
+              done
+            done
+
+            rm -f ./slurm_exporter
+            echo "::endgroup::"
+          done
+
+      - name: Summary
+        if: always()
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          DATE_SUFFIX: ${{ steps.tags.outputs.date_suffix }}
+        run: |
+          {
+            echo "## Weekly Docker refresh"
+            echo
+            echo "**Tags refreshed:** $TAGS"
+            echo "**Dated suffix:** $DATE_SUFFIX"
+            echo
+            echo "Each tag produces 4 multi-arch manifests + 4 cosign"
+            echo "signatures across GHCR and Docker Hub (standard + minimal,"
+            echo "moving alias + dated immutable)."
+          } >> "$GITHUB_STEP_SUMMARY"
