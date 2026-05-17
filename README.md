@@ -8,8 +8,6 @@
 [![Image size (minimal)](https://img.shields.io/docker/image-size/sckyzo/slurm-exporter/latest-minimal?label=image%20%28minimal%29)](https://hub.docker.com/r/sckyzo/slurm-exporter/tags)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-> 📸 **[View Dashboard Screenshots](#-screenshots)**
-
 Prometheus collector and exporter for metrics extracted from the [Slurm](https://slurm.schedmd.com/overview.html) workload manager — exposes node, partition, job, CPU, GPU, scheduler, fairshare, reservation, and license data, with ten ready-to-use Grafana dashboards and a starter set of site-neutral alerting rules.
 
 > [!NOTE]
