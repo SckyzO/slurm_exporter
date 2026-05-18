@@ -48,7 +48,7 @@ jobs:
             golang:1.26.3-alpine \
             go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build standard image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
@@ -83,7 +83,7 @@ jobs:
             golang:1.26.3-alpine \
             go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build minimal image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.minimal
