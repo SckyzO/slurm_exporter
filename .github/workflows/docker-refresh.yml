@@ -4,13 +4,26 @@
 #
 # What it does
 #   - Picks the last 2 semver-stable git tags (vX.Y.Z, no prerelease suffix).
-#   - For each tag: checks out the repo at that tag, compiles the Go binary,
-#     builds and pushes both image variants as multi-arch manifests to
-#     GHCR + Docker Hub, signs every pushed manifest with cosign.
+#   - For each tag and each variant (standard + minimal): cross-compiles the
+#     Go binary PER ARCH, builds a single-arch image per arch, smoke-tests
+#     each image under its native platform, assembles them into a multi-arch
+#     manifest, pushes to GHCR + Docker Hub, and cosign-signs every manifest.
 #   - Tags pushed per release-tag:
 #       :X.Y.Z              (moving alias — re-pushed with a fresh digest)
 #       :X.Y.Z-YYYYMMDD     (new immutable tag for GitOps determinism)
 #       :X.Y.Z-minimal       and  :X.Y.Z-minimal-YYYYMMDD   (idem)
+#     plus per-arch staging tags (:X.Y.Z-amd64, :X.Y.Z-arm64 and their
+#     -minimal counterparts) the manifests are assembled from.
+#
+# Why per-arch (and not one buildx --platform amd64,arm64 over a single
+# binary): the binary is built on the runner. Building it once (natively
+# amd64) and fanning it out across both platforms would copy the SAME amd64
+# binary into the arm64 image — both Dockerfiles `COPY slurm_exporter` from a
+# single build context — yielding an exec-format-error image on arm64. So we
+# cross-compile each arch, build that arch's image on its own, and join them.
+# The smoke step (`docker run --platform linux/<arch> … --version`) is the
+# guard that fails the run if an arch ever ships the wrong ELF again.
+# The release path is unaffected: GoReleaser cross-compiles per platform.
 #
 # Triggers
 #   - Cron: Mondays 04:00 UTC (one hour before the Dependabot run, so the
@@ -128,41 +141,59 @@ jobs:
               -X github.com/prometheus/common/version.BuildUser=refresh-cron \
               -X github.com/prometheus/common/version.BuildDate=${build_date}"
 
-            CGO_ENABLED=0 GOOS=linux go build -ldflags "$ldflags" \
-              -o ./slurm_exporter ./cmd/slurm_exporter
-
             for variant in standard minimal; do
               if [ "$variant" = "standard" ]; then
                 dockerfile=Dockerfile
-                moving_tag=$version
-                dated_tag=$dated
+                moving_tag="$version"
+                dated_tag="$dated"
+                arch_base="$version"
               else
                 dockerfile=Dockerfile.minimal
                 moving_tag="${version}-minimal"
                 dated_tag="${version}-minimal-${DATE_SUFFIX}"
+                arch_base="${version}-minimal"
               fi
 
-              docker buildx build \
-                --platform linux/amd64,linux/arm64 \
-                --file "$dockerfile" \
-                --build-arg VERSION="$version" \
-                --build-arg COMMIT="$commit" \
-                --build-arg BUILD_DATE="$build_date" \
-                --label "org.opencontainers.image.created=$build_date" \
-                --label "org.opencontainers.image.revision=$commit" \
-                --label "org.opencontainers.image.version=$version" \
-                --tag "${GHCR_REPO}:${moving_tag}" \
-                --tag "${GHCR_REPO}:${dated_tag}" \
-                --tag "${HUB_REPO}:${moving_tag}" \
-                --tag "${HUB_REPO}:${dated_tag}" \
-                --push .
+              # Cross-compile + build a single-arch image per arch. The
+              # per-arch ":<base>-<arch>" tags are the assembly inputs for the
+              # manifest below. --provenance=false keeps each one a plain
+              # single-platform manifest so imagetools can join them cleanly.
+              for arch in amd64 arm64; do
+                CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
+                  go build -ldflags "$ldflags" -o ./slurm_exporter ./cmd/slurm_exporter
 
-              for ref in \
-                "${GHCR_REPO}:${moving_tag}" \
-                "${GHCR_REPO}:${dated_tag}" \
-                "${HUB_REPO}:${moving_tag}" \
-                "${HUB_REPO}:${dated_tag}"; do
-                cosign sign --yes "$ref"
+                docker buildx build \
+                  --platform "linux/${arch}" \
+                  --file "$dockerfile" \
+                  --build-arg VERSION="$version" \
+                  --build-arg COMMIT="$commit" \
+                  --build-arg BUILD_DATE="$build_date" \
+                  --label "org.opencontainers.image.created=$build_date" \
+                  --label "org.opencontainers.image.revision=$commit" \
+                  --label "org.opencontainers.image.version=$version" \
+                  --tag "${GHCR_REPO}:${arch_base}-${arch}" \
+                  --tag "${HUB_REPO}:${arch_base}-${arch}" \
+                  --provenance=false \
+                  --push .
+
+                # Guard: the freshly pushed image must actually execute on its
+                # target arch. --version exits 0 without contacting slurmctld,
+                # so a wrong-arch ELF surfaces as an exec format error here
+                # rather than in a user's arm64 deployment.
+                docker run --rm --platform "linux/${arch}" \
+                  "${GHCR_REPO}:${arch_base}-${arch}" --version
+              done
+
+              # Assemble the multi-arch manifest for the moving and dated tags
+              # on both registries, then cosign-sign each final manifest.
+              for repo in "$GHCR_REPO" "$HUB_REPO"; do
+                for mtag in "$moving_tag" "$dated_tag"; do
+                  docker buildx imagetools create \
+                    --tag "${repo}:${mtag}" \
+                    "${repo}:${arch_base}-amd64" \
+                    "${repo}:${arch_base}-arm64"
+                  cosign sign --yes "${repo}:${mtag}"
+                done
               done
             done
 
@@ -182,7 +213,8 @@ jobs:
             echo "**Tags refreshed:** $TAGS"
             echo "**Dated suffix:** $DATE_SUFFIX"
             echo
-            echo "Each tag produces 4 multi-arch manifests + 4 cosign"
-            echo "signatures across GHCR and Docker Hub (standard + minimal,"
-            echo "moving alias + dated immutable)."
+            echo "Each tag produces 8 multi-arch manifests + 8 cosign"
+            echo "signatures (2 variants × 2 registries × moving + dated),"
+            echo "each assembled from smoke-tested per-arch amd64 + arm64"
+            echo "images."
           } >> "$GITHUB_STEP_SUMMARY"
