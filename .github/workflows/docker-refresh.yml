@@ -105,11 +105,13 @@ jobs:
             git checkout "$tag"
 
             # The single-stage Dockerfile expects ./slurm_exporter in the
-            # build context. Tags before single-stage migration have a
-            # multi-stage Dockerfile that this workflow's build context
-            # can't satisfy — skip them with a warning.
-            if grep -q 'AS builder' Dockerfile; then
-              echo "::warning::$tag uses a multi-stage Dockerfile, skipping"
+            # build context. Older tags either ship no Dockerfile at all
+            # (Docker support landed in v1.8.3) or carry a multi-stage one
+            # this workflow's build context can't satisfy — skip both. The
+            # -f test short-circuits the grep so a missing file doesn't
+            # emit a stderr error or leak through as a false negative.
+            if [ ! -f Dockerfile ] || grep -q 'AS builder' Dockerfile; then
+              echo "::warning::$tag has no usable single-stage Dockerfile, skipping"
               echo "::endgroup::"
               continue
             fi
