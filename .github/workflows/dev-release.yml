@@ -13,12 +13,12 @@ jobs:
       contents: write # needed to write releases
     steps:
       - name: Checkout
+        # fetch-depth: 0 already retrieves all tags (the fetch refspec
+        # includes +refs/tags/*), which GoReleaser needs for the changelog.
+        # release.yml relies on this same checkout with no extra tag fetch.
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Fetch all tags
-        run: git fetch --force --tags
 
       - name: Set up Go
         uses: actions/setup-go@v6
