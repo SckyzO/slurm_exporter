@@ -304,6 +304,8 @@ Site-specific labels (`team`, `runbook_url`, `dashboard_url`) are intentionally 
 
 ## 🔐 Security & supply chain
 
+Found a vulnerability? See [`SECURITY.md`](SECURITY.md) for how to report it privately.
+
 Every published artifact carries verifiable provenance and is scanned for known vulnerabilities before release.
 
 - 🖋️ **Signed container images** — every Docker manifest is signed via [cosign](https://github.com/sigstore/cosign) keyless ([Sigstore](https://www.sigstore.dev/) / Fulcio). The signing identity is the GitHub Actions workflow itself, attested by the runner's OIDC token. Verify with:
