@@ -44,16 +44,16 @@ per account and (when enabled via `--collector.fairshare.user-metrics`, default 
 
 | Metric | Description | Labels |
 |---|---|---|
-| `slurm_account_fairshare` | FairShare factor for account | `account` |
-| `slurm_account_fairshare_norm_shares` | Normalised share allocation | `account` |
-| `slurm_account_fairshare_norm_usage` | Normalised usage over the decay window | `account` |
-| `slurm_account_fairshare_raw_shares` | Raw share allocation | `account` |
-| `slurm_account_fairshare_raw_usage_cpu_seconds` | Raw CPU-seconds consumed | `account` |
-| `slurm_user_fairshare` | FairShare factor for user | `user`, `account` |
-| `slurm_user_fairshare_norm_shares` | Normalised share allocation per user | `user`, `account` |
-| `slurm_user_fairshare_norm_usage` | Normalised usage per user | `user`, `account` |
-| `slurm_user_fairshare_raw_shares` | Raw share allocation per user | `user`, `account` |
-| `slurm_user_fairshare_raw_usage_cpu_seconds` | Raw CPU-seconds consumed per user | `user`, `account` |
+| `slurm_account_fairshare` | FairShare factor for account (0 = lowest priority, 1 = highest) | `account` |
+| `slurm_account_fairshare_norm_shares` | Normalized shares for account (fraction of total shares) | `account` |
+| `slurm_account_fairshare_norm_usage` | Normalized usage for account (fraction of total usage) | `account` |
+| `slurm_account_fairshare_raw_shares` | Raw shares allocated to account | `account` |
+| `slurm_account_fairshare_raw_usage_cpu_seconds` | Raw CPU-seconds usage for account (decay-weighted) | `account` |
+| `slurm_user_fairshare` | FairShare factor for user | `account`, `user` |
+| `slurm_user_fairshare_norm_shares` | Normalized shares for user | `account`, `user` |
+| `slurm_user_fairshare_norm_usage` | Normalized usage for user | `account`, `user` |
+| `slurm_user_fairshare_raw_shares` | Raw shares for user | `account`, `user` |
+| `slurm_user_fairshare_raw_usage_cpu_seconds` | Raw CPU-seconds usage for user (decay-weighted) | `account`, `user` |
 
 User-level metrics can be disabled on clusters with many users to reduce cardinality
 via `--collector.fairshare.user-metrics=false`.
