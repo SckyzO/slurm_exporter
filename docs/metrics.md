@@ -275,9 +275,9 @@ Provides internal performance metrics from the `slurmctld` daemon, parsed from
 
 | Metric | Description | Labels |
 |---|---|---|
-| `slurm_rpc_stats` | RPC call count by message type | `operation` |
-| `slurm_rpc_stats_avg_time` | Average RPC time (µs) by message type | `operation` |
-| `slurm_rpc_stats_total_time` | Total cumulative RPC time (µs) by message type | `operation` |
+| `slurm_rpc_stats` | RPC call count by operation | `operation` |
+| `slurm_rpc_stats_avg_time` | Average RPC time (µs) by operation | `operation` |
+| `slurm_rpc_stats_total_time` | Total cumulative RPC time (µs) by operation | `operation` |
 | `slurm_user_rpc_stats` | RPC call count per user | `user` |
 | `slurm_user_rpc_stats_avg_time` | Average RPC time (µs) per user | `user` |
 | `slurm_user_rpc_stats_total_time` | Total cumulative RPC time (µs) per user | `user` |
