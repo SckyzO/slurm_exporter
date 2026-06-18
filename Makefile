@@ -128,9 +128,7 @@ actionlint: tools-image
 	@$(IN_TOOLS) -c 'actionlint -color'
 
 # zizmor — static analysis (security) for GitHub Actions (in container).
-# --offline keeps it deterministic (no GitHub API calls). Not yet part of
-# `check`: it reports `unpinned-uses` until the actions are pinned by SHA;
-# it joins `check` in that PR.
+# --offline keeps it deterministic (no GitHub API calls).
 .PHONY: zizmor
 zizmor: tools-image
 	@echo "Running zizmor (containerised)"
@@ -138,7 +136,7 @@ zizmor: tools-image
 
 # Full pre-commit / pre-release verification — mirrors what CI runs.
 .PHONY: check
-check: vet lint test vuln actionlint
+check: vet lint test vuln actionlint zizmor
 
 # Offline equivalent of the goreportcard.com checks (in container).
 # Runs gofmt -s, go vet, gocyclo, ineffassign, misspell, and a LICENSE check,
