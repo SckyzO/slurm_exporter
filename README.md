@@ -31,7 +31,7 @@ Prometheus collector and exporter for metrics extracted from the [Slurm](https:/
 ## ✨ Features
 
 - ✅ Wide metric coverage: nodes, partitions, jobs, CPUs, GPUs, scheduler internals (`sdiag` RPC stats), fairshare, reservations, licenses, per-user/per-account roll-ups.
-- ✅ All 14 collectors are optional and toggle via `--collector.<name>` / `--no-collector.<name>` flags.
+- ✅ All 16 collectors are optional and toggle via `--collector.<name>` / `--no-collector.<name>` flags.
 - ✅ GPU metrics per account and user (`slurm_account_gpus_running`, `slurm_user_gpus_running`) — covers `--gres`, `--gpus`, and `--gpus-per-node` jobs.
 - ✅ Per-reservation node state metrics (`slurm_reservation_nodes_*`).
 - ✅ TLS + Basic Authentication via `--web.config.file`.
