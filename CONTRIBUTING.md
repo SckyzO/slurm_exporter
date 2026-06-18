@@ -47,7 +47,7 @@ This applies equally to PRs from contributors and to internal development.
 
 4. make -C scripts/testing setup
    → Test cluster starts cleanly (10 nodes by default)
-   → All 9 Grafana dashboards imported successfully
+   → All 10 Grafana dashboards imported successfully
    → slurm_exporter running on slurmctld:9341
 
 5. make -C scripts/testing workload N=20
