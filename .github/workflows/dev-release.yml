@@ -27,6 +27,14 @@ jobs:
           go-version: '1.26.4'
           cache: false
 
+      # Populate the build metadata consumed by .goreleaser.dev.yaml
+      # ({{.Env.BUILD_DATE}}). Without this the value was empty (these env keys
+      # were referenced below but never defined).
+      - name: Set build environment variables
+        run: |
+          echo "BUILD_DATE=$(date +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          echo "GO_VERSION=$(go version)" >> "$GITHUB_ENV"
+
       - name: Run GoReleaser for Dev
         uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
         with:
