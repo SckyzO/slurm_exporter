@@ -134,6 +134,21 @@ zizmor: tools-image
 	@echo "Running zizmor (containerised)"
 	@$(IN_TOOLS) -c 'zizmor --offline .'
 
+# gitleaks — secret scanner (in container). Scans the working tree. Kept out of
+# `check` (it's a prevention tool, not a build gate); run it before committing.
+.PHONY: secrets
+secrets: tools-image
+	@echo "Running gitleaks secret scan (containerised)"
+	@$(IN_TOOLS) -c 'gitleaks dir . --no-banner --redact'
+
+# osv-scanner — dependency vulnerability scan against the OSV database (in
+# container). Complements govulncheck (call graph) with the OSV feed. Needs
+# network, so it's a separate target rather than part of `check`.
+.PHONY: osv
+osv: tools-image
+	@echo "Running osv-scanner (containerised)"
+	@$(IN_TOOLS) -c 'osv-scanner scan source --lockfile go.mod'
+
 # Full pre-commit / pre-release verification — mirrors what CI runs.
 .PHONY: check
 check: vet lint test vuln actionlint zizmor
