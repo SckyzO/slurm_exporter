@@ -32,7 +32,7 @@ jobs:
   scan-standard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Build Go binary in a Go container
         # Compile inside golang:1.26.4-alpine to pin the stdlib version
         # embedded in the binary. setup-go + host build can drift to a
@@ -48,7 +48,7 @@ jobs:
             golang:1.26.4-alpine \
             go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build standard image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: Dockerfile
@@ -56,7 +56,7 @@ jobs:
           load: true
           tags: slurm_exporter:scan
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: slurm_exporter:scan
           severity: HIGH,CRITICAL
@@ -67,7 +67,7 @@ jobs:
   scan-minimal:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Build Go binary in a Go container
         # Compile inside golang:1.26.4-alpine to pin the stdlib version
         # embedded in the binary. setup-go + host build can drift to a
@@ -83,7 +83,7 @@ jobs:
             golang:1.26.4-alpine \
             go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
       - name: Build minimal image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: Dockerfile.minimal
@@ -91,7 +91,7 @@ jobs:
           load: true
           tags: slurm_exporter:scan-minimal
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: slurm_exporter:scan-minimal
           severity: HIGH,CRITICAL
