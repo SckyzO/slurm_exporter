@@ -127,9 +127,11 @@ jobs:
         run: |
           set -eu
 
-          echo >> "$GITHUB_STEP_SUMMARY"
-          echo "## Docker Hub cleanup — ${HUB_REPO}" >> "$GITHUB_STEP_SUMMARY"
-          echo >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo
+            echo "## Docker Hub cleanup — ${HUB_REPO}"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Docker Hub needs a session token (JWT) for the DELETE endpoint.
           jwt=$(curl -s -H "Content-Type: application/json" \

@@ -92,10 +92,12 @@ test: tools-image
 
 # Tests with the race detector (in container). Useful to catch concurrency bugs
 # in collectors with background goroutines (e.g. sacct_efficiency).
+# CGO_ENABLED=1 is required: the race detector is implemented in C. The tools
+# image bundles build-base (gcc) for this.
 .PHONY: race
 race: tools-image
 	@echo "Running tests with race detector (containerised)"
-	@$(IN_TOOLS) -c 'go test -race -count=1 ./...'
+	@$(IN_TOOLS) -c 'CGO_ENABLED=1 go test -race -count=1 ./...'
 
 # go vet (in container).
 .PHONY: vet
@@ -109,9 +111,34 @@ lint: tools-image
 	@echo "Running golangci-lint (containerised)"
 	@$(IN_TOOLS) -c 'golangci-lint run ./...'
 
+# govulncheck — Go call-graph vulnerability scanner (in container).
+# Catches reachable stdlib / dependency CVEs that image scanners (Trivy) and
+# module-list scanners (osv-scanner) miss. Needs network to fetch the vuln DB.
+.PHONY: vuln
+vuln: tools-image
+	@echo "Running govulncheck (containerised)"
+	@$(IN_TOOLS) -c 'govulncheck ./...'
+
+# actionlint — GitHub Actions workflow linter (in container). Auto-discovers
+# .github/workflows/ and runs shellcheck on every `run:` block (shellcheck is
+# bundled in the tools image).
+.PHONY: actionlint
+actionlint: tools-image
+	@echo "Running actionlint (containerised)"
+	@$(IN_TOOLS) -c 'actionlint -color'
+
+# zizmor — static analysis (security) for GitHub Actions (in container).
+# --offline keeps it deterministic (no GitHub API calls). Not yet part of
+# `check`: it reports `unpinned-uses` until the actions are pinned by SHA;
+# it joins `check` in that PR.
+.PHONY: zizmor
+zizmor: tools-image
+	@echo "Running zizmor (containerised)"
+	@$(IN_TOOLS) -c 'zizmor --offline .'
+
 # Full pre-commit / pre-release verification — mirrors what CI runs.
 .PHONY: check
-check: vet lint test
+check: vet lint test vuln actionlint
 
 # Offline equivalent of the goreportcard.com checks (in container).
 # Runs gofmt -s, go vet, gocyclo, ineffassign, misspell, and a LICENSE check,
