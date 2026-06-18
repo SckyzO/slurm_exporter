@@ -9,14 +9,21 @@
 
 FROM golang:1.26.4-alpine
 
-RUN apk add --no-cache git bash curl ca-certificates findutils
+# shellcheck  → used by actionlint to lint `run:` shell blocks
+# zizmor      → static analysis (security) for GitHub Actions workflows
+# build-base  → C toolchain (gcc): `go test -race` requires cgo
+RUN apk add --no-cache git bash curl ca-certificates findutils \
+        shellcheck zizmor build-base
 
 # Static-analysis tools used by `make report` (the same set goreportcard.com
-# runs server-side) and by `make check` (lint + vet + test).
+# runs server-side), by `make check` (lint + vet + test + vuln + actionlint),
+# and by `make vuln` / `make actionlint`.
 RUN go install github.com/fzipp/gocyclo/cmd/gocyclo@latest \
  && go install github.com/client9/misspell/cmd/misspell@latest \
  && go install github.com/gordonklaus/ineffassign@latest \
  && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest \
+ && go install golang.org/x/vuln/cmd/govulncheck@latest \
+ && go install github.com/rhysd/actionlint/cmd/actionlint@latest \
  && go clean -cache -modcache -testcache
 
 # All tools land in /go/bin which is already on $PATH.
