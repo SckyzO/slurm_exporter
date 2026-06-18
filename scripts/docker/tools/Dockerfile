@@ -7,7 +7,7 @@
 # Built locally on first use via `make tools-image`; rebuilds are
 # incremental thanks to the layer cache.
 
-FROM golang:1.26-alpine
+FROM golang:1.26.4-alpine
 
 RUN apk add --no-cache git bash curl ca-certificates findutils
 
