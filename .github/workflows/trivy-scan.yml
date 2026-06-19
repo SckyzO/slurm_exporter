@@ -8,9 +8,10 @@
 # Also runs weekly on a cron against the published images so we catch new
 # CVEs reported after release.
 #
-# The Dockerfiles are single-stage and expect ./slurm_exporter to be present
-# in the build context — so this workflow compiles the binary first, mirroring
-# what GoReleaser does for releases and `make docker-build` for local dev.
+# The Dockerfiles COPY the binary from $TARGETPLATFORM/slurm_exporter (the
+# GoReleaser dockers_v2 layout), so this workflow compiles the binary into
+# ./linux/amd64/ and builds with platforms: linux/amd64, mirroring what
+# GoReleaser does for releases and `make docker-build` for local dev.
 
 name: Trivy scan
 
@@ -48,12 +49,13 @@ jobs:
             -e GOOS=linux \
             -e GOTOOLCHAIN=local \
             golang:1.26.4-alpine \
-            go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
+            go build -ldflags "-s -w" -o ./linux/amd64/slurm_exporter ./cmd/slurm_exporter
       - name: Build standard image
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: Dockerfile
+          platforms: linux/amd64
           push: false
           load: true
           tags: slurm_exporter:scan
@@ -85,12 +87,13 @@ jobs:
             -e GOOS=linux \
             -e GOTOOLCHAIN=local \
             golang:1.26.4-alpine \
-            go build -ldflags "-s -w" -o ./slurm_exporter ./cmd/slurm_exporter
+            go build -ldflags "-s -w" -o ./linux/amd64/slurm_exporter ./cmd/slurm_exporter
       - name: Build minimal image
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: Dockerfile.minimal
+          platforms: linux/amd64
           push: false
           load: true
           tags: slurm_exporter:scan-minimal
