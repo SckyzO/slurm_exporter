@@ -44,20 +44,9 @@ type NodesMetrics struct {
 	total   map[string]float64
 }
 
-func NodesGetMetrics(logger *logger.Logger, part string) (*NodesMetrics, error) {
-	data, err := NodesData(logger, part)
-	if err != nil {
-		return nil, err
-	}
-	return ParseNodesMetrics(data), nil
-}
-
-// InitFeatureSet is a no-op kept for backwards compatibility.
-func InitFeatureSet(_ *NodesMetrics, _ string) {}
-
 // newNodesMetrics returns a NodesMetrics with every per-feature-set bucket
-// initialized to an empty map. Shared by ParseNodesMetrics and
-// ParseNodesMetricsGlobal so the bucket list stays in one place.
+// initialized to an empty map. Shared by ParseNodesMetricsGlobal so the
+// bucket list stays in one place.
 func newNodesMetrics() *NodesMetrics {
 	return &NodesMetrics{
 		alloc:   make(map[string]float64),
@@ -120,38 +109,6 @@ func normalizeFeatureSet(raw string) string {
 		featureSet = "null"
 	}
 	return featureSet
-}
-
-// ParseNodesMetrics parses the output of `sinfo -h -o "%D|%T|%b"`
-// (Nodes|State|Features) into a single NodesMetrics aggregating across
-// the whole queried scope.
-func ParseNodesMetrics(input []byte) *NodesMetrics {
-	nm := newNodesMetrics()
-	lines := strings.Split(string(input), "\n")
-	slices.Sort(lines)
-	for _, line := range slices.Compact(lines) {
-		if !strings.Contains(line, "|") {
-			continue
-		}
-		split := strings.Split(line, "|")
-		if len(split) < 3 {
-			continue
-		}
-		count, _ := strconv.ParseFloat(strings.TrimSpace(split[0]), 64)
-		state := split[1]
-		featureSet := normalizeFeatureSet(split[2])
-		InitFeatureSet(nm, featureSet)
-		addNodeStateCount(nm, state, featureSet, count)
-	}
-	return nm
-}
-
-/*
-NodesData executes the sinfo command to retrieve node information.
-Expected sinfo output format: "%D|%T|%b" (Nodes|State|Features).
-*/
-func NodesData(logger *logger.Logger, part string) ([]byte, error) {
-	return Execute(logger, "sinfo", []string{"-h", "-o", "%D|%T|%b", "-p", part})
 }
 
 // NodesDataGlobal executes a single sinfo call for ALL partitions at once.
@@ -223,28 +180,6 @@ func SlurmGetTotal(log *logger.Logger) (float64, error) {
 		}
 	}
 	return float64(count), nil
-}
-
-/*
-SlurmGetPartitions retrieves a list of all partitions from sinfo.
-Expected sinfo output format: "%R" (Partition name).
-*/
-func SlurmGetPartitions(logger *logger.Logger) ([]string, error) {
-	out, err := Execute(logger, "sinfo", []string{"-h", "-o", "%R"})
-	if err != nil {
-		return nil, err
-	}
-	partitions := strings.Split(string(out), "\n")
-	// Trim whitespace and remove empty strings
-	var cleanedPartitions []string
-	for _, p := range partitions {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			cleanedPartitions = append(cleanedPartitions, p)
-		}
-	}
-	slices.Sort(cleanedPartitions)
-	return slices.Compact(cleanedPartitions), nil
 }
 
 /*
