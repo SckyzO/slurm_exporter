@@ -18,8 +18,8 @@
 # Why per-arch (and not one buildx --platform amd64,arm64 over a single
 # binary): the binary is built on the runner. Building it once (natively
 # amd64) and fanning it out across both platforms would copy the SAME amd64
-# binary into the arm64 image — both Dockerfiles `COPY slurm_exporter` from a
-# single build context — yielding an exec-format-error image on arm64. So we
+# binary into the arm64 image — both Dockerfiles `COPY $TARGETPLATFORM/slurm_exporter`
+# from the build context — yielding an exec-format-error image on arm64. So we
 # cross-compile each arch, build that arch's image on its own, and join them.
 # The smoke step (`docker run --platform linux/<arch> … --version`) is the
 # guard that fails the run if an arch ever ships the wrong ELF again.
@@ -164,7 +164,7 @@ jobs:
               # single-platform manifest so imagetools can join them cleanly.
               for arch in amd64 arm64; do
                 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
-                  go build -ldflags "$ldflags" -o ./slurm_exporter ./cmd/slurm_exporter
+                  go build -ldflags "$ldflags" -o "./linux/${arch}/slurm_exporter" ./cmd/slurm_exporter
 
                 docker buildx build \
                   --platform "linux/${arch}" \
@@ -201,7 +201,7 @@ jobs:
               done
             done
 
-            rm -f ./slurm_exporter
+            rm -rf ./linux
             echo "::endgroup::"
           done
 

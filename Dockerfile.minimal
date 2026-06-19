@@ -63,7 +63,10 @@ FROM gcr.io/distroless/cc-debian12:nonroot@sha256:b0ae8e989418b458e0f25489bc3be5
 COPY --from=munge-extractor /libs/libmunge.so.2     /usr/lib/libmunge.so.2
 COPY --from=munge-extractor /libs/libmunge.so.2.0.0 /usr/lib/libmunge.so.2.0.0
 
-COPY slurm_exporter /usr/local/bin/slurm_exporter
+# GoReleaser dockers_v2 stages per-platform artifacts under $TARGETPLATFORM/
+# (e.g. linux/amd64/slurm_exporter). TARGETPLATFORM is provided by BuildKit.
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/slurm_exporter /usr/local/bin/slurm_exporter
 
 EXPOSE 9341
 

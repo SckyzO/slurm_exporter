@@ -5,10 +5,12 @@ go/
 *.tar.gz*
 *.swp
 
-# Pre-compiled binary staged at the repo root by `make docker-build`
-# (single-stage Dockerfiles expect ./slurm_exporter in the context). The
-# Makefile rm's it after each build but git should never see it either way.
+# Binary staged by `make docker-build` under ./linux/<arch>/ (the
+# $TARGETPLATFORM layout the Dockerfiles COPY from). The Makefile rm's it
+# after each build but git should never see it either way. /slurm_exporter
+# is the legacy path, kept ignored for safety.
 /slurm_exporter
+/linux/
 
 # Dev/test scripts (environment-specific, not committed)
 scripts/dev/
