@@ -88,7 +88,10 @@ jobs:
         uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
         with:
           distribution: goreleaser
-          version: '~> v2'
+          # Pinned: dockers_v2 changed its build-context layout in goreleaser
+          # 2.16 (artifacts moved under $TARGETPLATFORM/), which breaks the
+          # Dockerfile COPY. 2.15.4 is the version that shipped v1.8.3.
+          version: '2.15.4'
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
