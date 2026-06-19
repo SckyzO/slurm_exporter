@@ -47,7 +47,8 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		}
 		nodeName := node[0]
 		nodeStatus := node[4] // mixed, allocated, etc.
-		partition := node[5]  // Partition name
+		// Strip default-partition "*" marker (sinfo %P); matches nodes.go.
+		partition := strings.TrimRight(node[5], "*")
 
 		// Create new node metrics if it doesn't exist
 		if _, exists := nodes[nodeName]; !exists {
