@@ -314,7 +314,7 @@ Every published artifact carries verifiable provenance and is scanned for known 
     --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com
   ```
-- 🧾 **Signed release checksums** — `slurm_exporter_checksums.txt` ships with `.pem` (certificate) and `.sig` (signature) for offline verification of every release archive.
+- 🧾 **Signed release checksums** — `slurm_exporter_checksums.txt` ships with a `.sigstore.json` Sigstore bundle (certificate + signature) for offline verification of every release archive. Verify with `cosign verify-blob --bundle slurm_exporter_checksums.txt.sigstore.json slurm_exporter_checksums.txt`.
 - 📦 **CycloneDX SBOMs** — one `*.sbom.json` per release archive lists every Go module compiled in (with versions and PURLs). Suitable for Dependency-Track, Anchore Enterprise, and similar.
 - 🛡️ **Vulnerability scanning** — Trivy scans both Docker variants on every PR that touches `Dockerfile*`, `go.mod`, or `go.sum`. PRs are blocked on HIGH/CRITICAL CVEs that have an upstream fix. A weekly cron re-scans the published images so post-release CVEs surface as workflow failures.
 - 👤 **Non-root by default** — the standard image runs as `slurmexporter` (uid 9341, gid `munge`); the minimal image runs as `nonroot` (uid 65532). Example compose drops all capabilities, mounts read-only, `no-new-privileges`.

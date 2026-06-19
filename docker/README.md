@@ -159,8 +159,17 @@ cosign verify sckyzo/slurm-exporter:latest \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-The release checksums file is signed the same way (`*.pem` + `*.sig`
-alongside `slurm_exporter_checksums.txt` on the GitHub release).
+The release checksums file is signed the same way. A Sigstore bundle
+(`slurm_exporter_checksums.txt.sigstore.json`) ships alongside
+`slurm_exporter_checksums.txt` on the GitHub release:
+
+```bash
+cosign verify-blob \
+  --bundle slurm_exporter_checksums.txt.sigstore.json \
+  --certificate-identity-regexp 'https://github.com/SckyzO/slurm_exporter/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  slurm_exporter_checksums.txt
+```
 
 ### Software Bill of Materials
 
