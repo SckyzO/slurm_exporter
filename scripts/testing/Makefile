@@ -82,13 +82,6 @@ start:
 
 stop:
 	@$(LIB) stop
-
-	    [ -f "$(THIS_DIR)cluster.local.conf" ] && source "$(THIS_DIR)cluster.local.conf" || true; \
-	    [ -z "$${CLUSTER_DIR:-}" ] && CLUSTER_DIR="$${HOME}/slurm-docker-cluster"; \
-	    docker exec slurmctld bash -c "pkill -f slurm_exporter 2>/dev/null || true" 2>/dev/null || true; \
-	    [ -f "$${CLUSTER_DIR}/docker-compose.monitoring.yml" ] && \
-	        cd "$${CLUSTER_DIR}" && docker compose -f docker-compose.monitoring.yml down 2>/dev/null || true; \
-	    cd "$${CLUSTER_DIR}" && docker compose down'
 	@echo "  ✓ Cluster stopped (data preserved)"
 
 clean:
