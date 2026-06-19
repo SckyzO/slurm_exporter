@@ -8,7 +8,7 @@ Thank you for your interest in contributing!
 
 ### Prerequisites
 
-- Go 1.26+ (toolchain 1.26.3 recommended)
+- Go 1.26+ (toolchain 1.26.4 recommended)
 - Docker + Docker Compose v2
 - [golangci-lint](https://golangci-lint.run/) v2.11.3+
 - A clone of [giovtorres/slurm-docker-cluster](https://github.com/giovtorres/slurm-docker-cluster) for integration tests
