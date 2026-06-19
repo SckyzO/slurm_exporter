@@ -149,6 +149,14 @@ osv: tools-image
 	@echo "Running osv-scanner (containerised)"
 	@$(IN_TOOLS) -c 'osv-scanner scan source --lockfile go.mod'
 
+# deadcode — unreachable Go functions (reachability from main + tests). Fails if
+# any dead code is found. Not yet part of `check`: there is known dead code to
+# remove first; it joins `check` once the codebase is clean.
+.PHONY: deadcode
+deadcode: tools-image
+	@echo "Running deadcode (containerised)"
+	@$(IN_TOOLS) -c 'out=$$(deadcode -test ./...); if [ -n "$$out" ]; then echo "$$out"; echo "dead code found"; exit 1; fi; echo "no dead code"'
+
 # Full pre-commit / pre-release verification — mirrors what CI runs.
 .PHONY: check
 check: vet lint test vuln actionlint zizmor

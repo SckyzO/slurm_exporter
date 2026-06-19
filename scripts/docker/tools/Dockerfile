@@ -26,6 +26,7 @@ RUN go install github.com/fzipp/gocyclo/cmd/gocyclo@latest \
  && go install github.com/rhysd/actionlint/cmd/actionlint@latest \
  && go install github.com/zricethezav/gitleaks/v8@latest \
  && go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest \
+ && go install golang.org/x/tools/cmd/deadcode@latest \
  && go clean -cache -modcache -testcache
 
 # All tools land in /go/bin which is already on $PATH.
