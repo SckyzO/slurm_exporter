@@ -92,10 +92,12 @@ test: tools-image
 
 # Tests with the race detector (in container). Useful to catch concurrency bugs
 # in collectors with background goroutines (e.g. sacct_efficiency).
+# CGO_ENABLED=1 is required: the race detector is implemented in C. The tools
+# image bundles build-base (gcc) for this.
 .PHONY: race
 race: tools-image
 	@echo "Running tests with race detector (containerised)"
-	@$(IN_TOOLS) -c 'go test -race -count=1 ./...'
+	@$(IN_TOOLS) -c 'CGO_ENABLED=1 go test -race -count=1 ./...'
 
 # go vet (in container).
 .PHONY: vet
@@ -109,9 +111,47 @@ lint: tools-image
 	@echo "Running golangci-lint (containerised)"
 	@$(IN_TOOLS) -c 'golangci-lint run ./...'
 
+# govulncheck — Go call-graph vulnerability scanner (in container).
+# Catches reachable stdlib / dependency CVEs that image scanners (Trivy) and
+# module-list scanners (osv-scanner) miss. Needs network to fetch the vuln DB.
+.PHONY: vuln
+vuln: tools-image
+	@echo "Running govulncheck (containerised)"
+	@$(IN_TOOLS) -c 'govulncheck ./...'
+
+# actionlint — GitHub Actions workflow linter (in container). Auto-discovers
+# .github/workflows/ and runs shellcheck on every `run:` block (shellcheck is
+# bundled in the tools image).
+.PHONY: actionlint
+actionlint: tools-image
+	@echo "Running actionlint (containerised)"
+	@$(IN_TOOLS) -c 'actionlint -color'
+
+# zizmor — static analysis (security) for GitHub Actions (in container).
+# --offline keeps it deterministic (no GitHub API calls).
+.PHONY: zizmor
+zizmor: tools-image
+	@echo "Running zizmor (containerised)"
+	@$(IN_TOOLS) -c 'zizmor --offline .'
+
+# gitleaks — secret scanner (in container). Scans the working tree. Kept out of
+# `check` (it's a prevention tool, not a build gate); run it before committing.
+.PHONY: secrets
+secrets: tools-image
+	@echo "Running gitleaks secret scan (containerised)"
+	@$(IN_TOOLS) -c 'gitleaks dir . --no-banner --redact'
+
+# osv-scanner — dependency vulnerability scan against the OSV database (in
+# container). Complements govulncheck (call graph) with the OSV feed. Needs
+# network, so it's a separate target rather than part of `check`.
+.PHONY: osv
+osv: tools-image
+	@echo "Running osv-scanner (containerised)"
+	@$(IN_TOOLS) -c 'osv-scanner scan source --lockfile go.mod'
+
 # Full pre-commit / pre-release verification — mirrors what CI runs.
 .PHONY: check
-check: vet lint test
+check: vet lint test vuln actionlint zizmor
 
 # Offline equivalent of the goreportcard.com checks (in container).
 # Runs gofmt -s, go vet, gocyclo, ineffassign, misspell, and a LICENSE check,

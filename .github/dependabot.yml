@@ -6,6 +6,9 @@
 # Related groups bundle updates from the same upstream (golang.org/x,
 # prometheus/*, etc.) so the maintainer reviews one PR instead of five.
 #
+# A 7-day cooldown delays proposing a brand-new release: a freshly published
+# (and possibly compromised) version has time to be yanked before we pull it.
+#
 # See `make report-deps` for an ad-hoc check between dependabot runs.
 
 version: 2
@@ -18,6 +21,8 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "Europe/Paris"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
@@ -43,6 +48,8 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "Europe/Paris"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(ci)"
@@ -58,6 +65,8 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "Europe/Paris"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(docker)"
@@ -73,6 +82,8 @@ updates:
       day: "monday"
       time: "05:00"
       timezone: "Europe/Paris"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 2
     commit-message:
       prefix: "chore(docker)"

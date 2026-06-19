@@ -8,7 +8,7 @@ This project requires access to a node with the Slurm CLI (`sinfo`, `squeue`, `s
 
 ### Prerequisites
 
-- [Go](https://golang.org/dl/) (version 1.25 or higher, toolchain 1.26.1 recommended)
+- [Go](https://golang.org/dl/) (version 1.26 or higher, toolchain 1.26.3 recommended)
 - Slurm CLI tools available in your `$PATH`
 
 ### Building from Source

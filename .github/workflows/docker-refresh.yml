@@ -1,0 +1,224 @@
+# Weekly rebuild of the last 2 stable image lines against the up-to-date
+# base images, so security patches in ubuntu / debian / distroless flow into
+# published artefacts without waiting for the next release tag.
+#
+# What it does
+#   - Picks the last 2 semver-stable git tags (vX.Y.Z, no prerelease suffix).
+#   - For each tag and each variant (standard + minimal): cross-compiles the
+#     Go binary PER ARCH, builds a single-arch image per arch, smoke-tests
+#     each image under its native platform, assembles them into a multi-arch
+#     manifest, pushes to GHCR + Docker Hub, and cosign-signs every manifest.
+#   - Tags pushed per release-tag:
+#       :X.Y.Z              (moving alias — re-pushed with a fresh digest)
+#       :X.Y.Z-YYYYMMDD     (new immutable tag for GitOps determinism)
+#       :X.Y.Z-minimal       and  :X.Y.Z-minimal-YYYYMMDD   (idem)
+#     plus per-arch staging tags (:X.Y.Z-amd64, :X.Y.Z-arm64 and their
+#     -minimal counterparts) the manifests are assembled from.
+#
+# Why per-arch (and not one buildx --platform amd64,arm64 over a single
+# binary): the binary is built on the runner. Building it once (natively
+# amd64) and fanning it out across both platforms would copy the SAME amd64
+# binary into the arm64 image — both Dockerfiles `COPY slurm_exporter` from a
+# single build context — yielding an exec-format-error image on arm64. So we
+# cross-compile each arch, build that arch's image on its own, and join them.
+# The smoke step (`docker run --platform linux/<arch> … --version`) is the
+# guard that fails the run if an arch ever ships the wrong ELF again.
+# The release path is unaffected: GoReleaser cross-compiles per platform.
+#
+# Triggers
+#   - Cron: Mondays 04:00 UTC (one hour before the Dependabot run, so the
+#     refresh doesn't race base-image bump PRs).
+#   - workflow_dispatch: optional `tags` input to override the default
+#     "last 2 stable" auto-selection.
+#
+# Tags built before the single-stage Dockerfile migration (v1.8.2 and
+# earlier) are detected and skipped — their build context isn't compatible
+# with the current Dockerfiles.
+
+name: Weekly Docker refresh
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Comma-separated tags to rebuild (default: last 2 stable semver tags)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  GHCR_REPO: ghcr.io/sckyzo/slurm_exporter
+  HUB_REPO: docker.io/sckyzo/slurm-exporter
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push images to GHCR
+      id-token: write # keyless cosign signing
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          # local `git checkout <tag>` below works without persisted creds
+          persist-credentials: false
+
+      - name: Compute target tags
+        id: tags
+        env:
+          MANUAL_TAGS: ${{ inputs.tags }}
+        run: |
+          set -eu
+          if [ -n "${MANUAL_TAGS:-}" ]; then
+            tags="$MANUAL_TAGS"
+          else
+            tags=$(git tag --sort=-version:refname \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | head -2 | paste -sd, -)
+          fi
+          if [ -z "$tags" ]; then
+            echo "::error::No semver tags found"
+            exit 1
+          fi
+          echo "Tags to rebuild: $tags"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "date_suffix=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: '1.26.4'
+          cache: false
+
+      - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3.9.1
+
+      - name: Log in to GHCR
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_PASS: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_PASS" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+      - name: Log in to Docker Hub
+        env:
+          HUB_USER: ${{ secrets.DOCKER_USERNAME }}
+          HUB_PASS: ${{ secrets.DOCKER_TOKEN }}
+        run: echo "$HUB_PASS" | docker login docker.io -u "$HUB_USER" --password-stdin
+
+      - name: Refresh each tag
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          DATE_SUFFIX: ${{ steps.tags.outputs.date_suffix }}
+        run: |
+          set -eu
+          IFS=',' read -ra TAG_LIST <<< "$TAGS"
+          for tag in "${TAG_LIST[@]}"; do
+            echo "::group::Refreshing $tag"
+            git checkout "$tag"
+
+            # The single-stage Dockerfile expects ./slurm_exporter in the
+            # build context. Older tags either ship no Dockerfile at all
+            # (Docker support landed in v1.8.3) or carry a multi-stage one
+            # this workflow's build context can't satisfy — skip both. The
+            # -f test short-circuits the grep so a missing file doesn't
+            # emit a stderr error or leak through as a false negative.
+            if [ ! -f Dockerfile ] || grep -q 'AS builder' Dockerfile; then
+              echo "::warning::$tag has no usable single-stage Dockerfile, skipping"
+              echo "::endgroup::"
+              continue
+            fi
+
+            version="${tag#v}"
+            commit=$(git rev-parse HEAD)
+            build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            dated="${version}-${DATE_SUFFIX}"
+
+            ldflags="-s -w \
+              -X github.com/prometheus/common/version.Version=${version} \
+              -X github.com/prometheus/common/version.Revision=${commit} \
+              -X github.com/prometheus/common/version.Branch=refresh \
+              -X github.com/prometheus/common/version.BuildUser=refresh-cron \
+              -X github.com/prometheus/common/version.BuildDate=${build_date}"
+
+            for variant in standard minimal; do
+              if [ "$variant" = "standard" ]; then
+                dockerfile=Dockerfile
+                moving_tag="$version"
+                dated_tag="$dated"
+                arch_base="$version"
+              else
+                dockerfile=Dockerfile.minimal
+                moving_tag="${version}-minimal"
+                dated_tag="${version}-minimal-${DATE_SUFFIX}"
+                arch_base="${version}-minimal"
+              fi
+
+              # Cross-compile + build a single-arch image per arch. The
+              # per-arch ":<base>-<arch>" tags are the assembly inputs for the
+              # manifest below. --provenance=false keeps each one a plain
+              # single-platform manifest so imagetools can join them cleanly.
+              for arch in amd64 arm64; do
+                CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
+                  go build -ldflags "$ldflags" -o ./slurm_exporter ./cmd/slurm_exporter
+
+                docker buildx build \
+                  --platform "linux/${arch}" \
+                  --file "$dockerfile" \
+                  --build-arg VERSION="$version" \
+                  --build-arg COMMIT="$commit" \
+                  --build-arg BUILD_DATE="$build_date" \
+                  --label "org.opencontainers.image.created=$build_date" \
+                  --label "org.opencontainers.image.revision=$commit" \
+                  --label "org.opencontainers.image.version=$version" \
+                  --tag "${GHCR_REPO}:${arch_base}-${arch}" \
+                  --tag "${HUB_REPO}:${arch_base}-${arch}" \
+                  --provenance=false \
+                  --push .
+
+                # Guard: the freshly pushed image must actually execute on its
+                # target arch. --version exits 0 without contacting slurmctld,
+                # so a wrong-arch ELF surfaces as an exec format error here
+                # rather than in a user's arm64 deployment.
+                docker run --rm --platform "linux/${arch}" \
+                  "${GHCR_REPO}:${arch_base}-${arch}" --version
+              done
+
+              # Assemble the multi-arch manifest for the moving and dated tags
+              # on both registries, then cosign-sign each final manifest.
+              for repo in "$GHCR_REPO" "$HUB_REPO"; do
+                for mtag in "$moving_tag" "$dated_tag"; do
+                  docker buildx imagetools create \
+                    --tag "${repo}:${mtag}" \
+                    "${repo}:${arch_base}-amd64" \
+                    "${repo}:${arch_base}-arm64"
+                  cosign sign --yes "${repo}:${mtag}"
+                done
+              done
+            done
+
+            rm -f ./slurm_exporter
+            echo "::endgroup::"
+          done
+
+      - name: Summary
+        if: always()
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          DATE_SUFFIX: ${{ steps.tags.outputs.date_suffix }}
+        run: |
+          {
+            echo "## Weekly Docker refresh"
+            echo
+            echo "**Tags refreshed:** $TAGS"
+            echo "**Dated suffix:** $DATE_SUFFIX"
+            echo
+            echo "Each tag produces 8 multi-arch manifests + 8 cosign"
+            echo "signatures (2 variants × 2 registries × moving + dated),"
+            echo "each assembled from smoke-tested per-arch amd64 + arm64"
+            echo "images."
+          } >> "$GITHUB_STEP_SUMMARY"

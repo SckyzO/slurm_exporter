@@ -8,7 +8,7 @@ Thank you for your interest in contributing!
 
 ### Prerequisites
 
-- Go 1.25+ (toolchain 1.26.1 recommended)
+- Go 1.26+ (toolchain 1.26.3 recommended)
 - Docker + Docker Compose v2
 - [golangci-lint](https://golangci-lint.run/) v2.11.3+
 - A clone of [giovtorres/slurm-docker-cluster](https://github.com/giovtorres/slurm-docker-cluster) for integration tests
@@ -47,7 +47,7 @@ This applies equally to PRs from contributors and to internal development.
 
 4. make -C scripts/testing setup
    → Test cluster starts cleanly (10 nodes by default)
-   → All 9 Grafana dashboards imported successfully
+   → All 10 Grafana dashboards imported successfully
    → slurm_exporter running on slurmctld:9341
 
 5. make -C scripts/testing workload N=20

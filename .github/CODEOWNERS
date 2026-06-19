@@ -1,0 +1,19 @@
+# Code owners for slurm_exporter.
+#
+# When a pull request touches a matched path, the listed owner is automatically
+# requested for review. This is the file half of issue #66 (ISSUE-505); the
+# server-side "require review from Code Owners" branch-protection rule is a
+# separate, deliberate change to the merge process and is NOT enabled here.
+#
+# Docs: https://docs.github.com/articles/about-code-owners
+
+# Default owner for everything in the repository.
+*                       @SckyzO
+
+# Supply-chain / CI-sensitive paths — called out explicitly so ownership of the
+# release, signing and CI plumbing stays unambiguous even if more owners are
+# added to the catch-all above later.
+/.github/               @SckyzO
+/Dockerfile*            @SckyzO
+/.goreleaser*           @SckyzO
+/scripts/docker/        @SckyzO

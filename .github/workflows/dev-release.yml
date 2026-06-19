@@ -6,6 +6,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
@@ -13,21 +16,30 @@ jobs:
       contents: write # needed to write releases
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        # fetch-depth: 0 already retrieves all tags (the fetch refspec
+        # includes +refs/tags/*), which GoReleaser needs for the changelog.
+        # release.yml relies on this same checkout with no extra tag fetch.
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
-
-      - name: Fetch all tags
-        run: git fetch --force --tags
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          go-version: '1.26.3'
-          cache: true
+          go-version: '1.26.4'
+          cache: false
+
+      # Populate the build metadata consumed by .goreleaser.dev.yaml
+      # ({{.Env.BUILD_DATE}}). Without this the value was empty (these env keys
+      # were referenced below but never defined).
+      - name: Set build environment variables
+        run: |
+          echo "BUILD_DATE=$(date +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          echo "GO_VERSION=$(go version)" >> "$GITHUB_ENV"
 
       - name: Run GoReleaser for Dev
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
         with:
           distribution: goreleaser
           version: '~> v2'

@@ -7,16 +7,25 @@
 # Built locally on first use via `make tools-image`; rebuilds are
 # incremental thanks to the layer cache.
 
-FROM golang:1.26-alpine
+FROM golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
 
-RUN apk add --no-cache git bash curl ca-certificates findutils
+# shellcheck  → used by actionlint to lint `run:` shell blocks
+# zizmor      → static analysis (security) for GitHub Actions workflows
+# build-base  → C toolchain (gcc): `go test -race` requires cgo
+RUN apk add --no-cache git bash curl ca-certificates findutils \
+        shellcheck zizmor build-base
 
 # Static-analysis tools used by `make report` (the same set goreportcard.com
-# runs server-side) and by `make check` (lint + vet + test).
+# runs server-side), by `make check` (lint + vet + test + vuln + actionlint),
+# and by `make vuln` / `make actionlint`.
 RUN go install github.com/fzipp/gocyclo/cmd/gocyclo@latest \
  && go install github.com/client9/misspell/cmd/misspell@latest \
  && go install github.com/gordonklaus/ineffassign@latest \
  && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest \
+ && go install golang.org/x/vuln/cmd/govulncheck@latest \
+ && go install github.com/rhysd/actionlint/cmd/actionlint@latest \
+ && go install github.com/zricethezav/gitleaks/v8@latest \
+ && go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest \
  && go clean -cache -modcache -testcache
 
 # All tools land in /go/bin which is already on $PATH.
