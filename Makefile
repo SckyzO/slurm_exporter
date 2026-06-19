@@ -201,16 +201,17 @@ DOCKER_BUILD_ARGS = \
 	--build-arg BUILD_USER="$$(git config user.email)" \
 	--build-arg BUILD_DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Both image variants are single-stage and expect ./slurm_exporter to be
-# present in the build context. We compile the binary first (mirrors what
-# GoReleaser does for releases), copy it next to the Dockerfile, build, and
-# clean up — never commit ./slurm_exporter to git (it's in .gitignore as
-# the binary at repo root).
+# Both Dockerfiles copy the binary from $TARGETPLATFORM/slurm_exporter, the
+# layout GoReleaser's dockers_v2 stages for releases. We mirror that locally:
+# compile into ./linux/<arch>/slurm_exporter, build with --platform so
+# BuildKit sets TARGETPLATFORM to the same value, then clean up. Never commit
+# ./linux/ to git (the binary is gitignored at repo root).
 #
-# The same ldflags that go into bin/slurm_exporter for `make build` go
-# into ./slurm_exporter for `make docker-build`, so `docker run … --version`
-# reports the right metadata. The Dockerfile's build-args populate the
-# OCI labels on top — same information, different surface.
+# The same ldflags that go into bin/slurm_exporter for `make build` go into
+# the docker binary, so `docker run … --version` reports the right metadata.
+# The Dockerfile's build-args populate the OCI labels on top — same
+# information, different surface.
+DOCKER_PLATFORM := linux/$(shell go env GOARCH)
 
 # ldflags pulled from the build target so both paths stay in sync.
 DOCKER_GO_LDFLAGS = -s -w \
@@ -223,17 +224,17 @@ DOCKER_GO_LDFLAGS = -s -w \
 .PHONY: docker-build
 docker-build:
 	@echo "Building $(DOCKER_REF)"
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(DOCKER_GO_LDFLAGS)" -o ./slurm_exporter ./cmd/slurm_exporter
-	docker build $(DOCKER_BUILD_ARGS) -t $(DOCKER_REF) .
-	@rm -f ./slurm_exporter
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(DOCKER_GO_LDFLAGS)" -o ./$(DOCKER_PLATFORM)/slurm_exporter ./cmd/slurm_exporter
+	docker build $(DOCKER_BUILD_ARGS) --platform $(DOCKER_PLATFORM) -t $(DOCKER_REF) .
+	@rm -rf ./linux
 	@echo "✓ $(DOCKER_REF)"
 
 .PHONY: docker-build-minimal
 docker-build-minimal:
 	@echo "Building $(DOCKER_REF_MINIMAL)"
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(DOCKER_GO_LDFLAGS)" -o ./slurm_exporter ./cmd/slurm_exporter
-	docker build $(DOCKER_BUILD_ARGS) -f Dockerfile.minimal -t $(DOCKER_REF_MINIMAL) .
-	@rm -f ./slurm_exporter
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "$(DOCKER_GO_LDFLAGS)" -o ./$(DOCKER_PLATFORM)/slurm_exporter ./cmd/slurm_exporter
+	docker build $(DOCKER_BUILD_ARGS) --platform $(DOCKER_PLATFORM) -f Dockerfile.minimal -t $(DOCKER_REF_MINIMAL) .
+	@rm -rf ./linux
 	@echo "✓ $(DOCKER_REF_MINIMAL)"
 
 .PHONY: docker-build-all

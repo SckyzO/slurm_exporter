@@ -40,7 +40,10 @@ RUN apt-get update && \
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin \
         --uid 9341 --gid munge slurmexporter
 
-COPY slurm_exporter /usr/local/bin/slurm_exporter
+# GoReleaser dockers_v2 stages per-platform artifacts under $TARGETPLATFORM/
+# (e.g. linux/amd64/slurm_exporter). TARGETPLATFORM is provided by BuildKit.
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/slurm_exporter /usr/local/bin/slurm_exporter
 
 USER slurmexporter
 
