@@ -121,12 +121,13 @@ jobs:
             echo "::group::Refreshing $tag"
             git checkout "$tag"
 
-            # The single-stage Dockerfile expects ./slurm_exporter in the
-            # build context. Older tags either ship no Dockerfile at all
-            # (Docker support landed in v1.8.3) or carry a multi-stage one
-            # this workflow's build context can't satisfy — skip both. The
-            # -f test short-circuits the grep so a missing file doesn't
-            # emit a stderr error or leak through as a false negative.
+            # Tags either ship no Dockerfile at all (Docker support landed
+            # in v1.8.3) or carry a multi-stage one this workflow's build
+            # context can't satisfy — skip both. The -f test short-circuits
+            # the grep so a missing file doesn't emit a stderr error or leak
+            # through as a false negative. Single-stage Dockerfiles that pass
+            # this guard use one of two COPY layouts depending on the tag; we
+            # stage the binary for both below.
             if [ ! -f Dockerfile ] || grep -q 'AS builder' Dockerfile; then
               echo "::warning::$tag has no usable single-stage Dockerfile, skipping"
               echo "::endgroup::"
@@ -163,8 +164,16 @@ jobs:
               # manifest below. --provenance=false keeps each one a plain
               # single-platform manifest so imagetools can join them cleanly.
               for arch in amd64 arm64; do
+                # The refreshed tags span two COPY layouts: tags ≤ v1.8.3 use
+                # `COPY slurm_exporter` (context root), v1.8.4+ use
+                # `COPY $TARGETPLATFORM/slurm_exporter` (dockers_v2 layout).
+                # Stage the binary at both paths so either Dockerfile builds;
+                # the unused copy is simply ignored by the one that doesn't
+                # reference it. ./slurm_exporter is overwritten each arch
+                # iteration, so no cross-arch contamination.
                 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
                   go build -ldflags "$ldflags" -o "./linux/${arch}/slurm_exporter" ./cmd/slurm_exporter
+                cp "./linux/${arch}/slurm_exporter" ./slurm_exporter
 
                 docker buildx build \
                   --platform "linux/${arch}" \
@@ -201,7 +210,7 @@ jobs:
               done
             done
 
-            rm -rf ./linux
+            rm -rf ./linux ./slurm_exporter
             echo "::endgroup::"
           done
 
