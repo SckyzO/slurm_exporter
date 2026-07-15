@@ -13,6 +13,12 @@ in PR/issue comments, and internal observations during recent releases.
 
 ## v1.9
 
+> Tracked in [#61](https://github.com/SckyzO/slurm_exporter/issues/61) — the
+> authoritative scope and per-PR breakdown for this milestone. Each item below
+> maps to one atomic PR against `master`. v1.9 is cut once the public-feature
+> checklist there is complete; internal-hygiene items are welcome but slide to
+> v1.9.1 if they are not ready in time.
+
 ### Commitments made publicly
 
 - **Per-state job counts in `sacct_efficiency`** *(answers [#27](https://github.com/SckyzO/slurm_exporter/issues/27))*
@@ -30,11 +36,18 @@ in PR/issue comments, and internal observations during recent releases.
   `--collector.node.gres-types` filter for cardinality control on
   multi-type / MIG clusters. Includes a new dashboard panel.
 
+- **Dashboard uniformity — `$instance`** *(prerequisite for multi-cluster, tracked in [#61](https://github.com/SckyzO/slurm_exporter/issues/61))*
+  Only `04-slurm-usage.json` currently carries an `$instance` template
+  variable; the other 9 dashboards expose just a `${datasource}` picker and
+  query bare metric names. Add a consistent `$instance` variable to all 10 so
+  they behave uniformly — and to give the `$cluster` work below one place to
+  hook into.
+
 - **Multi-cluster dashboards** *(promised in the [issue #10 close-out](https://github.com/SckyzO/slurm_exporter/issues/10#issuecomment-4422385540))*
-  Add a `$cluster` template variable to the in-repo dashboards. Default
-  `allValue: ".*"` so single-cluster users see no change. Document the
-  Prometheus relabel patterns (single Prometheus, Thanos/Mimir/Cortex,
-  federation).
+  Add a `$cluster` template variable to all 10 in-repo dashboards (none has
+  one today). Default `allValue: ".*"` so single-cluster users see no change.
+  Document the `external_labels: {cluster: ...}` Prometheus pattern and the
+  Thanos / Mimir / Cortex equivalents.
 
 ### Internal hygiene (welcome but not promised)
 
@@ -45,6 +58,15 @@ in PR/issue comments, and internal observations during recent releases.
   consolidate the three `sinfo` calls in `internal/collector/gpus.go`
   into a single atomic snapshot. The v1.8.2 clamp on `slurm_gpus_other`
   becomes redundant once this lands.
+- **`Makefile` container-first cleanup** *([#114](https://github.com/SckyzO/slurm_exporter/issues/114))*
+  The "Docker-only, no host Go toolchain" contract only half-holds — `build`,
+  `setup`, `run`, `clean` still use the host `go`. Also a stale `GO_VERSION`
+  fallback (`1.22.2` at `Makefile:6`, vs `go 1.26.0` in `go.mod`) and a stale
+  slurm-client comment (`23.11` at `Makefile:186`, vs the `25.11` the
+  Dockerfile actually ships). Either containerise `build` or soften the claim,
+  and derive the Go version from a single source. Splittable: the
+  comment/version fixes can land ahead of the larger containerise-`build`
+  change.
 
 ---
 
@@ -55,6 +77,21 @@ in PR/issue comments, and internal observations during recent releases.
   `sacct_efficiency` exposes the per-state counts (see v1.9). Today
   the panel uses queue-collector metrics that stay at zero because
   `squeue` doesn't surface terminal states.
+
+---
+
+## Requested, not yet scheduled
+
+Open feature requests that are not committed to a milestone yet — surfaced here
+so they are visible during v1.9 planning.
+
+- **Job wait-time metrics** *([#118](https://github.com/SckyzO/slurm_exporter/issues/118))*
+  Median / histogram wait times (submit → start) broken down by cluster,
+  partition, account and user, for capacity planning and user-experience
+  trends. Feasible from `squeue -O submittime,starttime` (running) or
+  `sacct -X -o submit,start` (running + completed). Needs a cardinality and
+  collector-cost decision (histogram buckets, whether it rides on the opt-in
+  `sacct_efficiency` path) before it can be scoped into a release.
 
 ---
 
