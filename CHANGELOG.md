@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.4] - 2026-06-19
+
+A supply-chain and CI-hardening release. One operator-visible label fix
+(#69); no breaking changes. The bulk is defensive tooling, SHA/digest
+pinning, and a documentation overhaul.
+
+### 🐛 Bug Fixes
+
+- **`node` collector — default-partition `*` stripped from `slurm_node_*`
+  labels (#69):** `sinfo`'s `%P` field marks the default partition with a
+  trailing `*`, so `slurm_node_*` series for default-partition nodes were
+  labelled `partition="gpu*"` instead of `partition="gpu"` — splitting the
+  series and breaking label joins with every other collector. `node.go` now
+  applies the same `TrimRight(…, "*")` that `nodes.go` already did, with a
+  regression test and fixture.
+
+  **Operator-visible impact:** `slurm_node_*` series for default-partition
+  nodes change label value (`partition="<name>*"` → `"<name>"`). Update any
+  alert or dashboard selector that matched the trailing asterisk.
+
+### 🛡️ Defensive hardening
+
+- **Go toolchain bumped to 1.26.4 (#71):** picks up the stdlib fixes for
+  GO-2026-5039 and GO-2026-5037.
+- **OpenSSF Scorecard workflow (#83)** and **govulncheck call-graph scan
+  (#75)** added to CI, surfacing supply-chain and reachable-vulnerability
+  findings on every push.
+- **Third-party GitHub Actions pinned by commit SHA (#77)** and **Docker base
+  images pinned by digest (#92)** — closes Scorecard `PinnedDependencies`.
+- **Workflow write permissions scoped to the job (#90)** — closes Scorecard
+  `TokenPermissions`.
+- **Release signing migrated to cosign v3 / cosign-installer v4 (#104).**
+- **`SECURITY.md` added and linked from the README (#64),** with a summary of
+  security practices (#88).
+- Toolchain gains `gitleaks` (secret scan) and `osv-scanner` (#85), and
+  `make check` is gated on `zizmor` (Actions static analysis) (#80).
+
+### ✨ Features
+
+- **Lint + test on every PR** as the Definition-of-Done gate (#94).
+- **`CODEOWNERS`** added (#78).
+- **Scheduled image maintenance:** weekly rebuild of the last two stable image
+  lines (#57) and a monthly cron pruning dated immutable tags (#58).
+- **Docker Hub description synced** from `docker/README.md` (#51).
+
+### ⚙️ CI/CD
+
+- Migrated the GoReleaser Docker config to the `dockers_v2` layout (#50); copy
+  the binary from `$TARGETPLATFORM` for that layout (#107); pinned GoReleaser
+  to 2.15.4 ahead of the 2.16 layout change (#106).
+- Built `refresh` images per-arch so arm64 ships an arm64 binary (#63); skip
+  refresh tags without a single-stage Dockerfile (#62).
+- Dropped a redundant tag fetch from `dev-release` (#65); defined dev-release
+  build vars and removed the legacy `COSIGN_EXPERIMENTAL` (#87).
+- Added `deadcode` (`make deadcode`) (#98) and
+  `govulncheck`/`actionlint`/`shellcheck`/`zizmor` to the toolchain plus a
+  `make race` fix (#73). Bumped `docker/setup-{qemu,buildx}-action` to v4 (#52).
+
+### ♻️ Refactoring
+
+- Removed the unreachable single-partition path in the `nodes` collector
+  (#100).
+
+### 🧪 Tests & Quality
+
+- Removed orphaned legacy GPU fixtures (Slurm 17.11.2) (#102); fixed a broken
+  leftover shell fragment in `make stop` (#96).
+
+### 📋 Documentation
+
+- Restructured the main README to surface full project capability (#54), a
+  Docker Hub best-practices README (#53), folded Quick Start into Get Started
+  (#55), and enriched the PR template with a Make-targets section (#56).
+- Aligned `metrics.md` scheduler RPC label and fairshare descriptions with the
+  collector Help strings, aligned README/CONTRIBUTING collector and dashboard
+  counts, and bumped the documented Go toolchain to 1.26.4 (#105).
+
+### 🔧 Maintenance
+
+- Dependency bumps: `github.com/prometheus/common` (#67, #68),
+  `docker/build-push-action` 6 → 7 (#60), `peter-evans/dockerhub-description`
+  4 → 5 (#59).
+
 ## [1.8.3] - 2026-05-16
 
 ### 🐛 Bug Fixes
