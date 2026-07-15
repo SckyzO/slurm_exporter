@@ -319,7 +319,7 @@ Every published artifact carries verifiable provenance and is scanned for known 
 - 🛡️ **Vulnerability scanning** — Trivy scans both Docker variants on every PR that touches `Dockerfile*`, `go.mod`, or `go.sum`. PRs are blocked on HIGH/CRITICAL CVEs that have an upstream fix. A weekly cron re-scans the published images so post-release CVEs surface as workflow failures.
 - 👤 **Non-root by default** — the standard image runs as `slurmexporter` (uid 9341, gid `munge`); the minimal image runs as `nonroot` (uid 65532). Example compose drops all capabilities, mounts read-only, `no-new-privileges`.
 - 🪞 **Distroless variant** — the `:latest-minimal` tag runs on `gcr.io/distroless/cc-debian12:nonroot`: no shell, no package manager, no userland beyond the dynamic loader and libstdc++. Smallest viable attack surface for a binary that has to `dlopen` libmunge at runtime.
-- 🔁 **Reproducible build chain** — binaries built with pinned Go 1.26.4 in CI; Docker images from pinned `ubuntu:26.04` / `gcr.io/distroless/cc-debian12:nonroot` / `debian:13-slim` (libmunge extractor). All version bumps go through Dependabot PRs.
+- 🔁 **Reproducible build chain** — binaries built with pinned Go 1.26.5 in CI; Docker images from pinned `ubuntu:26.04` / `gcr.io/distroless/cc-debian12:nonroot` / `debian:13-slim` (libmunge extractor). All version bumps go through Dependabot PRs.
 
 Detailed verification recipes (cosign for blobs, SBOM inspection, image labels) in [`docker/README.md`](docker/README.md#supply-chain).
 
