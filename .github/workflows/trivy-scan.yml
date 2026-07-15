@@ -37,7 +37,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build Go binary in a Go container
-        # Compile inside golang:1.26.4-alpine to pin the stdlib version
+        # Compile inside golang:1.26.5-alpine to pin the stdlib version
         # embedded in the binary. setup-go + host build can drift to a
         # cached older patch version; the container guarantees what Trivy
         # will see.
@@ -48,7 +48,7 @@ jobs:
             -e CGO_ENABLED=0 \
             -e GOOS=linux \
             -e GOTOOLCHAIN=local \
-            golang:1.26.4-alpine \
+            golang:1.26.5-alpine \
             go build -ldflags "-s -w" -o ./linux/amd64/slurm_exporter ./cmd/slurm_exporter
       - name: Build standard image
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
@@ -75,7 +75,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build Go binary in a Go container
-        # Compile inside golang:1.26.4-alpine to pin the stdlib version
+        # Compile inside golang:1.26.5-alpine to pin the stdlib version
         # embedded in the binary. setup-go + host build can drift to a
         # cached older patch version; the container guarantees what Trivy
         # will see.
@@ -86,7 +86,7 @@ jobs:
             -e CGO_ENABLED=0 \
             -e GOOS=linux \
             -e GOTOOLCHAIN=local \
-            golang:1.26.4-alpine \
+            golang:1.26.5-alpine \
             go build -ldflags "-s -w" -o ./linux/amd64/slurm_exporter ./cmd/slurm_exporter
       - name: Build minimal image
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
