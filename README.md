@@ -361,4 +361,4 @@ This project is licensed under the GNU General Public License, version 3 or late
 
 Fork of [cea-hpc/slurm_exporter](https://github.com/cea-hpc/slurm_exporter), itself a fork of [vpenso/prometheus-slurm-exporter](https://github.com/vpenso/prometheus-slurm-exporter) (now apparently unmaintained).
 
-Looking ahead: for Slurm 25.11+ deployments with native OpenMetrics support, see the next-generation project at **[sckyzo/slurm_prometheus_exporter](https://github.com/sckyzo/slurm_prometheus_exporter/)**.
+Related project (not a replacement): **[sckyzo/slurm_prometheus_exporter](https://github.com/sckyzo/slurm_prometheus_exporter/)** is a separate, from-scratch exporter built around Slurm 25.11+'s native OpenMetrics endpoint — a different tool with a different scope. This exporter stays actively maintained for the broad metric and dashboard coverage the native endpoint doesn't provide.

@@ -20,10 +20,7 @@ best-effort basis.
 | Latest release | ✅ |
 | Older releases | ❌ |
 
-Only the latest release receives security fixes. This project is not actively
-maintained for Slurm 25.11+, which natively supports OpenMetrics for Prometheus
-— see [sckyzo/slurm_prometheus_exporter](https://github.com/sckyzo/slurm_prometheus_exporter/)
-for new deployments.
+Only the latest release receives security fixes.
 
 ## Security practices
 

@@ -97,20 +97,16 @@ so they are visible during v1.9 planning.
 
 ## Long-term, undecided
 
-- **Posture toward Slurm 25.11+**. Slurm 25.11 ships a native OpenMetrics
-  endpoint, which makes part of this exporter redundant for new
-  deployments. We need to decide whether to:
-  - position `slurm_exporter` as a back-compat tool for older Slurm
-    versions and gradually freeze new feature work,
-  - keep building on top of it because it offers metrics and dashboards
-    the native endpoint doesn't (per-user RPC stats, fairshare
-    sub-metrics, the dashboard suite, etc.),
-  - or evolve into a complement to the native endpoint, scraping it and
-    exposing higher-level / cross-cutting metrics.
-
-  The README currently mentions a freeze stance; that note pre-dates the
-  current backlog of contributions and probably needs revisiting once
-  we've seen how the v1.8.x line is used in the wild.
+- **Posture toward Slurm 25.11+** — *decided: keep evolving.* Slurm 25.11
+  ships a native OpenMetrics endpoint, but it exposes far fewer metrics than
+  this exporter (per-user RPC stats, fairshare sub-metrics, the dashboard
+  suite, etc.), so it does not replace it for most deployments. Decision:
+  `slurm_exporter` stays actively maintained and keeps gaining features; the
+  earlier freeze/deprecation wording has been removed from the README and
+  `SECURITY.md`. The separate, from-scratch
+  [sckyzo/slurm_prometheus_exporter](https://github.com/sckyzo/slurm_prometheus_exporter/)
+  wraps the native endpoint — a different tool with a different scope, not a
+  successor to this one.
 
 ---
 
