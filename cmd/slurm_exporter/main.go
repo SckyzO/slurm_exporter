@@ -118,10 +118,10 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"reservations":      func(l *logger.Logger) prometheus.Collector { return collector.NewReservationsCollector(l) },
 	"reservation_nodes": func(l *logger.Logger) prometheus.Collector { return collector.NewReservationNodesCollector(l) },
 	"licenses":          func(l *logger.Logger) prometheus.Collector { return collector.NewLicensesCollector(l) },
-	// sacct_efficiency constructor is overridden in main() with a signal-aware
-	// context so the background refresh goroutine is cancelled cleanly on
-	// SIGTERM/SIGINT (see issue #18). Left nil here — disabled-by-default
-	// means the constructor is never invoked through this map directly.
+	// Nil because the signal context does not exist yet at package-init time.
+	// main() replaces this entry with a signal-aware constructor before
+	// registerCollectors ranges over the map, so the goroutine is cancelled
+	// cleanly on SIGTERM/SIGINT (see issue #18).
 	"sacct_efficiency": nil,
 }
 
