@@ -146,7 +146,7 @@ cmd_start_monitoring() {
 cmd_wait_grafana() {
     docker ps --format '{{.Names}}' | grep -q grafana || return 0
     for i in $(seq 1 20); do
-        curl -s "${GRAFANA_URL}/api/health" 2>/dev/null | grep -q '"database": "ok"' && \
+        curl -s --max-time 5 "${GRAFANA_URL}/api/health" 2>/dev/null | grep -q '"database": "ok"' && \
             ok "Grafana ready" && return 0
         [ "$i" -eq 20 ] && warn "Grafana not ready after 60s" && return 0
         printf "."; sleep 3
@@ -265,7 +265,7 @@ cmd_deploy_exporter() {
         "exec $EXPORTER_BIN --web.listen-address=:${EXPORTER_PORT} \
              --log.level=info --command.timeout=10s > $EXPORTER_LOG 2>&1"
     sleep 2
-    if docker exec slurmctld curl -s "http://localhost:${EXPORTER_PORT}/healthz" 2>/dev/null | grep -q "ok"; then
+    if docker exec slurmctld curl -s --max-time 5 "http://localhost:${EXPORTER_PORT}/healthz" 2>/dev/null | grep -q "ok"; then
         ok "Exporter running on slurmctld:${EXPORTER_PORT}  (log: $EXPORTER_LOG)"
     else
         warn "Exporter health check failed — last lines of $EXPORTER_LOG:"
