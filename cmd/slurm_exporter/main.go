@@ -36,7 +36,6 @@ import (
 )
 
 var (
-	// Command-line flags for application configuration
 	commandTimeout = kingpin.Flag("command.timeout", "Timeout for executing Slurm commands.").Default("5s").Duration()
 	logLevel       = kingpin.Flag("log.level", "Only log messages with the given severity or above. One of: [debug, info, warn, error]").Default("info").Enum("debug", "info", "warn", "error")
 	logFormat      = kingpin.Flag("log.format", "Log format. One of: [json, text]").Default("text").Enum("json", "text")
@@ -233,7 +232,6 @@ func main() {
 		)
 	}
 
-	// Register enabled Slurm collectors
 	registerCollectors(reg, log)
 
 	log.Info("Starting Slurm Exporter server...")

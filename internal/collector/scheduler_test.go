@@ -70,14 +70,13 @@ func TestSchedulerRPCLineRe_HyphenatedUsername(t *testing.T) {
 }
 
 func TestParseSchedulerMetrics_JobCounters(t *testing.T) {
-	// Vérifie que les job counters sdiag sont bien parsés
 	data, err := os.ReadFile("../../test_data/sdiag.txt")
 	require.NoError(t, err)
 
 	sm := ParseSchedulerMetrics(data)
 
-	// Les counters peuvent être 0 dans le test_data (cluster idle)
-	// mais doivent être parsés sans panique
+	// The fixture is an idle cluster, so every counter can legitimately be 0.
+	// What this asserts is that they parse at all, without panicking.
 	assert.GreaterOrEqual(t, sm.jobsSubmitted, float64(0))
 	assert.GreaterOrEqual(t, sm.jobsStarted, float64(0))
 	assert.GreaterOrEqual(t, sm.jobsCompleted, float64(0))

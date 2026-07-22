@@ -152,21 +152,18 @@ func ParseTotalGPUs(data []byte) float64 {
 func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
 	var gm GPUsMetrics
 
-	// Get total GPU count
 	totalGPUsData, err := TotalGPUsData(logger)
 	if err != nil {
 		return nil, err
 	}
 	totalGPUs := ParseTotalGPUs(totalGPUsData)
 
-	// Get allocated GPU count
 	allocatedGPUsData, err := AllocatedGPUsData(logger)
 	if err != nil {
 		return nil, err
 	}
 	allocatedGPUs := ParseAllocatedGPUs(allocatedGPUsData)
 
-	// Get idle GPU count
 	idleGPUsData, err := IdleGPUsData(logger)
 	if err != nil {
 		return nil, err
@@ -190,7 +187,6 @@ func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
 	gm.other = otherGPUs
 	gm.total = totalGPUs
 
-	// Calculate utilization ratio
 	if totalGPUs > 0 {
 		gm.utilization = allocatedGPUs / totalGPUs
 	}
@@ -206,9 +202,9 @@ func AllocatedGPUsData(logger *logger.Logger) ([]byte, error) {
 
 // IdleGPUsData executes sinfo command to get idle and allocated GPU information.
 //
-// Trailing ":" on each field forces variable column widths; fixed widths
-// (was Gres:50, GresUsed:50) silently truncate rich GRES specs on busy GPU
-// nodes (multi-type GPUs, MIG slices), causing wrong GPU counts.
+// Trailing ":" on each field forces variable column widths. Fixed widths
+// silently truncate rich GRES specs on busy GPU nodes (multi-type GPUs, MIG
+// slices), causing wrong GPU counts.
 // See https://github.com/SckyzO/slurm_exporter/issues/10.
 func IdleGPUsData(logger *logger.Logger) ([]byte, error) {
 	args := []string{"-a", "-h", "--Format=Nodes: ,Gres: ,GresUsed:", "--state=idle,allocated"}

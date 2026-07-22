@@ -47,12 +47,12 @@ type SchedulerMetrics struct {
 	totalBackfilledJobsSinceStart float64 // Total backfilled jobs since Slurm start
 	totalBackfilledJobsSinceCycle float64 // Total backfilled jobs since stats cycle start
 	totalBackfilledHeterogeneous  float64 // Total backfilled heterogeneous job components
-	// Job lifecycle counters (since last stats reset)
-	jobsSubmitted         float64            // Jobs submitted since last stats reset
-	jobsStarted           float64            // Jobs started (dispatched) since last stats reset
-	jobsCompleted         float64            // Jobs completed since last stats reset
-	jobsCanceled          float64            // Jobs canceled since last stats reset
-	jobsFailed            float64            // Jobs failed since last stats reset
+	// Job lifecycle counters, all since the last stats reset.
+	jobsSubmitted         float64
+	jobsStarted           float64 // dispatched
+	jobsCompleted         float64
+	jobsCanceled          float64
+	jobsFailed            float64
 	rpcStatsCount         map[string]float64 // RPC call counts by operation
 	rpcStatsAvgTime       map[string]float64 // RPC average times by operation
 	rpcStatsTotalTime     map[string]float64 // RPC total times by operation
