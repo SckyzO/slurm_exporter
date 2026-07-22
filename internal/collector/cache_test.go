@@ -93,7 +93,8 @@ func TestTimedCache_ConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 
-	// All 20 goroutines should have gotten the result but fetch called ≤ twice
-	// (once for the initial fetch, potentially once more if TTL expired mid-test)
+	// The double-checked lock must collapse the 20 concurrent callers into a
+	// single fetch. The bound is loose (3, not 1) because a slow runner can let
+	// the 100ms TTL expire mid-test and trigger a legitimate re-fetch.
 	assert.LessOrEqual(t, calls.Load(), int32(3), "concurrent callers must not all re-fetch")
 }

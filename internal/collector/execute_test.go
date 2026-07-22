@@ -20,7 +20,8 @@ func TestExecuteWithBinPath(t *testing.T) {
 	err := os.WriteFile(fakeScript, []byte("#!/bin/sh\necho 'fake sinfo output'"), 0o755)
 	require.NoError(t, err)
 
-	// Override Execute with the real implementation (in case a test replaced it)
+	// binPath is package-level state: save and restore it so this test does not
+	// leak its temp directory into the rest of the package.
 	oldBinPath := binPath
 	SetBinPath(dir)
 	defer SetBinPath(oldBinPath)

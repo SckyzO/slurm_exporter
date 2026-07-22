@@ -195,9 +195,10 @@ type SacctEfficiencyCollector struct {
 	lastRefreshDesc   *prometheus.Desc
 
 	// done is closed when the background goroutine launched by Start() exits.
-	// Tests can wait on it after cancelling the context to ensure the
-	// goroutine is finished before tearing down package-level state (like the
-	// Execute mock). Unused in production.
+	// main() waits on it during graceful shutdown so the goroutine is finished
+	// before the process exits (issue #18). Tests also use it to synchronise
+	// teardown of package-level state, like the Execute mock, after cancelling
+	// the context.
 	done chan struct{}
 
 	logger *logger.Logger
