@@ -71,6 +71,7 @@ for i in $(seq 1 $NB); do
         --mem="${MEM}M" \
         --time="$MINUTES" \
         --job-name="$JOBNAME" \
+        --output=/dev/null \
         --wrap="sleep $DURATION" \
         --uid="$USER" 2>/dev/null; then
         count=$(($count + 1))
