@@ -1,0 +1,6 @@
+ReservationName=maint-158 StartTime=14:24:22 EndTime=16:24:22 Duration=02:00:00
+   Nodes=c[1-4] NodeCnt=4 CoreCnt=64 Features=(null) PartitionName=(null) Flags=MAINT,SPEC_NODES
+   TRES=cpu=128
+   AllowedPartitions=(null) QOS=(null)
+   Users=root Groups=(null) Accounts=(null) Licenses=(null) State=ACTIVE BurstBuffer=(null)
+   MaxStartDelay=(null)

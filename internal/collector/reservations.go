@@ -28,6 +28,12 @@ type ReservationInfo struct {
 	CoreCount float64
 	StartTime time.Time
 	EndTime   time.Time
+	// StartTimeRaw and EndTimeRaw hold the fields exactly as scontrol printed
+	// them, so an unreadable value can be named in a log line. A zero time
+	// with a non-empty raw field is a parse failure; both empty means scontrol
+	// never printed the field.
+	StartTimeRaw string
+	EndTimeRaw   string
 }
 
 // ReservationsCollector collects metrics about Slurm reservations.
@@ -102,13 +108,35 @@ func (c *ReservationsCollector) tryCollect(ch chan<- prometheus.Metric) error {
 		res := &reservations[i]
 		labels := []string{res.Name, res.State, res.Users, res.Nodes, res.Partition, res.Flags}
 		ch <- prometheus.MustNewConstMetric(c.info, prometheus.GaugeValue, 1, labels...)
-		ch <- prometheus.MustNewConstMetric(c.startTime, prometheus.GaugeValue, float64(res.StartTime.Unix()), res.Name)
-		ch <- prometheus.MustNewConstMetric(c.endTime, prometheus.GaugeValue, float64(res.EndTime.Unix()), res.Name)
+		c.emitTime(ch, c.startTime, res.Name, "StartTime", res.StartTime, res.StartTimeRaw)
+		c.emitTime(ch, c.endTime, res.Name, "EndTime", res.EndTime, res.EndTimeRaw)
 		ch <- prometheus.MustNewConstMetric(c.nodeCount, prometheus.GaugeValue, res.NodeCount, res.Name)
 		ch <- prometheus.MustNewConstMetric(c.coreCount, prometheus.GaugeValue, res.CoreCount, res.Name)
 	}
 
 	return nil
+}
+
+// emitTime publishes one reservation timestamp, or nothing when scontrol printed
+// a value slurmTimeLayout rejects.
+//
+// The zero time.Time was published as -62135596800, which places the reservation
+// in year 1 and reads as data: dashboards subtract it, thresholds compare it, and
+// nothing marks it invalid. An absent series is the only answer a consumer can
+// tell apart from a measurement. The WARN carries the raw value because that is
+// what points at the cause, almost always SLURM_TIME_FORMAT in the exporter's
+// environment. See issue #158.
+func (c *ReservationsCollector) emitTime(ch chan<- prometheus.Metric, desc *prometheus.Desc, name, field string, t time.Time, raw string) {
+	if !t.IsZero() {
+		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(t.Unix()), name)
+		return
+	}
+	if raw == "" {
+		return // scontrol did not print the field at all
+	}
+	c.logger.Warn("Unreadable reservation timestamp from scontrol; the metric is omitted for this reservation",
+		"reservation", name, "field", field, "value", raw, "expected_layout", slurmTimeLayout,
+		"hint", "SLURM_TIME_FORMAT must be unset or 'standard' in the exporter environment")
 }
 
 /*
@@ -144,10 +172,23 @@ func setReservationField(res *ReservationInfo, key, value string) {
 	case "CoreCnt":
 		res.CoreCount, _ = strconv.ParseFloat(value, 64)
 	case "StartTime":
-		res.StartTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
+		res.StartTimeRaw = value
+		res.StartTime = parseSlurmTime(value)
 	case "EndTime":
-		res.EndTime, _ = time.ParseInLocation(slurmTimeLayout, value, time.Local)
+		res.EndTimeRaw = value
+		res.EndTime = parseSlurmTime(value)
 	}
+}
+
+// parseSlurmTime reads one scontrol timestamp field. A value slurmTimeLayout
+// rejects yields the zero time.Time, which the collector reads as "do not
+// publish" rather than as a date in year 1. See issue #158.
+func parseSlurmTime(value string) time.Time {
+	t, err := time.ParseInLocation(slurmTimeLayout, value, time.Local)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 // parseReservations parses the output of `scontrol show reservation`. Records
