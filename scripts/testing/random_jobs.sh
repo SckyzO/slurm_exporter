@@ -43,9 +43,21 @@ for p in "${PARTITIONS[@]}"; do
         "$(scontrol show partition "$p" 2>/dev/null | tr ' ' '\n' | sed -n 's/^MaxTime=//p')")
 done
 
+# Slurm refuses a job asking for more memory than a node has, at submission
+# time: the largest CPU draw wanted NCPUS * MEM_PER_CPU = 16384 MB against nodes
+# that have 15867, and a quarter of the workload never existed (#168). Cap
+# against the smallest node so a capped job still fits anywhere.
+NODE_MEM=$(sinfo -h -o '%m' 2>/dev/null | sort -n | head -1)
+case "$NODE_MEM" in
+    ''|*[!0-9]*)
+        echo "  ! unexpected node memory '$NODE_MEM' — not capping" >&2
+        NODE_MEM=0 ;;
+esac
+
 echo "Submitting $NB random jobs..."
 count=0
 clamped=0
+capped=0
 for i in $(seq 1 $NB); do
     USER=${USERS[$RANDOM % ${#USERS[@]}]}
     ACCOUNT=${ACCOUNTS[$RANDOM % ${#ACCOUNTS[@]}]}
@@ -53,6 +65,10 @@ for i in $(seq 1 $NB); do
     DURATION=${DURATIONS[$RANDOM % ${#DURATIONS[@]}]}
     NCPUS=${CPU_COUNTS[$RANDOM % ${#CPU_COUNTS[@]}]}
     MEM=$(($NCPUS * $MEM_PER_CPU))
+    if [ "$NODE_MEM" -gt 0 ] && [ "$MEM" -gt "$NODE_MEM" ]; then
+        MEM=$NODE_MEM
+        capped=$(($capped + 1))
+    fi
     JOBNAME="rand-$(date +%s%N 2>/dev/null | tail -c5 || date +%s | tail -c5)"
 
     MINUTES=$(($DURATION / 60))
@@ -84,5 +100,6 @@ done
 echo ""
 echo "Submitted: $count / $NB jobs"
 [ "$clamped" -gt 0 ] && echo "Clamped:   $clamped job(s) to their partition's MaxTime"
+[ "$capped" -gt 0 ]  && echo "Capped:    $capped job(s) to the smallest node's memory (${NODE_MEM}M)"
 echo ""
 squeue --format="%.6i %.9P %.14j %.8u %.2t %.4C %R" | head -50
