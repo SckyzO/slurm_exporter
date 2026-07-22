@@ -74,9 +74,14 @@ c2|hw-fail|2026-04-01T09:00:00|down
 
 	mfs, err := reg.Gather()
 	require.NoError(t, err)
-	require.Len(t, mfs, 1)
-	assert.Equal(t, "slurm_node_drain_reason_info", mfs[0].GetName())
-	assert.Len(t, mfs[0].Metric, 2)
+	require.Len(t, mfs, 2, "the reason and its timestamp are two families since issue #141")
+
+	names := make([]string, 0, len(mfs))
+	for _, mf := range mfs {
+		names = append(names, mf.GetName())
+		assert.Len(t, mf.Metric, 2, mf.GetName())
+	}
+	assert.ElementsMatch(t, []string{"slurm_node_drain_reason_info", "slurm_node_drain_since_timestamp_seconds"}, names)
 }
 
 func TestDrainReasonCollector_EmptyCluster(t *testing.T) {

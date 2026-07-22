@@ -320,7 +320,24 @@ Zero cardinality overhead on healthy clusters.
 
 | Metric | Description | Labels |
 |---|---|---|
-| `slurm_node_drain_reason_info` | Always 1 — use labels for the reason and timestamp | `node`, `reason`, `since` |
+| `slurm_node_drain_reason_info` | Always 1; the reason label carries the text | `node`, `reason` |
+| `slurm_node_drain_since_timestamp_seconds` | Unix time at which the reason was set | `node` |
+
+The drain time is a value rather than a label, so a re-drain updates the node's
+existing series instead of creating a new one. How long a node has been drained,
+and why:
+
+```promql
+(time() - slurm_node_drain_since_timestamp_seconds)
+  * on(node) group_left(reason) slurm_node_drain_reason_info
+```
+
+`slurm_node_drain_since_timestamp_seconds` is absent for a node whose reason
+carries no timestamp, rather than zero, so the subtraction above never reports a
+drain that started in 1970. The exporter reads the timestamp in the default
+`sinfo` format (`2026-04-01T10:00:00`); setting `SLURM_TIME_FORMAT` to anything
+other than `standard` in the exporter's environment makes the field unreadable,
+which is logged at `WARN` once per affected node per scrape.
 
 ---
 
