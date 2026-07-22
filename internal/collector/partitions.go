@@ -135,16 +135,41 @@ func parsePartitionGPUs(data []byte, partitions map[string]*PartitionMetrics) {
 	}
 }
 
+// squeuePartitions normalises one line of squeue "%P" output into the partition
+// names it refers to.
+//
+// A pending job submitted with "sbatch -p a100,cpu" is reported as "a100,cpu",
+// and the default partition is reported as "cpu*" on the Slurm versions
+// described in queue.go. The map keys were stripped of the marker by
+// parsePartitionCPUs, so the same normalisation has to happen on the squeue
+// side or the lookup misses and the job is counted nowhere — see issue #140.
+func squeuePartitions(line string) []string {
+	names := strings.Split(line, ",")
+	for i, name := range names {
+		names[i] = strings.TrimRight(strings.TrimSpace(name), "*")
+	}
+	return names
+}
+
 // parsePartitionJobs counts pending and running jobs per partition from squeue output.
+//
+// A job pending in several partitions counts once in each, since it is queued
+// in each and contends for all of them. It runs in only one, so the sum of
+// slurm_partition_jobs_pending can exceed the cluster-wide pending count while
+// slurm_partition_jobs_running cannot.
 func parsePartitionJobs(pendingData, runningData []byte, partitions map[string]*PartitionMetrics) {
-	for _, partition := range strings.Split(string(pendingData), "\n") {
-		if _, exists := partitions[partition]; exists {
-			partitions[partition].jobPending++
+	for _, line := range strings.Split(string(pendingData), "\n") {
+		for _, name := range squeuePartitions(line) {
+			if pm, exists := partitions[name]; exists {
+				pm.jobPending++
+			}
 		}
 	}
-	for _, partition := range strings.Split(string(runningData), "\n") {
-		if _, exists := partitions[partition]; exists {
-			partitions[partition].jobRunning++
+	for _, line := range strings.Split(string(runningData), "\n") {
+		for _, name := range squeuePartitions(line) {
+			if pm, exists := partitions[name]; exists {
+				pm.jobRunning++
+			}
 		}
 	}
 }

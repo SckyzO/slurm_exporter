@@ -153,6 +153,16 @@ Provides metrics on CPU usage and pending jobs for each partition.
 | `slurm_partition_gpus_idle`      | Idle GPUs for partition | `partition` |
 | `slurm_partition_gpus_allocated` | Allocated GPUs for partition | `partition` |
 
+A job submitted to several partitions (`sbatch -p a100,cpu`) is queued in each
+of them and counts once in each, so `sum(slurm_partition_jobs_pending)` can be
+larger than the number of distinct pending jobs. A running job occupies a
+single partition, so the running count is not affected.
+
+These two metrics are not directly comparable to `slurm_jobs_pending` and
+`slurm_jobs_running`. The `partitions` collector passes `-a -r` to `squeue`, so
+it sees hidden partitions and expands every array element into its own job,
+while the `queue` collector does neither.
+
 ### `queue` Collector
 
 Provides detailed metrics on job states and resource usage.
