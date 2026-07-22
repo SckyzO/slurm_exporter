@@ -215,6 +215,13 @@ Provides metrics about active Slurm reservations.
 | `slurm_reservation_node_count` | The number of nodes allocated to the reservation | `reservation_name` |
 | `slurm_reservation_core_count` | The number of cores allocated to the reservation | `reservation_name` |
 
+Either timestamp is absent, rather than zero, when `scontrol` prints a value the
+exporter cannot read. The expected format is the `scontrol` default
+(`2026-07-22T14:24:22`); setting `SLURM_TIME_FORMAT` to anything other than
+`standard` in the exporter's environment makes the field unreadable, which is
+logged at `WARN` with the raw value. The other metrics of the reservation are
+still published.
+
 ### `reservation_nodes` Collector
 
 Provides per-reservation node state metrics, parsed from `scontrol show nodes -o`.
