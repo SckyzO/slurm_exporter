@@ -2,6 +2,7 @@ package collector
 
 import (
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -10,10 +11,40 @@ import (
 
 // DrainReasonMetrics holds the drain/down reason for a single node.
 type DrainReasonMetrics struct {
-	Node      string
-	Partition string
-	Reason    string
-	Since     string // ISO8601 timestamp when the reason was set
+	Node   string
+	Reason string
+	Since  string // raw sinfo "%H" field, kept for diagnostics
+	// SinceUnix is Since converted to a Unix timestamp, or 0 when sinfo
+	// reported no usable time. Zero means "do not export", never 1970.
+	SinceUnix float64
+}
+
+// parseDrainTime converts one sinfo "%H" field into a Unix timestamp, using the
+// same slurmTimeLayout every other Slurm timestamp in this package is read with.
+//
+// sinfo renders the field in the local zone of the host running the command,
+// which is the exporter host, so that is the zone it is read back in. Slurm
+// documents the "standard" SLURM_TIME_FORMAT as
+// year-month-dateThour:minute:second; a site that exports another value, or the
+// "relative" preset, produces strings this layout rejects. Those return 0, which
+// the collector treats as "no timestamp" rather than as 1970.
+func parseDrainTime(since string) float64 {
+	t, err := time.ParseInLocation(slurmTimeLayout, since, time.Local)
+	if err != nil {
+		return 0
+	}
+	return float64(t.Unix())
+}
+
+// drainTimeIsUnset reports whether sinfo said there is no timestamp, as opposed
+// to printing one this parser could not read. The first case is normal and
+// silent, the second is a misconfiguration worth logging.
+func drainTimeIsUnset(since string) bool {
+	switch strings.ToLower(since) {
+	case "", "unknown", "none", "n/a":
+		return true
+	}
+	return false
 }
 
 // ParseDrainReasonMetrics parses "sinfo -h -N -o '%N|%E|%H|%T'" output.
@@ -49,9 +80,10 @@ func ParseDrainReasonMetrics(input []byte) []DrainReasonMetrics {
 		}
 		seen[node] = true
 		results = append(results, DrainReasonMetrics{
-			Node:   node,
-			Reason: reason,
-			Since:  since,
+			Node:      node,
+			Reason:    reason,
+			Since:     since,
+			SinceUnix: parseDrainTime(since),
 		})
 	}
 	return results
@@ -66,17 +98,31 @@ func DrainReasonData(log *logger.Logger) ([]byte, error) {
 // DrainReasonCollector collects slurm_node_drain_reason_info for degraded nodes.
 type DrainReasonCollector struct {
 	info   *prometheus.Desc
+	since  *prometheus.Desc
 	logger *logger.Logger
 }
 
 // NewDrainReasonCollector creates a DrainReasonCollector.
+//
+// The drain timestamp is a value, not a label. Carried as a label it made every
+// re-drain of a node create a fresh series and orphan the previous one, so the
+// series count grew with operator activity over the lifetime of the TSDB instead
+// of with the number of drained nodes — see issue #141.
 func NewDrainReasonCollector(log *logger.Logger) *DrainReasonCollector {
 	return &DrainReasonCollector{
 		info: prometheus.NewDesc(
 			"slurm_node_drain_reason_info",
 			"Information about why a node is in drain or down state. "+
-				"Value is always 1 — use labels for the reason and timestamp.",
-			[]string{"node", "reason", "since"},
+				"Always 1; the reason label carries the text and "+
+				"slurm_node_drain_since_timestamp_seconds carries the time it was set.",
+			[]string{"node", "reason"},
+			nil,
+		),
+		since: prometheus.NewDesc(
+			"slurm_node_drain_since_timestamp_seconds",
+			"Unix timestamp at which the drain or down reason was set on the node. "+
+				"Absent when Slurm reports no timestamp.",
+			[]string{"node"},
 			nil,
 		),
 		logger: log,
@@ -85,6 +131,7 @@ func NewDrainReasonCollector(log *logger.Logger) *DrainReasonCollector {
 
 func (c *DrainReasonCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.info
+	ch <- c.since
 }
 
 func (c *DrainReasonCollector) Collect(ch chan<- prometheus.Metric) { _ = c.tryCollect(ch) }
@@ -97,12 +144,17 @@ func (c *DrainReasonCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	}
 	metrics := ParseDrainReasonMetrics(data)
 	for _, m := range metrics {
-		ch <- prometheus.MustNewConstMetric(
-			c.info,
-			prometheus.GaugeValue,
-			1,
-			m.Node, m.Reason, m.Since,
-		)
+		ch <- prometheus.MustNewConstMetric(c.info, prometheus.GaugeValue, 1, m.Node, m.Reason)
+
+		if m.SinceUnix > 0 {
+			ch <- prometheus.MustNewConstMetric(c.since, prometheus.GaugeValue, m.SinceUnix, m.Node)
+			continue
+		}
+		if !drainTimeIsUnset(m.Since) {
+			c.logger.Warn("Unreadable drain timestamp from sinfo; no slurm_node_drain_since_timestamp_seconds for this node",
+				"node", m.Node, "since", m.Since, "expected_layout", slurmTimeLayout,
+				"hint", "SLURM_TIME_FORMAT must be unset or 'standard' in the exporter environment")
+		}
 	}
 
 	return nil
