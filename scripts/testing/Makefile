@@ -20,7 +20,7 @@ LIB      := bash $(THIS_DIR)_lib.sh
 # ── Aliases so $(LIB) check-deps can be combined with other targets ───────────
 .PHONY: help setup start stop clean status workload workload-gpu \
         cancel-all node-fail node-restore redeploy redeploy-dashboards \
-        screenshots logs show-config check-deps
+        screenshots logs exporter-logs show-config check-deps
 
 .DEFAULT_GOAL := help
 
@@ -36,6 +36,7 @@ help:
 	@echo "    make start             Start an already-configured cluster"
 	@echo "    make stop              Stop cluster (data preserved)"
 	@echo "    make status            Show nodes, jobs, exporter health"
+	@echo "    make exporter-logs     Print the exporter log from the container"
 	@echo "    make workload [N=30]   Submit random jobs"
 	@echo "    make screenshots       Take Grafana dashboard screenshots"
 	@echo ""
@@ -110,6 +111,9 @@ status:
 	    [ -f "$(THIS_DIR)cluster.local.conf" ] && source "$(THIS_DIR)cluster.local.conf" || true; \
 	    echo "  Grafana    → $${GRAFANA_URL}"; \
 	    echo "  Prometheus → http://localhost:9090"'
+
+exporter-logs:
+	@$(LIB) exporter-logs
 
 # ── Workload ──────────────────────────────────────────────────────────────────
 N ?= 30

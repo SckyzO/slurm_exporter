@@ -60,10 +60,13 @@ This applies equally to PRs from contributors and to internal development.
    → Must return at least one series with a non-NaN value
 
 7. Log check
-   → No unexpected ERROR or WARN in exporter logs:
+   → Scrape once so every collector runs, then read the exporter's own log:
      docker exec slurmctld curl -s http://localhost:9341/metrics > /dev/null
+     make -C scripts/testing exporter-logs | grep -E 'level=(ERROR|WARN)'
+   → No unexpected ERROR or WARN. A collector that fails silently still
+     reports success, so this log is the only signal (see #147)
+   → slurmctld must not show increased error rate:
      docker exec slurmctld cat /var/log/slurm/slurmctld.log | grep -c ERROR
-   → slurmctld must not show increased error rate
 
 8. Dashboard validation (if dashboards were modified)
    → make -C scripts/testing screenshots OUTPUT=/tmp/pr-screenshots
