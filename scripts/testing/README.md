@@ -85,7 +85,25 @@ make redeploy             Rebuild exporter + reimport dashboards
 make redeploy-dashboards  Reimport dashboards only
 make show-config          Print effective configuration
 make logs                 Follow slurmctld + slurmdbd logs
+make exporter-logs        Print the exporter's own log
 ```
+
+### Reading the exporter log
+
+The exporter runs inside `slurmctld` with its output captured in
+`/tmp/slurm_exporter.log`; `docker logs slurmctld` shows the container's main
+process, not the exporter. Step 7 of the
+[Definition of Done](../../CONTRIBUTING.md#definition-of-done) reads that file:
+
+```bash
+docker exec slurmctld curl -s http://localhost:9341/metrics > /dev/null
+make exporter-logs | grep -E 'level=(ERROR|WARN)'
+```
+
+A collector whose command succeeds but whose output makes no sense still
+reports `slurm_exporter_collector_success` = 1 — the warning in this log is the
+only signal. `make redeploy` truncates the file, so it always belongs to the
+binary currently under test.
 
 ---
 

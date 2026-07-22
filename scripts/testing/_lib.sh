@@ -37,6 +37,11 @@ warn()    { echo -e "${YELLOW}  ⚠ $*${NC}"; }
 die()     { echo -e "${RED}  ✗ $*${NC}" >&2; exit 1; }
 step()    { echo -e "${CYAN}[$1]${NC} $2"; }
 
+# ── Exporter under test ───────────────────────────────────────────────────────
+EXPORTER_BIN=/usr/local/bin/slurm_exporter
+EXPORTER_PORT=9341
+EXPORTER_LOG=/tmp/slurm_exporter.log
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 slurm() { docker exec slurmctld "$@" 2>/dev/null; }
 
@@ -229,18 +234,50 @@ cmd_build_exporter() {
 }
 
 # ── deploy-exporter ───────────────────────────────────────────────────────────
+# Stops the exporter inside slurmctld and waits for the process to disappear.
+# The exporter ignores SIGTERM (#139), which is what `killall` and a bare
+# `pkill` send, so the first signal cannot be assumed to have worked. Returns
+# non-zero if a process is still there after the escalation to SIGKILL.
+_stop_exporter() {
+    docker exec slurmctld pkill -f "$EXPORTER_BIN" >/dev/null 2>&1 || true
+    for i in $(seq 1 10); do
+        docker exec slurmctld pgrep -f "$EXPORTER_BIN" >/dev/null 2>&1 || return 0
+        if [ "$i" -eq 3 ]; then
+            docker exec slurmctld pkill -9 -f "$EXPORTER_BIN" >/dev/null 2>&1 || true
+        fi
+        sleep 1
+    done
+    return 1
+}
+
 cmd_deploy_exporter() {
     info "Deploying exporter to slurmctld..."
-    docker cp "$REPO_ROOT/bin/slurm_exporter" slurmctld:/usr/local/bin/slurm_exporter
-    docker exec slurmctld chmod +x /usr/local/bin/slurm_exporter
-    docker exec slurmctld bash -c "killall slurm_exporter 2>/dev/null || true"
-    sleep 1
-    docker exec -d slurmctld /usr/local/bin/slurm_exporter \
-        --web.listen-address=:9341 --log.level=info --command.timeout=10s
+    docker cp "$REPO_ROOT/bin/slurm_exporter" "slurmctld:$EXPORTER_BIN"
+    docker exec slurmctld chmod +x "$EXPORTER_BIN"
+    _stop_exporter || die "An exporter is still running on slurmctld — refusing to
+  start a second one on port ${EXPORTER_PORT}. Its logs would be the old binary's."
+
+    # `docker exec -d` on the binary discards stdout and stderr, which leaves
+    # step 7 of the Definition of Done with nothing to read. Wrap it in a shell
+    # so the output lands in a file `make exporter-logs` can print. The log is
+    # truncated here: it belongs to the binary that is being deployed.
+    docker exec -d slurmctld sh -c \
+        "exec $EXPORTER_BIN --web.listen-address=:${EXPORTER_PORT} \
+             --log.level=info --command.timeout=10s > $EXPORTER_LOG 2>&1"
     sleep 2
-    docker exec slurmctld curl -s http://localhost:9341/healthz 2>/dev/null | grep -q "ok" && \
-        ok "Exporter running on slurmctld:9341" || \
-        warn "Exporter health check failed"
+    if docker exec slurmctld curl -s "http://localhost:${EXPORTER_PORT}/healthz" 2>/dev/null | grep -q "ok"; then
+        ok "Exporter running on slurmctld:${EXPORTER_PORT}  (log: $EXPORTER_LOG)"
+    else
+        warn "Exporter health check failed — last lines of $EXPORTER_LOG:"
+        docker exec slurmctld tail -n 20 "$EXPORTER_LOG" 2>/dev/null || warn "(no log file)"
+    fi
+}
+
+# ── exporter-logs ─────────────────────────────────────────────────────────────
+cmd_exporter_logs() {
+    docker exec slurmctld test -f "$EXPORTER_LOG" 2>/dev/null || die \
+        "No exporter log at slurmctld:$EXPORTER_LOG — deploy the exporter first: make redeploy"
+    docker exec slurmctld cat "$EXPORTER_LOG"
 }
 
 # ── import-dashboards ─────────────────────────────────────────────────────────
@@ -326,7 +363,7 @@ cmd_workload_gpu() {
 # ── stop ──────────────────────────────────────────────────────────────────────
 cmd_stop() {
     info "Stopping cluster (data preserved)..."
-    docker exec slurmctld bash -c "killall slurm_exporter 2>/dev/null || true" 2>/dev/null || true
+    _stop_exporter || warn "Exporter still running — the container is going down anyway"
     if [ -f "$CLUSTER_DIR/docker-compose.monitoring.yml" ]; then
         cd "$CLUSTER_DIR" && docker compose -f docker-compose.monitoring.yml down 2>/dev/null || true
     fi
@@ -337,7 +374,7 @@ cmd_stop() {
 # ── clean ──────────────────────────────────────────────────────────────────────
 cmd_clean() {
     warn "Removing all containers and volumes (irreversible)..."
-    docker exec slurmctld bash -c "killall slurm_exporter 2>/dev/null || true" 2>/dev/null || true
+    _stop_exporter || warn "Exporter still running — the container is going down anyway"
     if [ -f "$CLUSTER_DIR/docker-compose.monitoring.yml" ]; then
         cd "$CLUSTER_DIR" && docker compose -f docker-compose.monitoring.yml down -v 2>/dev/null || true
     fi
@@ -375,6 +412,7 @@ case "$CMD" in
     setup-partitions)   cmd_setup_partitions ;;
     build-exporter)     cmd_build_exporter ;;
     deploy-exporter)    cmd_deploy_exporter ;;
+    exporter-logs)      cmd_exporter_logs ;;
     import-dashboards)  cmd_import_dashboards ;;
     show-config)
         echo "CLUSTER_DIR    = $CLUSTER_DIR"
