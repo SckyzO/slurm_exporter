@@ -62,7 +62,12 @@ and reservation names have been replaced with generic equivalents).
 ## `collector/queue.go`
 
 - `squeue -h -o "%P|%T|%C|%r|%u" --states=all`: job states, cores, reason, user (pipe-delimited to safely handle commas in reason field). `--states=all` is what brings the terminal states into the output; it is dropped by `--no-collector.queue.terminal-states`.
-  - Test file: **`squeue.txt`**
+  - Test file: **`squeue.txt`** — captured on the `scripts/testing` cluster
+    (Slurm 25.11.2, 10 nodes) and covering eight states: RUNNING, PENDING,
+    SUSPENDED, CANCELLED, COMPLETED, FAILED, TIMEOUT and NODE_FAIL. PREEMPTED
+    needs `PreemptType` configured, COMPLETING lasts as long as an epilog and
+    CONFIGURING as long as a node boots, so those three are covered by a
+    hand-written input in `TestParseQueueMetricsUnreachableStates` instead.
 
 ## `collector/reservations.go`
 

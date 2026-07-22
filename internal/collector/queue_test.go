@@ -3,10 +3,16 @@ package collector
 import (
 	"io"
 	"os"
+	"sort"
+	"strings"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
 func TestParseQueueMetrics(t *testing.T) {
@@ -17,38 +23,65 @@ func TestParseQueueMetrics(t *testing.T) {
 
 	qm := ParseQueueMetrics(data)
 
-	// Running jobs
-	assert.Equal(t, 1.0, qm.running["foo"]["15306588"], "job 15306588 should be running in foo")
-	assert.Equal(t, 1.0, qm.running["bar"]["15452401"], "job 15452401 should be running in bar")
-	assert.Equal(t, 19, len(qm.running["foo"]), "19 running jobs for foo")
-	assert.Equal(t, 9, len(qm.running["bar"]), "9 running jobs for bar")
+	// Running, keyed [user][partition]. carol holds jobs in two partitions,
+	// the shape that matters and that the previous fixture could not express:
+	// its first column held job IDs, so every job had a partition of its own.
+	assert.Equal(t, 2.0, qm.running["carol"]["cpu"], "carol runs 2 jobs in cpu")
+	assert.Equal(t, 3.0, qm.running["carol"]["high"], "carol runs 3 jobs in high")
+	assert.Len(t, qm.running["carol"], 2, "carol runs in cpu and high, and nowhere else")
+	assert.Equal(t, 16.0, qm.cRunning["carol"]["cpu"])
+	assert.Equal(t, 14.0, qm.cRunning["carol"]["high"])
 
-	// Running cores (cRunning)
-	assert.Equal(t, 12.0, qm.cRunning["foo"]["15306588"])
-	assert.Equal(t, 12.0, qm.cRunning["bar"]["15452401"])
+	// Six users share three partitions: no partition belongs to one user.
+	assert.Equal(t, 3.0, qm.running["bob"]["cpu"])
+	assert.Equal(t, 2.0, qm.running["frank"]["high"])
 
-	// Pending jobs with reason
-	assert.Equal(t, 1.0, qm.pending["Licenses"]["bar"]["15452394"])
-	assert.Equal(t, 4, len(qm.pending["Licenses"]["bar"]), "4 pending jobs in bar with Licenses reason")
+	// Pending, keyed [reason][user][partition]. Slurm writes reasons as free
+	// text: this one carries spaces and a comma, and reaches Prometheus as a
+	// label value unchanged.
+	const nodesDown = "Nodes required for job are DOWN, DRAINED or reserved for jobs in higher priority partitions"
+	assert.Equal(t, 1.0, qm.pending[nodesDown]["frank"]["debug"])
+	assert.Equal(t, 4.0, qm.cPending[nodesDown]["frank"]["debug"])
+	assert.Equal(t, 2.0, qm.pending["Priority"]["carol"]["debug"])
+	assert.Equal(t, 1.0, qm.pending["Resources"]["eve"]["high"])
 
-	// Pending cores
-	assert.Equal(t, 12.0, qm.cPending["Licenses"]["bar"]["15452394"])
+	// Suspended, with its cores — regression for the copy-paste that
+	// incremented suspended twice instead of populating cSuspended.
+	assert.Equal(t, 1.0, qm.suspended["bob"]["high"], "suspended job count")
+	assert.Equal(t, 4.0, qm.cSuspended["bob"]["high"], "suspended core count must be populated")
 
-	// Suspended job and cores — verifies the cSuspended bug fix (was a copy-paste
-	// that incremented suspended twice instead of populating cSuspended).
-	assert.Equal(t, 1.0, qm.suspended["bar"]["15452466"], "suspended job count")
-	assert.Equal(t, 12.0, qm.cSuspended["bar"]["15452466"], "suspended core count must be populated (regression for copy-paste bug fix)")
+	// The other states the test cluster can reach
+	assert.Equal(t, 1.0, qm.timeout["alice"]["cpu"])
+	assert.Equal(t, 2.0, qm.cTimeout["alice"]["cpu"])
+	assert.Equal(t, 1.0, qm.nodeFail["carol"]["cpu"])
+	assert.Equal(t, 1.0, qm.failed["carol"]["high"])
+	assert.Equal(t, 1.0, qm.completed["dave"]["cpu"])
+	assert.Equal(t, 1.0, qm.completed["eve"]["cpu"])
+	assert.Equal(t, 3.0, qm.cancelled["alice"]["high"])
+	assert.Equal(t, 2.0, qm.cancelled["carol"]["high"])
+}
 
-	// Other states
-	assert.Equal(t, 1.0, qm.cancelled["bar"]["15452465"])
-	assert.Equal(t, 12.0, qm.cCancelled["bar"]["15452465"])
-	assert.Equal(t, 1.0, qm.failed["bar"]["15452426"])
-	assert.Equal(t, 1.0, qm.timeout["bar"]["15452258"])
-	assert.Equal(t, 1.0, qm.preempted["bar"]["15452448"])
-	assert.Equal(t, 1.0, qm.nodeFail["bar"]["15452441"])
-	assert.Equal(t, 1.0, qm.completed["bar"]["15452442"])
-	assert.Equal(t, 2, len(qm.completing["bar"]), "2 completing jobs in bar")
-	assert.Equal(t, 1.0, qm.configuring["foo"]["15452431"])
+// TestParseQueueMetricsUnreachableStates covers the three states
+// scripts/testing cannot produce: PREEMPTED needs PreemptType configured,
+// COMPLETING lasts as long as an epilog and CONFIGURING as long as a node
+// boots. These lines are written by hand, which the fixture never is — only
+// the state string is invented, the field layout is the documented
+// squeue -h -o "%P|%T|%C|%r|%u".
+func TestParseQueueMetricsUnreachableStates(t *testing.T) {
+	input := []byte(
+		"cpu|PREEMPTED|4|None|alice\n" +
+			"cpu|COMPLETING|2|None|bob\n" +
+			"high|COMPLETING|8|None|bob\n" +
+			"debug|CONFIGURING|1|None|carol\n")
+
+	qm := ParseQueueMetrics(input)
+
+	assert.Equal(t, 1.0, qm.preempted["alice"]["cpu"])
+	assert.Equal(t, 4.0, qm.cPreempted["alice"]["cpu"])
+	assert.Equal(t, 1.0, qm.completing["bob"]["cpu"])
+	assert.Equal(t, 1.0, qm.completing["bob"]["high"])
+	assert.Equal(t, 10.0, sumNVal(qm.cCompleting), "2 + 8 completing cores")
+	assert.Equal(t, 1.0, qm.configuring["carol"]["debug"])
 }
 
 // TestParseQueueMetricsEmpty verifies the parser handles empty input gracefully.
@@ -58,62 +91,78 @@ func TestParseQueueMetricsEmpty(t *testing.T) {
 	assert.Empty(t, qm.pending)
 }
 
-// TestPushAggregatedNVal verifies that the aggregation helper correctly collapses
-// the user dimension into partition-only totals for --no-collector.queue.user-label.
-func TestPushAggregatedNVal(t *testing.T) {
-	// user "alice" has 3 running in "gpu", user "bob" has 5 running in "gpu"
-	// and user "alice" has 2 running in "cpu"
-	m := NVal{
-		"alice": {"gpu": 3, "cpu": 2},
-		"bob":   {"gpu": 5},
-	}
+// collectPushed runs a push helper against a buffered channel and returns what
+// it emitted, keyed by label set: `a="1",b="2"`. The metric name is fixed by
+// the descriptor the caller hands to the helper, so it is not part of the key.
+func collectPushed(t *testing.T, push func(chan<- prometheus.Metric)) map[string]float64 {
+	t.Helper()
+	ch := make(chan prometheus.Metric, 64)
+	push(ch)
+	close(ch)
 
-	// Build Prometheus metrics via pushAggregatedNVal
-	aggregated := make(map[string]float64)
-	for _, partitionMap := range m {
-		for partition, val := range partitionMap {
-			aggregated[partition] += val
+	got := make(map[string]float64)
+	for m := range ch {
+		var pb dto.Metric
+		require.NoError(t, m.Write(&pb))
+
+		pairs := make([]string, 0, len(pb.GetLabel()))
+		for _, l := range pb.GetLabel() {
+			pairs = append(pairs, l.GetName()+`="`+l.GetValue()+`"`)
 		}
+		sort.Strings(pairs)
+		got[strings.Join(pairs, ",")] = pb.GetGauge().GetValue()
 	}
-	totals := aggregated
-
-	assert.Equal(t, 8.0, totals["gpu"], "alice(3) + bob(5) = 8 running in gpu")
-	assert.Equal(t, 2.0, totals["cpu"], "alice(2) = 2 running in cpu")
-	assert.Len(t, totals, 2, "only 2 partitions in aggregated output")
+	return got
 }
 
-// TestPushAggregatedNNVal verifies that the NNVal aggregation helper collapses
-// the user dimension to {partition, reason} for pending jobs.
+// TestPushAggregatedNVal calls the helper that serves
+// --no-collector.queue.user-label and checks the series it emits. The previous
+// version of this test reimplemented the aggregation in its own body and never
+// called the helper at all.
+func TestPushAggregatedNVal(t *testing.T) {
+	file, err := os.Open("../../test_data/squeue.txt")
+	require.NoError(t, err)
+	data, err := io.ReadAll(file)
+	require.NoError(t, err)
+	qm := ParseQueueMetrics(data)
+
+	// The collector built without the user label carries partition-only descs.
+	qc := NewQueueCollector(logger.NewLogger("error"), false, true)
+
+	got := collectPushed(t, func(ch chan<- prometheus.Metric) {
+		pushAggregatedNVal(qm.running, ch, qc.running, "")
+	})
+
+	// Six users collapse into two partitions: cpu 1+3+2+1+3 = 10, high 3+2 = 5.
+	assert.Equal(t, map[string]float64{
+		`partition="cpu"`:  10,
+		`partition="high"`: 5,
+	}, got, "slurm_queue_running: the user dimension must be gone, and nothing else with it")
+}
+
+// TestPushAggregatedNNVal calls the pending helper, which collapses the user
+// dimension to {partition, reason}.
 func TestPushAggregatedNNVal(t *testing.T) {
-	// reason "Resources": alice has 2 pending in "gpu", bob has 3 pending in "gpu" and 1 in "cpu"
-	m := NNVal{
-		"Resources": {
-			"alice": {"gpu": 2},
-			"bob":   {"gpu": 3, "cpu": 1},
-		},
-		"Priority": {
-			"carol": {"gpu": 4},
-		},
-	}
+	file, err := os.Open("../../test_data/squeue.txt")
+	require.NoError(t, err)
+	data, err := io.ReadAll(file)
+	require.NoError(t, err)
+	qm := ParseQueueMetrics(data)
 
-	aggregated := make(map[string]map[string]float64)
-	for reason, userMap := range m {
-		if aggregated[reason] == nil {
-			aggregated[reason] = make(map[string]float64)
-		}
-		for _, partitionMap := range userMap {
-			for partition, val := range partitionMap {
-				aggregated[reason][partition] += val
-			}
-		}
-	}
+	qc := NewQueueCollector(logger.NewLogger("error"), false, true)
 
-	// Resources/gpu: alice(2) + bob(3) = 5
-	assert.Equal(t, 5.0, aggregated["Resources"]["gpu"])
-	// Resources/cpu: bob(1) = 1
-	assert.Equal(t, 1.0, aggregated["Resources"]["cpu"])
-	// Priority/gpu: carol(4) = 4
-	assert.Equal(t, 4.0, aggregated["Priority"]["gpu"])
+	got := collectPushed(t, func(ch chan<- prometheus.Metric) {
+		pushAggregatedNNVal(qm.pending, ch, qc.pending)
+	})
+
+	// Priority/debug gathers alice(1), carol(2), dave(1), frank(1) = 5.
+	const nodesDown = "Nodes required for job are DOWN, DRAINED or reserved for jobs in higher priority partitions"
+	assert.Equal(t, map[string]float64{
+		`partition="debug",reason="` + nodesDown + `"`: 1,
+		`partition="debug",reason="Priority"`:          5,
+		`partition="high",reason="Priority"`:           1,
+		`partition="high",reason="Resources"`:          1,
+	}, got, "slurm_queue_pending: reason must survive aggregation, user must not")
 }
 
 // TestSumNVal verifies the global NVal aggregation helper.
@@ -136,8 +185,8 @@ func TestSumNNVal(t *testing.T) {
 	assert.Equal(t, 0.0, sumNNVal(NNVal{}), "empty map returns 0")
 }
 
-// TestGlobalQueueMetrics verifies the global totals using real test data.
-// These metrics must always be emitted even when 0.
+// TestGlobalQueueMetrics verifies the global totals against the fixture.
+// These metrics must always be emitted, even when 0.
 func TestGlobalQueueMetrics(t *testing.T) {
 	file, err := os.Open("../../test_data/squeue.txt")
 	require.NoError(t, err, "cannot open test data")
@@ -146,28 +195,24 @@ func TestGlobalQueueMetrics(t *testing.T) {
 
 	qm := ParseQueueMetrics(data)
 
-	// Running: 19 (foo) + 9 (bar) = 28 total
-	assert.Equal(t, 28.0, sumNVal(qm.running), "28 total running jobs")
+	assert.Equal(t, 15.0, sumNVal(qm.running), "15 running jobs")
+	assert.Equal(t, 8.0, sumNNVal(qm.pending), "8 pending jobs")
+	assert.Equal(t, 78.0, sumNVal(qm.cRunning), "78 running cores")
+	assert.Equal(t, 38.0, sumNNVal(qm.cPending), "38 pending cores")
 
-	// Pending: 4 jobs in bar with Licenses reason
-	assert.Equal(t, 4.0, sumNNVal(qm.pending), "4 total pending jobs")
-
-	// Cores running: 28 jobs × 12 cores = 336
-	assert.Equal(t, 336.0, sumNVal(qm.cRunning), "336 total running cores")
-
-	// Cores pending: 4 jobs × 12 cores = 48
-	assert.Equal(t, 48.0, sumNNVal(qm.cPending), "48 total pending cores")
-
-	// Single-job states
 	assert.Equal(t, 1.0, sumNVal(qm.suspended))
-	assert.Equal(t, 1.0, sumNVal(qm.cancelled))
+	assert.Equal(t, 24.0, sumNVal(qm.cancelled))
 	assert.Equal(t, 1.0, sumNVal(qm.failed))
 	assert.Equal(t, 1.0, sumNVal(qm.timeout))
-	assert.Equal(t, 1.0, sumNVal(qm.preempted))
 	assert.Equal(t, 1.0, sumNVal(qm.nodeFail))
-	assert.Equal(t, 1.0, sumNVal(qm.completed))
-	assert.Equal(t, 2.0, sumNVal(qm.completing))
-	assert.Equal(t, 1.0, sumNVal(qm.configuring))
+	assert.Equal(t, 2.0, sumNVal(qm.completed))
+
+	// The test cluster cannot produce these three; the parser paths that feed
+	// them are covered by TestParseQueueMetricsUnreachableStates. Asserting 0
+	// here keeps the fixture honest about what it contains.
+	assert.Equal(t, 0.0, sumNVal(qm.preempted))
+	assert.Equal(t, 0.0, sumNVal(qm.completing))
+	assert.Equal(t, 0.0, sumNVal(qm.configuring))
 }
 
 // TestGlobalQueueMetricsEmptyCluster verifies that global totals are 0 (not absent)
