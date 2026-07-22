@@ -45,11 +45,11 @@ func TestDrainReasonExportsSinceAsATimestamp(t *testing.T) {
 }
 
 // TestDrainReasonOmitsTimestampWhenSinfoReportsNone guards the other direction.
-// sinfo prints "Unknown" when the reason carries no time, and SLURM_TIME_FORMAT
-// can make it print something this parser does not read. Either way the node is
-// still drained and its reason still matters, but the timestamp must be absent
-// rather than zero: zero reads as 1970 and makes every time() subtraction wrong
-// by decades.
+// sinfo prints "Unknown" when the reason carries no time, and a layout the
+// parser does not read reaches the same place. Either way the node is still
+// drained and its reason still matters, but the timestamp must be absent rather
+// than zero: zero reads as 1970 and makes every time() subtraction wrong by
+// decades.
 func TestDrainReasonOmitsTimestampWhenSinfoReportsNone(t *testing.T) {
 	stubExecute(t, "c1|disk failure|Unknown|drained\n")
 	log := logger.NewLogger("error")

@@ -13,8 +13,9 @@ import (
 
 // relativeTimeReservation is real `scontrol show reservation` output, captured on
 // the scripts/testing cluster running Slurm 25.11.2 with SLURM_TIME_FORMAT set to
-// "relative". Execute never sets cmd.Env, so whatever value the exporter's own
-// environment holds reaches every Slurm command.
+// "relative". Execute now pins that variable, so this is no longer something a
+// site can cause; it is kept as the one real sample of a layout the parser has
+// to survive, for the day Slurm prints one the exporter does not know.
 func relativeTimeReservation(t *testing.T) string {
 	t.Helper()
 	data, err := os.ReadFile("../../test_data/sreservations_relative_time.txt")
@@ -66,9 +67,9 @@ func TestReservationOmitsOnlyTheUnreadableTimestamp(t *testing.T) {
 }
 
 // TestReservationStaysSilentWhenScontrolPrintsNoTimestamp separates the two ways
-// a timestamp can be missing. A field scontrol never printed is not something an
-// operator can fix by changing SLURM_TIME_FORMAT, so it must not raise that
-// warning. Only a field that was printed and could not be read does.
+// a timestamp can be missing. A field scontrol never printed is normal and says
+// nothing about the layout, so it must not raise the warning. Only a field that
+// was printed and could not be read does.
 func TestReservationStaysSilentWhenScontrolPrintsNoTimestamp(t *testing.T) {
 	stubExecute(t, "ReservationName=maint-158 Duration=02:00:00 NodeCnt=4 CoreCnt=64 Users=root State=ACTIVE\n")
 	log, logs := bufferLogger()

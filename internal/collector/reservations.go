@@ -123,9 +123,10 @@ func (c *ReservationsCollector) tryCollect(ch chan<- prometheus.Metric) error {
 // The zero time.Time was published as -62135596800, which places the reservation
 // in year 1 and reads as data: dashboards subtract it, thresholds compare it, and
 // nothing marks it invalid. An absent series is the only answer a consumer can
-// tell apart from a measurement. The WARN carries the raw value because that is
-// what points at the cause, almost always SLURM_TIME_FORMAT in the exporter's
-// environment. See issue #158.
+// tell apart from a measurement. The WARN carries the raw value because Execute
+// pins SLURM_TIME_FORMAT, so a value that still fails to parse is a layout the
+// exporter does not know, and the raw string is what identifies it. See issue
+// #158.
 func (c *ReservationsCollector) emitTime(ch chan<- prometheus.Metric, desc *prometheus.Desc, name, field string, t time.Time, raw string) {
 	if !t.IsZero() {
 		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(t.Unix()), name)
@@ -136,7 +137,7 @@ func (c *ReservationsCollector) emitTime(ch chan<- prometheus.Metric, desc *prom
 	}
 	c.logger.Warn("Unreadable reservation timestamp from scontrol; the metric is omitted for this reservation",
 		"reservation", name, "field", field, "value", raw, "expected_layout", slurmTimeLayout,
-		"hint", "SLURM_TIME_FORMAT must be unset or 'standard' in the exporter environment")
+		"hint", "the exporter pins SLURM_TIME_FORMAT=standard, so this layout is one it does not know: please report it with your Slurm version")
 }
 
 /*

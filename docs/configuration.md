@@ -113,6 +113,21 @@ This requires disabling all other collectors individually.
 
 ---
 
+## 🌍 Environment
+
+Slurm commands run with the environment the exporter itself was started with, so
+anything set in the systemd unit or the container reaches `sinfo`, `squeue`,
+`scontrol`, `sdiag`, `sshare` and `sacct`. `SLURM_CONF` is the usual one to set,
+when the configuration file is not where the Slurm binaries look for it.
+
+One variable is not inherited. `SLURM_TIME_FORMAT` is pinned to `standard` on
+every command, because the exporter parses the timestamps that come back and can
+read only that layout. Setting it for the exporter process has no effect.
+`standard` is also what Slurm uses when the variable is unset, so this changes
+nothing for a site that never set it.
+
+---
+
 ## 📡 Prometheus Configuration
 
 ```yaml

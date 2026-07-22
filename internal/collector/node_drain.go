@@ -25,9 +25,11 @@ type DrainReasonMetrics struct {
 // sinfo renders the field in the local zone of the host running the command,
 // which is the exporter host, so that is the zone it is read back in. Slurm
 // documents the "standard" SLURM_TIME_FORMAT as
-// year-month-dateThour:minute:second; a site that exports another value, or the
-// "relative" preset, produces strings this layout rejects. Those return 0, which
-// the collector treats as "no timestamp" rather than as 1970.
+// year-month-dateThour:minute:second, and Execute pins that format on every
+// Slurm command, so a string this layout rejects is a layout the exporter does
+// not know rather than a site that configured its environment differently.
+// Those return 0, which the collector treats as "no timestamp" rather than as
+// 1970.
 func parseDrainTime(since string) float64 {
 	t, err := time.ParseInLocation(slurmTimeLayout, since, time.Local)
 	if err != nil {
@@ -153,7 +155,7 @@ func (c *DrainReasonCollector) tryCollect(ch chan<- prometheus.Metric) error {
 		if !drainTimeIsUnset(m.Since) {
 			c.logger.Warn("Unreadable drain timestamp from sinfo; no slurm_node_drain_since_timestamp_seconds for this node",
 				"node", m.Node, "since", m.Since, "expected_layout", slurmTimeLayout,
-				"hint", "SLURM_TIME_FORMAT must be unset or 'standard' in the exporter environment")
+				"hint", "the exporter pins SLURM_TIME_FORMAT=standard, so this layout is one it does not know: please report it with your Slurm version")
 		}
 	}
 

@@ -98,6 +98,22 @@ func RegisterExecMetrics(reg prometheus.Registerer) {
 	})
 }
 
+// slurmCommandEnv returns the environment every Slurm command is run with: the
+// exporter's own, plus SLURM_TIME_FORMAT pinned to Slurm's "standard" layout.
+//
+// Slurm renders every timestamp according to that variable, and the exporter can
+// only read one layout. Inheriting it meant a value set for interactive use, in
+// /etc/profile.d or in a systemd unit, silently reached sinfo, squeue, scontrol,
+// sdiag, sshare and sacct, and the timestamps came back in a shape the parsers
+// reject. "standard" is already what Slurm uses when the variable is unset, so
+// pinning it changes nothing for a site that never set it. See issue #158.
+//
+// The rest of the environment is kept: Slurm commands need it, SLURM_CONF above
+// all. Duplicate keys are allowed here because exec keeps the last value.
+func slurmCommandEnv() []string {
+	return append(os.Environ(), "SLURM_TIME_FORMAT=standard")
+}
+
 // Execute is a wrapper around exec.CommandContext providing logging, timeout,
 // and performance instrumentation (duration histogram + error counter).
 // When binPath is set, command is resolved as filepath.Join(binPath, command).
@@ -115,6 +131,7 @@ var Execute = func(log *logger.Logger, command string, args []string) ([]byte, e
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, bin, args...) //nolint:gosec // G204: command is always a controlled Slurm binary, never user input
+	cmd.Env = slurmCommandEnv()
 	out, err := cmd.CombinedOutput()
 
 	elapsed := time.Since(start).Seconds()
