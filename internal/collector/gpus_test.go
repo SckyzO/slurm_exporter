@@ -16,7 +16,6 @@ func TestGPUsMetrics(t *testing.T) {
 		slurmVersion := strings.TrimPrefix(testDataPath, "../test_data/slurm-")
 		t.Logf("slurm-%s", slurmVersion)
 
-		// Read the input data from a file
 		file, err := os.Open(testDataPath + "/sinfo_gpus_allocated.txt")
 		if err != nil {
 			t.Fatalf("Can not open test data: %v", err)
@@ -25,7 +24,6 @@ func TestGPUsMetrics(t *testing.T) {
 		metrics := ParseAllocatedGPUs(data)
 		t.Logf("Allocated: %+v", metrics)
 
-		// Read the input data from a file
 		file, err = os.Open(testDataPath + "/sinfo_gpus_idle.txt")
 		if err != nil {
 			t.Fatalf("Can not open test data: %v", err)
@@ -34,7 +32,6 @@ func TestGPUsMetrics(t *testing.T) {
 		metrics = ParseIdleGPUs(data)
 		t.Logf("Idle: %+v", metrics)
 
-		// Read the input data from a file
 		file, err = os.Open(testDataPath + "/sinfo_gpus_total.txt")
 		if err != nil {
 			t.Fatalf("Can not open test data: %v", err)

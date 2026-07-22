@@ -50,7 +50,6 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		// Strip default-partition "*" marker (sinfo %P); matches nodes.go.
 		partition := strings.TrimRight(node[5], "*")
 
-		// Create new node metrics if it doesn't exist
 		if _, exists := nodes[nodeName]; !exists {
 			nodes[nodeName] = &NodeMetrics{0, 0, 0, 0, 0, 0, nodeStatus, []string{}}
 		}
@@ -74,7 +73,6 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		nodes[nodeName].cpuOther = cpuOther
 		nodes[nodeName].cpuTotal = cpuTotal
 
-		// Add the partition if it's not already in the list
 		nodes[nodeName].partitions = appendUnique(nodes[nodeName].partitions, partition)
 	}
 

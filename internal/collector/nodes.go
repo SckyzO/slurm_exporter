@@ -278,7 +278,6 @@ func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	for part, nm := range allPartitions {
-		// Create a slice of all the metric maps
 		allMaps := []map[string]float64{
 			nm.alloc, nm.comp, nm.down, nm.drain, nm.err, nm.fail,
 			nm.idle, nm.inval, nm.maint, nm.mix, nm.resv, nm.other, nm.planned,

@@ -63,13 +63,11 @@ var (
 	partitionGpuRe = regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
 )
 
-// parseGpuCount sums all gpu:*:N matches in a GRES string.
+// parseGpuCount sums every gpu:*:N match in a GRES string.
 //
-// A GRES string can list multiple GPU types on the same node, e.g.
-// "gpu:A100:4,gpu:H100:2" → 6. Previously this function only returned the
-// first match (4), causing slurm_partition_gpus_* to undercount on
-// multi-type GPU nodes. Aligned with gpus.go::parseGPUCount, which has
-// always iterated correctly.
+// A node can expose several GPU types at once ("gpu:A100:4,gpu:H100:2" → 6),
+// so matching only the first entry undercounts slurm_partition_gpus_*.
+// gpus.go::parseGPUCount applies the same rule.
 func parseGpuCount(gpuSpec string, re *regexp.Regexp) float64 {
 	var count = 0.0
 	for _, spec := range strings.Split(gpuSpec, ",") {
