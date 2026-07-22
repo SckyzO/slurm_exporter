@@ -301,11 +301,13 @@ func (sc *SchedulerCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- sc.userRPCStatsTotalTime
 }
 
-func (sc *SchedulerCollector) Collect(ch chan<- prometheus.Metric) {
+func (sc *SchedulerCollector) Collect(ch chan<- prometheus.Metric) { _ = sc.tryCollect(ch) }
+
+func (sc *SchedulerCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	sm, err := SchedulerGetMetrics(sc.logger)
 	if err != nil {
 		sc.logger.Error("Failed to get scheduler metrics", "err", err)
-		return
+		return err
 	}
 	ch <- prometheus.MustNewConstMetric(sc.jobsSubmitted, prometheus.GaugeValue, sm.jobsSubmitted)
 	ch <- prometheus.MustNewConstMetric(sc.jobsStarted, prometheus.GaugeValue, sm.jobsStarted)
@@ -342,6 +344,8 @@ func (sc *SchedulerCollector) Collect(ch chan<- prometheus.Metric) {
 	for user, value := range sm.userRPCStatsTotalTime {
 		ch <- prometheus.MustNewConstMetric(sc.userRPCStatsTotalTime, prometheus.GaugeValue, value, user)
 	}
+
+	return nil
 }
 
 // NewSchedulerCollector creates a new scheduler metrics collector

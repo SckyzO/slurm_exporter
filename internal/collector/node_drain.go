@@ -87,11 +87,13 @@ func (c *DrainReasonCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.info
 }
 
-func (c *DrainReasonCollector) Collect(ch chan<- prometheus.Metric) {
+func (c *DrainReasonCollector) Collect(ch chan<- prometheus.Metric) { _ = c.tryCollect(ch) }
+
+func (c *DrainReasonCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	data, err := DrainReasonData(c.logger)
 	if err != nil {
 		c.logger.Error("Failed to get drain reason data", "err", err)
-		return
+		return err
 	}
 	metrics := ParseDrainReasonMetrics(data)
 	for _, m := range metrics {
@@ -102,4 +104,6 @@ func (c *DrainReasonCollector) Collect(ch chan<- prometheus.Metric) {
 			m.Node, m.Reason, m.Since,
 		)
 	}
+
+	return nil
 }

@@ -303,7 +303,9 @@ func (qc *QueueCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- qc.jobsCoresPending
 }
 
-func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
+func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) { _ = qc.tryCollect(ch) }
+
+func (qc *QueueCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	qm, err := QueueGetMetrics(qc.logger)
 	if err != nil {
 		qc.logger.Error("Failed to get queue metrics", "err", err)
@@ -319,7 +321,7 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 			cPending:  make(NNVal), cRunning: make(NVal),
 		}
 		qc.emitGlobalTotals(ch, empty)
-		return
+		return err
 	}
 	if qc.withUserLabel {
 		for reason, values := range qm.pending {
@@ -375,6 +377,8 @@ func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	// Global totals: always emitted even when 0, regardless of withUserLabel.
 	qc.emitGlobalTotals(ch, qm)
+
+	return nil
 }
 
 // emitGlobalTotals emits the 13 cluster-wide job/core metrics.

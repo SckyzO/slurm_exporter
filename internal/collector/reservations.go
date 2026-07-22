@@ -83,17 +83,19 @@ func (c *ReservationsCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Collect is called by the Prometheus registry when collecting metrics.
-func (c *ReservationsCollector) Collect(ch chan<- prometheus.Metric) {
+func (c *ReservationsCollector) Collect(ch chan<- prometheus.Metric) { _ = c.tryCollect(ch) }
+
+func (c *ReservationsCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	data, err := c.reservationsData()
 	if err != nil {
 		c.logger.Error("Failed to fetch reservation data", "err", err)
-		return
+		return err
 	}
 
 	reservations, err := parseReservations(data)
 	if err != nil {
 		c.logger.Error("Failed to parse reservation data", "err", err)
-		return
+		return err
 	}
 
 	for i := range reservations {
@@ -105,6 +107,8 @@ func (c *ReservationsCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.nodeCount, prometheus.GaugeValue, res.NodeCount, res.Name)
 		ch <- prometheus.MustNewConstMetric(c.coreCount, prometheus.GaugeValue, res.CoreCount, res.Name)
 	}
+
+	return nil
 }
 
 /*
