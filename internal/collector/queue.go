@@ -37,8 +37,8 @@ type QueueMetrics struct {
 	cNodeFail    NVal
 }
 
-func QueueGetMetrics(logger *logger.Logger) (*QueueMetrics, error) {
-	data, err := QueueData(logger)
+func QueueGetMetrics(logger *logger.Logger, withTerminalStates bool) (*QueueMetrics, error) {
+	data, err := QueueData(logger, withTerminalStates)
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +159,23 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 /*
 QueueData executes the squeue command to retrieve queue information.
 Expected squeue output format: "%P,%T,%C,%r,%u" (Partition,State,CPUs,Reason,User).
+
+withTerminalStates adds --states=all. squeue reports pending and running jobs
+when it is not told which states to view, so nine of the eleven states below
+never appeared in its input and every metric built from them read a constant
+zero: slurm_jobs_failed said the cluster had never had a failure. Asking for all
+states is what turns those series back into a measurement. See issue #27.
+
+The window is bounded by MinJobAge (slurm.conf, 300s by default): slurmctld
+forgets a terminated job once it is older than that, so a job counts here for as
+long as the controller still remembers it and no longer.
 */
-func QueueData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{"-h", "-o", "%P|%T|%C|%r|%u"})
+func QueueData(logger *logger.Logger, withTerminalStates bool) ([]byte, error) {
+	args := []string{"-h", "-o", "%P|%T|%C|%r|%u"}
+	if withTerminalStates {
+		args = append(args, "--states=all")
+	}
+	return Execute(logger, "squeue", args)
 }
 
 /*
@@ -173,7 +187,7 @@ func QueueData(logger *logger.Logger) ([]byte, error) {
 // NewQueueCollector creates a queue metrics collector.
 // When withUserLabel is false, the user label is omitted and counts are
 // aggregated per partition only, reducing cardinality on large clusters.
-func NewQueueCollector(logger *logger.Logger, withUserLabel bool) *QueueCollector {
+func NewQueueCollector(logger *logger.Logger, withUserLabel, withTerminalStates bool) *QueueCollector {
 	var labelsJob, labelsPending []string
 	if withUserLabel {
 		labelsJob = []string{"user", "partition"}
@@ -183,29 +197,30 @@ func NewQueueCollector(logger *logger.Logger, withUserLabel bool) *QueueCollecto
 		labelsPending = []string{"partition", "reason"}
 	}
 	return &QueueCollector{
-		withUserLabel:    withUserLabel,
-		pending:          prometheus.NewDesc("slurm_queue_pending", "Pending jobs in queue", labelsPending, nil),
-		running:          prometheus.NewDesc("slurm_queue_running", "Running jobs in the cluster", labelsJob, nil),
-		suspended:        prometheus.NewDesc("slurm_queue_suspended", "Suspended jobs in the cluster", labelsJob, nil),
-		cancelled:        prometheus.NewDesc("slurm_queue_cancelled", "Cancelled jobs in the cluster", labelsJob, nil),
-		completing:       prometheus.NewDesc("slurm_queue_completing", "Completing jobs in the cluster", labelsJob, nil),
-		completed:        prometheus.NewDesc("slurm_queue_completed", "Completed jobs in the cluster", labelsJob, nil),
-		configuring:      prometheus.NewDesc("slurm_queue_configuring", "Configuring jobs in the cluster", labelsJob, nil),
-		failed:           prometheus.NewDesc("slurm_queue_failed", "Number of failed jobs", labelsJob, nil),
-		timeout:          prometheus.NewDesc("slurm_queue_timeout", "Jobs stopped by timeout", labelsJob, nil),
-		preempted:        prometheus.NewDesc("slurm_queue_preempted", "Number of preempted jobs", labelsJob, nil),
-		nodeFail:         prometheus.NewDesc("slurm_queue_node_fail", "Number of jobs stopped due to node fail", labelsJob, nil),
-		coresPending:     prometheus.NewDesc("slurm_cores_pending", "Pending cores in queue", labelsPending, nil),
-		coresRunning:     prometheus.NewDesc("slurm_cores_running", "Running cores in the cluster", labelsJob, nil),
-		coresSuspended:   prometheus.NewDesc("slurm_cores_suspended", "Suspended cores in the cluster", labelsJob, nil),
-		coresCancelled:   prometheus.NewDesc("slurm_cores_cancelled", "Cancelled cores in the cluster", labelsJob, nil),
-		coresCompleting:  prometheus.NewDesc("slurm_cores_completing", "Completing cores in the cluster", labelsJob, nil),
-		coresCompleted:   prometheus.NewDesc("slurm_cores_completed", "Completed cores in the cluster", labelsJob, nil),
-		coresConfiguring: prometheus.NewDesc("slurm_cores_configuring", "Configuring cores in the cluster", labelsJob, nil),
-		coresFailed:      prometheus.NewDesc("slurm_cores_failed", "Number of failed cores", labelsJob, nil),
-		coresTimeout:     prometheus.NewDesc("slurm_cores_timeout", "Cores stopped by timeout", labelsJob, nil),
-		coresPreempted:   prometheus.NewDesc("slurm_cores_preempted", "Number of preempted cores", labelsJob, nil),
-		coresNodeFail:    prometheus.NewDesc("slurm_cores_node_fail", "Number of cores stopped due to node fail", labelsJob, nil),
+		withUserLabel:      withUserLabel,
+		withTerminalStates: withTerminalStates,
+		pending:            prometheus.NewDesc("slurm_queue_pending", "Pending jobs in queue", labelsPending, nil),
+		running:            prometheus.NewDesc("slurm_queue_running", "Running jobs in the cluster", labelsJob, nil),
+		suspended:          prometheus.NewDesc("slurm_queue_suspended", "Suspended jobs in the cluster", labelsJob, nil),
+		cancelled:          prometheus.NewDesc("slurm_queue_cancelled", "Cancelled jobs in the cluster", labelsJob, nil),
+		completing:         prometheus.NewDesc("slurm_queue_completing", "Completing jobs in the cluster", labelsJob, nil),
+		completed:          prometheus.NewDesc("slurm_queue_completed", "Completed jobs in the cluster", labelsJob, nil),
+		configuring:        prometheus.NewDesc("slurm_queue_configuring", "Configuring jobs in the cluster", labelsJob, nil),
+		failed:             prometheus.NewDesc("slurm_queue_failed", "Number of failed jobs", labelsJob, nil),
+		timeout:            prometheus.NewDesc("slurm_queue_timeout", "Jobs stopped by timeout", labelsJob, nil),
+		preempted:          prometheus.NewDesc("slurm_queue_preempted", "Number of preempted jobs", labelsJob, nil),
+		nodeFail:           prometheus.NewDesc("slurm_queue_node_fail", "Number of jobs stopped due to node fail", labelsJob, nil),
+		coresPending:       prometheus.NewDesc("slurm_cores_pending", "Pending cores in queue", labelsPending, nil),
+		coresRunning:       prometheus.NewDesc("slurm_cores_running", "Running cores in the cluster", labelsJob, nil),
+		coresSuspended:     prometheus.NewDesc("slurm_cores_suspended", "Suspended cores in the cluster", labelsJob, nil),
+		coresCancelled:     prometheus.NewDesc("slurm_cores_cancelled", "Cancelled cores in the cluster", labelsJob, nil),
+		coresCompleting:    prometheus.NewDesc("slurm_cores_completing", "Completing cores in the cluster", labelsJob, nil),
+		coresCompleted:     prometheus.NewDesc("slurm_cores_completed", "Completed cores in the cluster", labelsJob, nil),
+		coresConfiguring:   prometheus.NewDesc("slurm_cores_configuring", "Configuring cores in the cluster", labelsJob, nil),
+		coresFailed:        prometheus.NewDesc("slurm_cores_failed", "Number of failed cores", labelsJob, nil),
+		coresTimeout:       prometheus.NewDesc("slurm_cores_timeout", "Cores stopped by timeout", labelsJob, nil),
+		coresPreempted:     prometheus.NewDesc("slurm_cores_preempted", "Number of preempted cores", labelsJob, nil),
+		coresNodeFail:      prometheus.NewDesc("slurm_cores_node_fail", "Number of cores stopped due to node fail", labelsJob, nil),
 		// Global totals — no labels, always emitted even when 0
 		jobsPending:      prometheus.NewDesc("slurm_jobs_pending", "Total pending jobs in the cluster", nil, nil),
 		jobsRunning:      prometheus.NewDesc("slurm_jobs_running", "Total running jobs in the cluster", nil, nil),
@@ -248,6 +263,9 @@ type QueueCollector struct {
 	coresPreempted   *prometheus.Desc
 	coresNodeFail    *prometheus.Desc
 	withUserLabel    bool
+	// withTerminalStates asks squeue for every job state rather than only the
+	// pending and running ones it reports by default. See issue #27.
+	withTerminalStates bool
 	// Global totals — no labels, always emitted even when 0
 	jobsPending      *prometheus.Desc
 	jobsRunning      *prometheus.Desc
@@ -306,7 +324,7 @@ func (qc *QueueCollector) Describe(ch chan<- *prometheus.Desc) {
 func (qc *QueueCollector) Collect(ch chan<- prometheus.Metric) { _ = qc.tryCollect(ch) }
 
 func (qc *QueueCollector) tryCollect(ch chan<- prometheus.Metric) error {
-	qm, err := QueueGetMetrics(qc.logger)
+	qm, err := QueueGetMetrics(qc.logger, qc.withTerminalStates)
 	if err != nil {
 		qc.logger.Error("Failed to get queue metrics", "err", err)
 		// Emit global totals at 0 so they remain present in Prometheus

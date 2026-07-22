@@ -129,6 +129,7 @@ docker exec slurmctld bash -c '
     --collector.partitions \
     --collector.queue \
     --collector.queue.user-label \
+    --collector.queue.terminal-states \
     --collector.reservations \
     --collector.sacct_efficiency \
     --collector.sacct.interval=30s \

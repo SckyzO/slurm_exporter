@@ -61,7 +61,7 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/queue.go`
 
-- `squeue -h -o "%P|%T|%C|%r|%u"`: job states, cores, reason, user (pipe-delimited to safely handle commas in reason field).
+- `squeue -h -o "%P|%T|%C|%r|%u" --states=all`: job states, cores, reason, user (pipe-delimited to safely handle commas in reason field). `--states=all` is what brings the terminal states into the output; it is dropped by `--no-collector.queue.terminal-states`.
   - Test file: **`squeue.txt`**
 
 ## `collector/reservations.go`

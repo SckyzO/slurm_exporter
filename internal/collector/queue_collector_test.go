@@ -22,7 +22,7 @@ func TestQueueCollector_Collect(t *testing.T) {
 	}
 
 	log := logger.NewLogger("error")
-	c := NewQueueCollector(log, true)
+	c := NewQueueCollector(log, true, true)
 	reg := prometheus.NewRegistry()
 	require.NoError(t, reg.Register(c))
 
@@ -41,7 +41,7 @@ func TestQueueCollector_Collect(t *testing.T) {
 
 func TestQueueCollector_Describe(t *testing.T) {
 	log := logger.NewLogger("error")
-	c := NewQueueCollector(log, true)
+	c := NewQueueCollector(log, true, true)
 	ch := make(chan *prometheus.Desc, 50)
 	c.Describe(ch)
 	close(ch)
@@ -69,7 +69,7 @@ func TestQueueCollector_EmitsSuspendedMetrics(t *testing.T) {
 	for _, withUserLabel := range []bool{true, false} {
 		t.Run(fmtBool("withUserLabel", withUserLabel), func(t *testing.T) {
 			log := logger.NewLogger("error")
-			c := NewQueueCollector(log, withUserLabel)
+			c := NewQueueCollector(log, withUserLabel, true)
 			reg := prometheus.NewRegistry()
 			require.NoError(t, reg.Register(c))
 
@@ -124,7 +124,7 @@ func TestQueueCollector_ErrorEmitsGlobalTotals(t *testing.T) {
 	}
 
 	log := logger.NewLogger("error")
-	c := NewQueueCollector(log, false)
+	c := NewQueueCollector(log, false, true)
 	reg := prometheus.NewRegistry()
 	require.NoError(t, reg.Register(c))
 
