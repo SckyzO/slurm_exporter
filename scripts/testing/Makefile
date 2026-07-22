@@ -88,14 +88,6 @@ stop:
 clean:
 	@$(LIB) clean
 
-	    [ -f "$(THIS_DIR)cluster.local.conf" ] && source "$(THIS_DIR)cluster.local.conf" || true; \
-	    [ -z "$${CLUSTER_DIR:-}" ] && CLUSTER_DIR="$${HOME}/slurm-docker-cluster"; \
-	    docker exec slurmctld bash -c "pkill -f slurm_exporter 2>/dev/null || true" 2>/dev/null || true; \
-	    [ -f "$${CLUSTER_DIR}/docker-compose.monitoring.yml" ] && \
-	        cd "$${CLUSTER_DIR}" && docker compose -f docker-compose.monitoring.yml down -v 2>/dev/null || true; \
-	    cd "$${CLUSTER_DIR}" && docker compose down -v'
-	@echo "  ✓ Full clean complete"
-
 # ── Status ────────────────────────────────────────────────────────────────────
 status:
 	@echo "=== Nodes ==="
@@ -163,9 +155,6 @@ show-config:
 
 logs:
 	@$(LIB) logs
-
-	    [ -f "$(THIS_DIR)cluster.local.conf" ] && source "$(THIS_DIR)cluster.local.conf" || true; \
-	    cd "$${CLUSTER_DIR}" && docker compose logs -f slurmctld slurmdbd'
 
 check-deps:
 	@$(LIB) check-deps
