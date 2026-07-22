@@ -333,6 +333,15 @@ slurm_cores_running{partition="gpu",user="alice"} 128
 slurm_cores_running{partition="cpu",user="bob"} 384
 ```
 
+A single job submitted with `sbatch -p debug,high` appears once per partition,
+while the cluster-wide total still counts it once:
+
+```
+slurm_queue_pending{partition="debug",reason="JobHeldUser",user="alice"} 1
+slurm_queue_pending{partition="high",reason="JobHeldUser",user="alice"} 1
+slurm_jobs_pending 1
+```
+
 ### With `--no-collector.queue.user-label`
 
 The `user` label is dropped; counts are aggregated per partition.
