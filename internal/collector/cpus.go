@@ -75,14 +75,18 @@ func (cc *CPUsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cc.other
 	ch <- cc.total
 }
-func (cc *CPUsCollector) Collect(ch chan<- prometheus.Metric) {
+func (cc *CPUsCollector) Collect(ch chan<- prometheus.Metric) { _ = cc.tryCollect(ch) }
+
+func (cc *CPUsCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	cm, err := CPUsGetMetrics(cc.logger)
 	if err != nil {
 		cc.logger.Error("Failed to get CPUs metrics", "err", err)
-		return
+		return err
 	}
 	ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm.alloc)
 	ch <- prometheus.MustNewConstMetric(cc.idle, prometheus.GaugeValue, cm.idle)
 	ch <- prometheus.MustNewConstMetric(cc.other, prometheus.GaugeValue, cm.other)
 	ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, cm.total)
+
+	return nil
 }
