@@ -105,7 +105,7 @@ status:
 	@docker exec slurmctld squeue --format="%.6i %.9P %.16j %.8u %.2t %.4C" 2>/dev/null | head -22 || true
 	@echo ""
 	@echo "=== Exporter ==="
-	@docker exec slurmctld curl -s http://localhost:9341/healthz 2>/dev/null || echo "  not running"
+	@docker exec slurmctld curl -s --max-time 5 http://localhost:9341/healthz 2>/dev/null || echo "  not running"
 	@echo ""
 	@bash -c 'source $(THIS_DIR)cluster.conf; \
 	    [ -f "$(THIS_DIR)cluster.local.conf" ] && source "$(THIS_DIR)cluster.local.conf" || true; \
