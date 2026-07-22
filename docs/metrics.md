@@ -216,11 +216,11 @@ Provides metrics about active Slurm reservations.
 | `slurm_reservation_core_count` | The number of cores allocated to the reservation | `reservation_name` |
 
 Either timestamp is absent, rather than zero, when `scontrol` prints a value the
-exporter cannot read. The expected format is the `scontrol` default
-(`2026-07-22T14:24:22`); setting `SLURM_TIME_FORMAT` to anything other than
-`standard` in the exporter's environment makes the field unreadable, which is
-logged at `WARN` with the raw value. The other metrics of the reservation are
-still published.
+exporter cannot read. The exporter pins `SLURM_TIME_FORMAT=standard` on every
+Slurm command, so the field comes back as `2026-07-22T14:24:22` whatever the
+exporter's own environment holds. A value that still fails to parse is logged at
+`WARN` with the raw string, and the other metrics of the reservation are still
+published.
 
 ### `reservation_nodes` Collector
 
@@ -341,10 +341,10 @@ and why:
 
 `slurm_node_drain_since_timestamp_seconds` is absent for a node whose reason
 carries no timestamp, rather than zero, so the subtraction above never reports a
-drain that started in 1970. The exporter reads the timestamp in the default
-`sinfo` format (`2026-04-01T10:00:00`); setting `SLURM_TIME_FORMAT` to anything
-other than `standard` in the exporter's environment makes the field unreadable,
-which is logged at `WARN` once per affected node per scrape.
+drain that started in 1970. The exporter pins `SLURM_TIME_FORMAT=standard` on
+every Slurm command, so the field comes back as `2026-04-01T10:00:00` whatever
+the exporter's own environment holds. A value that still fails to parse is
+logged at `WARN` once per affected node per scrape.
 
 ---
 
