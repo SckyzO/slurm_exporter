@@ -211,7 +211,18 @@ DOCKER_BUILD_ARGS = \
 # the docker binary, so `docker run … --version` reports the right metadata.
 # The Dockerfile's build-args populate the OCI labels on top — same
 # information, different surface.
-DOCKER_PLATFORM := linux/$(shell go env GOARCH)
+# Host arch in Go nomenclature, which is what BuildKit normalises TARGETPLATFORM
+# to — the binary path and the --platform flag must agree with the Dockerfile's
+# `COPY $TARGETPLATFORM/slurm_exporter`.
+#
+# Lazily expanded (`=`, not `:=`) on purpose: the rest of this Makefile runs
+# containerised and needs Docker only, so nothing should spawn `go` on the host
+# unless a docker-build* target actually runs.
+#
+# Fallback for hosts without a Go toolchain: uname. Its arch names differ from
+# Go's, so map the two we ship for; anything else passes through unchanged and
+# will surface as an explicit docker error rather than a silent empty platform.
+DOCKER_PLATFORM = linux/$(shell go env GOARCH 2>/dev/null || uname -m | sed -e 's/^x86_64$$/amd64/' -e 's/^aarch64$$/arm64/')
 
 # ldflags pulled from the build target so both paths stay in sync.
 DOCKER_GO_LDFLAGS = -s -w \
