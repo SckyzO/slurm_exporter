@@ -273,7 +273,7 @@ primary state (token before the first `+`).
 | `slurm_reservation_nodes_drain` | Drained nodes in reservation | `reservation` |
 | `slurm_reservation_nodes_planned` | Planned nodes in reservation | `reservation` |
 | `slurm_reservation_nodes_other` | Nodes in other states | `reservation` |
-| `slurm_reservation_nodes_healthy` | Healthy nodes (alloc+idle+mix+planned) | `reservation` |
+| `slurm_reservation_nodes_healthy` | Healthy nodes (up base state, not drained) | `reservation` |
 
 ---
 

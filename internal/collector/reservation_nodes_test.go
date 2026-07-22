@@ -8,63 +8,76 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestParseReservationNodesMetrics runs against a real "scontrol show nodes -o"
+// capture (Slurm 25.11.2) with two reservations, including drained nodes inside
+// a maintenance reservation. Regression test for issue #142: DRAIN is a state
+// flag, not the primary state, so a MIXED+DRAIN node must land in both the mix
+// and drain buckets and must NOT be counted healthy.
 func TestParseReservationNodesMetrics(t *testing.T) {
 	data, err := os.ReadFile("../../test_data/scontrol_nodes_reservation.txt")
 	require.NoError(t, err, "cannot open test data")
 
 	metrics := ParseReservationNodesMetrics(data)
 
-	// The test data has 5 GPU nodes in "maintenance-2026" reservation:
-	//   gpu-node-0: ALLOCATED+MAINTENANCE+RESERVED -> alloc
-	//   gpu-node-1: IDLE+MAINTENANCE+RESERVED      -> idle
-	//   gpu-node-2: IDLE+MAINTENANCE+RESERVED      -> idle
-	//   gpu-node-3: IDLE+MAINTENANCE+RESERVED      -> idle
-	//   gpu-node-4: IDLE+MAINTENANCE+RESERVED      -> idle
-	// CPU nodes have no reservation -> not counted
+	// Fixture nodes (c6, c7 have no ReservationName and must be ignored):
+	//   maintenance-2026:
+	//     c1 MIXED+DRAIN+DYNAMIC_NORM+MAINTENANCE+RESERVED       -> mix + drain
+	//     c2 MIXED+DYNAMIC_NORM+MAINTENANCE+RESERVED+PLANNED     -> mix + planned
+	//     c3 MIXED+DYNAMIC_NORM+MAINTENANCE+RESERVED             -> mix
+	//     c4 IDLE+DRAIN+DYNAMIC_NORM+MAINTENANCE+RESERVED        -> idle + drain
+	//   gpu-backfill:
+	//     c5 IDLE+DYNAMIC_NORM+RESERVED                          -> idle
+	require.Len(t, metrics, 2, "two reservations in the capture; unreserved nodes ignored")
+
 	require.Contains(t, metrics, "maintenance-2026")
-	rm := metrics["maintenance-2026"]
+	m := metrics["maintenance-2026"]
+	assert.Equal(t, 0.0, m.alloc)
+	assert.Equal(t, 1.0, m.idle, "c4 base state is IDLE")
+	assert.Equal(t, 3.0, m.mix, "c1, c2, c3 base state is MIXED")
+	assert.Equal(t, 0.0, m.down)
+	assert.Equal(t, 2.0, m.drain, "c1 and c4 carry the DRAIN flag")
+	assert.Equal(t, 1.0, m.planned, "c2 carries the PLANNED flag")
+	assert.Equal(t, 0.0, m.other)
+	assert.Equal(t, 2.0, m.healthy, "only c2 and c3 are up and not drained")
 
-	assert.Equal(t, 1.0, rm.alloc, "1 allocated node in reservation")
-	assert.Equal(t, 4.0, rm.idle, "4 idle nodes in reservation")
-	assert.Equal(t, 0.0, rm.mix)
-	assert.Equal(t, 0.0, rm.down)
-	assert.Equal(t, 0.0, rm.drain)
-	assert.Equal(t, 0.0, rm.planned)
-	assert.Equal(t, 0.0, rm.other)
-	assert.Equal(t, 5.0, rm.healthy, "5 healthy nodes (alloc+idle)")
-
-	// CPU nodes have no reservation — must not create any reservation entry for them
-	assert.Len(t, metrics, 1, "only one reservation in test data")
+	require.Contains(t, metrics, "gpu-backfill")
+	b := metrics["gpu-backfill"]
+	assert.Equal(t, 1.0, b.idle)
+	assert.Equal(t, 0.0, b.drain)
+	assert.Equal(t, 1.0, b.healthy)
 }
 
-// TestParseReservationNodesCompoundStates verifies primary state extraction
-// from compound Slurm states, based on real scontrol output patterns.
-func TestParseReservationNodesCompoundStates(t *testing.T) {
+// TestParseReservationNodesStateMatrix exercises the full base-state / flag
+// matrix using real Slurm state strings (base state first, flags after '+').
+// It replaces the previous version which fabricated State=DRAIN+RESERVED, a form
+// scontrol never emits (issue #142).
+func TestParseReservationNodesStateMatrix(t *testing.T) {
 	input := []byte(
 		"NodeName=n1 State=ALLOCATED+MAINTENANCE+RESERVED ReservationName=resv1\n" +
 			"NodeName=n2 State=IDLE+RESERVED ReservationName=resv1\n" +
 			"NodeName=n3 State=MIXED+RESERVED ReservationName=resv1\n" +
-			"NodeName=n4 State=DOWN+DRAIN+RESERVED ReservationName=resv1\n" +
-			"NodeName=n5 State=DRAIN+RESERVED ReservationName=resv1\n" +
-			"NodeName=n6 State=PLANNED+RESERVED ReservationName=resv1\n" +
-			"NodeName=n7 State=COMPLETING+RESERVED ReservationName=resv1\n" +
-			"NodeName=n8 State=IDLE\n", // no reservation
+			"NodeName=n4 State=MIXED+DRAIN+MAINTENANCE+RESERVED ReservationName=resv1\n" +
+			"NodeName=n5 State=IDLE+DRAIN+RESERVED ReservationName=resv1\n" +
+			"NodeName=n6 State=DOWN+DRAIN+RESERVED ReservationName=resv1\n" +
+			"NodeName=n7 State=MIXED+RESERVED+PLANNED ReservationName=resv1\n" +
+			"NodeName=n8 State=DOWN*+RESERVED ReservationName=resv1\n" + // '*' = not responding
+			"NodeName=n9 State=FUTURE+RESERVED ReservationName=resv1\n" +
+			"NodeName=n10 State=IDLE\n", // no reservation -> ignored
 	)
 	metrics := ParseReservationNodesMetrics(input)
 
+	require.Len(t, metrics, 1)
 	require.Contains(t, metrics, "resv1")
 	rm := metrics["resv1"]
 
-	assert.Equal(t, 1.0, rm.alloc)
-	assert.Equal(t, 1.0, rm.idle)
-	assert.Equal(t, 1.0, rm.mix)
-	assert.Equal(t, 1.0, rm.down)
-	assert.Equal(t, 1.0, rm.drain)
-	assert.Equal(t, 1.0, rm.planned)
-	assert.Equal(t, 1.0, rm.other, "COMPLETING maps to other")
-	// healthy = alloc + idle + mix + planned = 4
+	assert.Equal(t, 1.0, rm.alloc, "n1")
+	assert.Equal(t, 2.0, rm.idle, "n2, n5")
+	assert.Equal(t, 3.0, rm.mix, "n3, n4, n7")
+	assert.Equal(t, 2.0, rm.down, "n6, n8 (DOWN* is still DOWN)")
+	assert.Equal(t, 3.0, rm.drain, "n4, n5, n6 carry DRAIN")
+	assert.Equal(t, 1.0, rm.planned, "n7 carries PLANNED")
+	assert.Equal(t, 1.0, rm.other, "n9 FUTURE maps to other")
+	// healthy = up base state (alloc/idle/mix) AND not drained:
+	// n1, n2, n3, n7 -> 4. Drained (n4/n5/n6), down (n8) and other (n9) excluded.
 	assert.Equal(t, 4.0, rm.healthy)
-
-	// n8 has no reservation
-	assert.Len(t, metrics, 1)
 }
