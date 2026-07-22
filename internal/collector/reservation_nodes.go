@@ -146,11 +146,13 @@ func (rnc *ReservationNodesCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- rnc.healthy
 }
 
-func (rnc *ReservationNodesCollector) Collect(ch chan<- prometheus.Metric) {
+func (rnc *ReservationNodesCollector) Collect(ch chan<- prometheus.Metric) { _ = rnc.tryCollect(ch) }
+
+func (rnc *ReservationNodesCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	metrics, err := ReservationNodesGetMetrics(rnc.logger)
 	if err != nil {
 		rnc.logger.Error("Failed to get reservation nodes metrics", "err", err)
-		return
+		return err
 	}
 	for resvName, rm := range metrics {
 		ch <- prometheus.MustNewConstMetric(rnc.alloc, prometheus.GaugeValue, rm.alloc, resvName)
@@ -162,4 +164,6 @@ func (rnc *ReservationNodesCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(rnc.other, prometheus.GaugeValue, rm.other, resvName)
 		ch <- prometheus.MustNewConstMetric(rnc.healthy, prometheus.GaugeValue, rm.healthy, resvName)
 	}
+
+	return nil
 }

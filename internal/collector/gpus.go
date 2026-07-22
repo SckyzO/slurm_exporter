@@ -250,11 +250,13 @@ func (cc *GPUsCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Collect fetches the GPU metrics from Slurm and sends them to Prometheus
-func (cc *GPUsCollector) Collect(ch chan<- prometheus.Metric) {
+func (cc *GPUsCollector) Collect(ch chan<- prometheus.Metric) { _ = cc.tryCollect(ch) }
+
+func (cc *GPUsCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	metrics, err := GPUsGetMetrics(cc.logger)
 	if err != nil {
 		cc.logger.Error("Failed to get GPU metrics", "err", err)
-		return
+		return err
 	}
 
 	ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, metrics.alloc)
@@ -262,4 +264,6 @@ func (cc *GPUsCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(cc.other, prometheus.GaugeValue, metrics.other)
 	ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, metrics.total)
 	ch <- prometheus.MustNewConstMetric(cc.utilization, prometheus.GaugeValue, metrics.utilization)
+
+	return nil
 }

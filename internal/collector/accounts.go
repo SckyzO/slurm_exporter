@@ -111,11 +111,13 @@ func (ac *AccountsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- ac.suspended
 }
 
-func (ac *AccountsCollector) Collect(ch chan<- prometheus.Metric) {
+func (ac *AccountsCollector) Collect(ch chan<- prometheus.Metric) { _ = ac.tryCollect(ch) }
+
+func (ac *AccountsCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	data, err := AccountsData(ac.logger)
 	if err != nil {
 		ac.logger.Error("Failed to get accounts data", "err", err)
-		return
+		return err
 	}
 	am := ParseAccountsMetrics(data)
 	for a := range am {
@@ -135,4 +137,6 @@ func (ac *AccountsCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(ac.suspended, prometheus.GaugeValue, am[a].suspended, a)
 		}
 	}
+
+	return nil
 }

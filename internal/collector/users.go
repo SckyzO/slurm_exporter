@@ -102,11 +102,13 @@ func (uc *UsersCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- uc.suspended
 }
 
-func (uc *UsersCollector) Collect(ch chan<- prometheus.Metric) {
+func (uc *UsersCollector) Collect(ch chan<- prometheus.Metric) { _ = uc.tryCollect(ch) }
+
+func (uc *UsersCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	um, err := UsersGetMetrics(uc.logger)
 	if err != nil {
 		uc.logger.Error("Failed to parse users metrics", "err", err)
-		return
+		return err
 	}
 	for u := range um {
 		if um[u].pending > 0 {
@@ -125,4 +127,6 @@ func (uc *UsersCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(uc.suspended, prometheus.GaugeValue, um[u].suspended, u)
 		}
 	}
+
+	return nil
 }

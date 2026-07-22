@@ -270,12 +270,14 @@ func SendFeatureSetMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, va
 	}
 }
 
-func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
+func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) { _ = nc.tryCollect(ch) }
+
+func (nc *NodesCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	// Single global sinfo call for all partitions — replaces N per-partition calls.
 	allPartitions, err := NodesGetMetricsGlobal(nc.logger)
 	if err != nil {
 		nc.logger.Error("Failed to get global nodes metrics", "err", err)
-		return
+		return err
 	}
 	for part, nm := range allPartitions {
 		allMaps := []map[string]float64{
@@ -334,7 +336,9 @@ func (nc *NodesCollector) Collect(ch chan<- prometheus.Metric) {
 	total, err := SlurmGetTotal(nc.logger)
 	if err != nil {
 		nc.logger.Error("Failed to get total nodes", "err", err)
-		return
+		return err
 	}
 	ch <- prometheus.MustNewConstMetric(nc.total, prometheus.GaugeValue, total)
+
+	return nil
 }
