@@ -141,6 +141,33 @@ chore: bump CHANGELOG for v1.8.0
 
 ---
 
+## Issue triage
+
+Every issue gets exactly one priority label. The scale is about how much the
+defect costs a running deployment, not how interesting it is to fix.
+
+| Label | Meaning |
+|-------|---------|
+| `P0` | Data loss, a security hole, or the exporter cannot run. Stop other work. |
+| `P1` | Production is degraded and there is no workaround. Fix before the next release. |
+| `P2` | A real defect, but there is a way around it. Schedule it. |
+| `P3` | Cosmetic, hygiene, or a nice to have. |
+
+Two rules that decide most borderline cases:
+
+**A workaround moves an issue down, it does not close it.** An exporter that
+needs `kill -9` to stop is annoying rather than fatal, so it is `P2`, not `P1`.
+
+**Wrong metrics outrank slow ones.** A metric that silently reports a wrong
+value is worse than one that costs an extra RPC, because nobody notices the
+first until they act on it. Undercounting jobs is `P1`; issuing five `squeue`
+calls where one would do is `P2`.
+
+Priority is independent of `bug` and `enhancement`, so an issue normally
+carries one of each.
+
+---
+
 ## Test Data
 
 All fixtures in `test_data/` must be anonymized:
