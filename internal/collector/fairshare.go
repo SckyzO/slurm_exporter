@@ -142,11 +142,13 @@ func (fsc *FairShareCollector) Describe(ch chan<- *prometheus.Desc) {
 	}
 }
 
-func (fsc *FairShareCollector) Collect(ch chan<- prometheus.Metric) {
+func (fsc *FairShareCollector) Collect(ch chan<- prometheus.Metric) { _ = fsc.tryCollect(ch) }
+
+func (fsc *FairShareCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	metrics, err := FairShareGetMetrics(fsc.logger)
 	if err != nil {
 		fsc.logger.Error("Failed to get fairshare metrics", "err", err)
-		return
+		return err
 	}
 
 	seenAccounts := make(map[string]bool)
@@ -178,4 +180,6 @@ func (fsc *FairShareCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(fsc.userNormUsage, prometheus.GaugeValue, m.NormUsage, m.Account, m.User)
 		}
 	}
+
+	return nil
 }

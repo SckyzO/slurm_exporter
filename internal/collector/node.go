@@ -129,11 +129,13 @@ func (nc *NodeCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.nodeStatus
 }
 
-func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) {
+func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) { _ = nc.tryCollect(ch) }
+
+func (nc *NodeCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	nodes, err := NodeGetMetrics(nc.logger)
 	if err != nil {
 		nc.logger.Error("Failed to get node metrics", "err", err)
-		return
+		return err
 	}
 	if len(nodes) == 0 {
 		nc.logger.Warn("node collector parsed zero nodes — sinfo returned no data or output format unexpected; no slurm_node_* series will be exposed this scrape")
@@ -149,6 +151,8 @@ func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(nc.nodeStatus, prometheus.GaugeValue, 1, node, metrics.nodeStatus, partition)
 		}
 	}
+
+	return nil
 }
 
 // appendUnique adds a string to a slice if it doesn't already exist.

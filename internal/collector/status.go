@@ -24,6 +24,23 @@ type statusEntry struct {
 	collector prometheus.Collector
 }
 
+// failableCollector is a collector that reports whether its collection
+// succeeded, so StatusTracker can emit slurm_exporter_collector_success
+// truthfully.
+//
+// prometheus.Collector.Collect returns nothing, so a collector whose Slurm
+// command fails can only log and emit no series. That is indistinguishable
+// from a genuinely empty cluster, and it left the success gauge stuck at 1
+// during the exact outage it exists to signal.
+//
+// tryCollect is unexported, so only collectors in this package can implement
+// it. Those that do not are still run through the plain Collect path and
+// reported as successful unless they panic.
+type failableCollector interface {
+	prometheus.Collector
+	tryCollect(ch chan<- prometheus.Metric) error
+}
+
 // NewStatusTracker creates a StatusTracker. Register it once with the Prometheus
 // registry; add inner collectors via Add().
 func NewStatusTracker(log *logger.Logger) *StatusTracker {
@@ -60,6 +77,9 @@ func (st *StatusTracker) Describe(ch chan<- *prometheus.Desc) {
 // Each inner collector writes directly into ch — no intermediate channel or extra
 // goroutine. Panics are caught via defer/recover in the same goroutine, which is
 // standard Go and avoids any buffering overhead regardless of metric volume.
+//
+// A collector reports failure two ways: by panicking, or by implementing
+// failableCollector and returning an error. Both lower its success gauge to 0.
 func (st *StatusTracker) Collect(ch chan<- prometheus.Metric) {
 	for _, e := range st.entries {
 		start := time.Now()
@@ -72,6 +92,12 @@ func (st *StatusTracker) Collect(ch chan<- prometheus.Metric) {
 					succeeded = 0
 				}
 			}()
+			if fc, ok := e.collector.(failableCollector); ok {
+				if err := fc.tryCollect(ch); err != nil {
+					succeeded = 0
+				}
+				return
+			}
 			e.collector.Collect(ch)
 		}()
 

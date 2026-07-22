@@ -87,11 +87,13 @@ func (lc *LicenseCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- lc.reserved
 }
 
-func (lc *LicenseCollector) Collect(ch chan<- prometheus.Metric) {
+func (lc *LicenseCollector) Collect(ch chan<- prometheus.Metric) { _ = lc.tryCollect(ch) }
+
+func (lc *LicenseCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	lm, err := LicenseGetMetrics(lc.logger)
 	if err != nil {
 		lc.logger.Error("Failed to get license metrics", "err", err)
-		return
+		return err
 	}
 	for name := range lm.total {
 		ch <- prometheus.MustNewConstMetric(lc.total, prometheus.GaugeValue, lm.total[name], name)
@@ -99,4 +101,6 @@ func (lc *LicenseCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(lc.free, prometheus.GaugeValue, lm.free[name], name)
 		ch <- prometheus.MustNewConstMetric(lc.reserved, prometheus.GaugeValue, lm.reserved[name], name)
 	}
+
+	return nil
 }

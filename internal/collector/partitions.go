@@ -216,11 +216,13 @@ func (pc *PartitionsCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- pc.gpuAllocated
 }
 
-func (pc *PartitionsCollector) Collect(ch chan<- prometheus.Metric) {
+func (pc *PartitionsCollector) Collect(ch chan<- prometheus.Metric) { _ = pc.tryCollect(ch) }
+
+func (pc *PartitionsCollector) tryCollect(ch chan<- prometheus.Metric) error {
 	pm, err := ParsePartitionsMetrics(pc.logger)
 	if err != nil {
 		pc.logger.Error("Failed to parse partitions metrics", "err", err)
-		return
+		return err
 	}
 	if len(pm) == 0 {
 		pc.logger.Warn("partitions collector parsed zero partitions — sinfo/squeue returned no data or output format unexpected; no slurm_partition_* series will be exposed this scrape")
@@ -235,4 +237,6 @@ func (pc *PartitionsCollector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(pc.gpuIdle, prometheus.GaugeValue, pm[p].gpuIdle, p)
 		ch <- prometheus.MustNewConstMetric(pc.gpuAllocated, prometheus.GaugeValue, pm[p].gpuAllocated, p)
 	}
+
+	return nil
 }
