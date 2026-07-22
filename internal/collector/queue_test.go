@@ -45,6 +45,14 @@ func TestParseQueueMetrics(t *testing.T) {
 	assert.Equal(t, 2.0, qm.pending["Priority"]["carol"]["debug"])
 	assert.Equal(t, 1.0, qm.pending["Resources"]["eve"]["high"])
 
+	// A job held on "debug,high" counts in both partitions, never under the
+	// literal string (#154). Captured from `sbatch --hold -p debug,high`.
+	assert.Equal(t, 1.0, qm.pending["JobHeldUser"]["alice"]["debug"])
+	assert.Equal(t, 1.0, qm.pending["JobHeldUser"]["alice"]["high"])
+	assert.Equal(t, 2.0, qm.cPending["JobHeldUser"]["alice"]["debug"])
+	assert.NotContains(t, qm.pending["JobHeldUser"]["alice"], "debug,high",
+		"the raw list must never reach a label")
+
 	// Suspended, with its cores — regression for the copy-paste that
 	// incremented suspended twice instead of populating cSuspended.
 	assert.Equal(t, 1.0, qm.suspended["bob"]["high"], "suspended job count")
@@ -159,7 +167,9 @@ func TestPushAggregatedNNVal(t *testing.T) {
 	const nodesDown = "Nodes required for job are DOWN, DRAINED or reserved for jobs in higher priority partitions"
 	assert.Equal(t, map[string]float64{
 		`partition="debug",reason="` + nodesDown + `"`: 1,
+		`partition="debug",reason="JobHeldUser"`:       2,
 		`partition="debug",reason="Priority"`:          5,
+		`partition="high",reason="JobHeldUser"`:        2,
 		`partition="high",reason="Priority"`:           1,
 		`partition="high",reason="Resources"`:          1,
 	}, got, "slurm_queue_pending: reason must survive aggregation, user must not")
@@ -195,31 +205,38 @@ func TestGlobalQueueMetrics(t *testing.T) {
 
 	qm := ParseQueueMetrics(data)
 
-	assert.Equal(t, 15.0, sumNVal(qm.running), "15 running jobs")
-	assert.Equal(t, 8.0, sumNNVal(qm.pending), "8 pending jobs")
-	assert.Equal(t, 78.0, sumNVal(qm.cRunning), "78 running cores")
-	assert.Equal(t, 38.0, sumNNVal(qm.cPending), "38 pending cores")
+	// The fixture holds two jobs submitted to "debug,high". They are counted
+	// once each cluster-wide and once in each partition, so the two figures
+	// differ by exactly two — the distinction slurm_jobs_pending depends on.
+	assert.Equal(t, 10.0, qm.jobTotals["PENDING"], "10 pending jobs")
+	assert.Equal(t, 12.0, sumNNVal(qm.pending), "12 pending job/partition pairs")
+	assert.Equal(t, 42.0, qm.coreTotals["PENDING"], "42 pending cores")
+	assert.Equal(t, 46.0, sumNNVal(qm.cPending), "46 pending core/partition pairs")
 
-	assert.Equal(t, 1.0, sumNVal(qm.suspended))
-	assert.Equal(t, 24.0, sumNVal(qm.cancelled))
-	assert.Equal(t, 1.0, sumNVal(qm.failed))
-	assert.Equal(t, 1.0, sumNVal(qm.timeout))
-	assert.Equal(t, 1.0, sumNVal(qm.nodeFail))
-	assert.Equal(t, 2.0, sumNVal(qm.completed))
+	// A job runs in one partition, so both figures agree.
+	assert.Equal(t, 15.0, qm.jobTotals["RUNNING"], "15 running jobs")
+	assert.Equal(t, 15.0, sumNVal(qm.running))
+	assert.Equal(t, 78.0, qm.coreTotals["RUNNING"], "78 running cores")
+
+	assert.Equal(t, 1.0, qm.jobTotals["SUSPENDED"])
+	assert.Equal(t, 24.0, qm.jobTotals["CANCELLED"])
+	assert.Equal(t, 1.0, qm.jobTotals["FAILED"])
+	assert.Equal(t, 1.0, qm.jobTotals["TIMEOUT"])
+	assert.Equal(t, 1.0, qm.jobTotals["NODE_FAIL"])
+	assert.Equal(t, 2.0, qm.jobTotals["COMPLETED"])
 
 	// The test cluster cannot produce these three; the parser paths that feed
-	// them are covered by TestParseQueueMetricsUnreachableStates. Asserting 0
-	// here keeps the fixture honest about what it contains.
-	assert.Equal(t, 0.0, sumNVal(qm.preempted))
-	assert.Equal(t, 0.0, sumNVal(qm.completing))
-	assert.Equal(t, 0.0, sumNVal(qm.configuring))
+	// them are covered by TestParseQueueMetricsUnreachableStates.
+	assert.Equal(t, 0.0, qm.jobTotals["PREEMPTED"])
+	assert.Equal(t, 0.0, qm.jobTotals["COMPLETING"])
+	assert.Equal(t, 0.0, qm.jobTotals["CONFIGURING"])
 }
 
 // TestGlobalQueueMetricsEmptyCluster verifies that global totals are 0 (not absent)
 // when the cluster has no jobs — this is the key behavior difference vs per-user metrics.
 func TestGlobalQueueMetricsEmptyCluster(t *testing.T) {
 	qm := ParseQueueMetrics([]byte(""))
-	assert.Equal(t, 0.0, sumNVal(qm.running), "running must be 0, not absent")
-	assert.Equal(t, 0.0, sumNNVal(qm.pending), "pending must be 0, not absent")
-	assert.Equal(t, 0.0, sumNVal(qm.cRunning), "cores_running must be 0, not absent")
+	assert.Equal(t, 0.0, qm.jobTotals["RUNNING"], "running must be 0, not absent")
+	assert.Equal(t, 0.0, qm.jobTotals["PENDING"], "pending must be 0, not absent")
+	assert.Equal(t, 0.0, qm.coreTotals["RUNNING"], "cores_running must be 0, not absent")
 }

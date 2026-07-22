@@ -35,6 +35,13 @@ type QueueMetrics struct {
 	cTimeout     NVal
 	cPreempted   NVal
 	cNodeFail    NVal
+
+	// Cluster-wide counts, keyed by state, incremented once per job. They
+	// cannot be derived from the maps above: a job pending in several
+	// partitions is counted in each of them, while slurm_jobs_pending must
+	// stay a job count — three shipped alerting rules read it as one.
+	jobTotals  map[string]float64
+	coreTotals map[string]float64
 }
 
 func QueueGetMetrics(logger *logger.Logger, withTerminalStates bool) (*QueueMetrics, error) {
@@ -97,6 +104,8 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 		cTimeout:     make(NVal),
 		cPreempted:   make(NVal),
 		cNodeFail:    make(NVal),
+		jobTotals:    make(map[string]float64),
+		coreTotals:   make(map[string]float64),
 	}
 	for line := range strings.SplitSeq(string(input), "\n") {
 		if strings.Contains(line, "|") {
@@ -105,51 +114,61 @@ func ParseQueueMetrics(input []byte) *QueueMetrics {
 			if len(fields) < 5 {
 				continue
 			}
-			// Strip the default-partition marker (*) so labels are consistent
-			// with the partitions and nodes collectors. squeue -o "%P" emits
-			// "compute*" for the default partition on some Slurm versions; the
-			// same fix as in partitions.go (issue #20) is applied here so any
-			// PromQL join on the partition label works as expected.
-			part := strings.TrimRight(strings.TrimSpace(fields[0]), "*")
+			// A job submitted to several partitions is reported by squeue
+			// as a comma-separated list, and the default partition carries
+			// a "*" marker. squeuePartitions applies both normalisations —
+			// the same ones parsePartitionJobs needs — so the label always
+			// names a partition that exists (issues #20 and #154).
+			parts := squeuePartitions(fields[0])
 			state := fields[1]
 			coresI, _ := strconv.Atoi(fields[2])
 			cores := float64(coresI)
 			reason := fields[3]
 			user := strings.TrimSpace(fields[4])
+
+			// A job queued in several partitions contends for each, so it is
+			// counted in each — the rule parsePartitionJobs already applies.
+			// The cluster-wide totals stay at one per job.
+			addN := func(jobs, jobCores NVal) {
+				for _, part := range parts {
+					jobs.Incr(user, part, 1)
+					jobCores.Incr(user, part, cores)
+				}
+				qm.jobTotals[state]++
+				qm.coreTotals[state] += cores
+			}
+			addNN := func(jobs, jobCores NNVal) {
+				for _, part := range parts {
+					jobs.Incr2(reason, user, part, 1)
+					jobCores.Incr2(reason, user, part, cores)
+				}
+				qm.jobTotals[state]++
+				qm.coreTotals[state] += cores
+			}
+
 			switch state {
 			case "PENDING":
-				qm.pending.Incr2(reason, user, part, 1)
-				qm.cPending.Incr2(reason, user, part, cores)
+				addNN(qm.pending, qm.cPending)
 			case "RUNNING":
-				qm.running.Incr(user, part, 1)
-				qm.cRunning.Incr(user, part, cores)
+				addN(qm.running, qm.cRunning)
 			case "SUSPENDED":
-				qm.suspended.Incr(user, part, 1)
-				qm.cSuspended.Incr(user, part, cores)
+				addN(qm.suspended, qm.cSuspended)
 			case "CANCELLED":
-				qm.cancelled.Incr(user, part, 1)
-				qm.cCancelled.Incr(user, part, cores)
+				addN(qm.cancelled, qm.cCancelled)
 			case "COMPLETING":
-				qm.completing.Incr(user, part, 1)
-				qm.cCompleting.Incr(user, part, cores)
+				addN(qm.completing, qm.cCompleting)
 			case "COMPLETED":
-				qm.completed.Incr(user, part, 1)
-				qm.cCompleted.Incr(user, part, cores)
+				addN(qm.completed, qm.cCompleted)
 			case "CONFIGURING":
-				qm.configuring.Incr(user, part, 1)
-				qm.cConfiguring.Incr(user, part, cores)
+				addN(qm.configuring, qm.cConfiguring)
 			case "FAILED":
-				qm.failed.Incr(user, part, 1)
-				qm.cFailed.Incr(user, part, cores)
+				addN(qm.failed, qm.cFailed)
 			case "TIMEOUT":
-				qm.timeout.Incr(user, part, 1)
-				qm.cTimeout.Incr(user, part, cores)
+				addN(qm.timeout, qm.cTimeout)
 			case "PREEMPTED":
-				qm.preempted.Incr(user, part, 1)
-				qm.cPreempted.Incr(user, part, cores)
+				addN(qm.preempted, qm.cPreempted)
 			case "NODE_FAIL":
-				qm.nodeFail.Incr(user, part, 1)
-				qm.cNodeFail.Incr(user, part, cores)
+				addN(qm.nodeFail, qm.cNodeFail)
 			}
 		}
 	}
@@ -329,16 +348,9 @@ func (qc *QueueCollector) tryCollect(ch chan<- prometheus.Metric) error {
 		qc.logger.Error("Failed to get queue metrics", "err", err)
 		// Emit global totals at 0 so they remain present in Prometheus
 		// even when squeue is unavailable. Per-user metrics are omitted.
-		empty := &QueueMetrics{
-			pending: make(NNVal), running: make(NVal),
-			suspended: make(NVal), completing: make(NVal),
-			completed: make(NVal), configuring: make(NVal),
-			failed: make(NVal), timeout: make(NVal),
-			preempted: make(NVal), nodeFail: make(NVal),
-			cancelled: make(NVal),
-			cPending:  make(NNVal), cRunning: make(NVal),
-		}
-		qc.emitGlobalTotals(ch, empty)
+		// The zero value is enough: emitGlobalTotals reads jobTotals and
+		// coreTotals, and a nil map reads as 0.
+		qc.emitGlobalTotals(ch, &QueueMetrics{})
 		return err
 	}
 	if qc.withUserLabel {
@@ -403,19 +415,19 @@ func (qc *QueueCollector) tryCollect(ch chan<- prometheus.Metric) error {
 // Called both on success and on squeue error (with empty metrics) so these
 // series are always present in Prometheus, enabling reliable alerting.
 func (qc *QueueCollector) emitGlobalTotals(ch chan<- prometheus.Metric, qm *QueueMetrics) {
-	ch <- prometheus.MustNewConstMetric(qc.jobsPending, prometheus.GaugeValue, sumNNVal(qm.pending))
-	ch <- prometheus.MustNewConstMetric(qc.jobsRunning, prometheus.GaugeValue, sumNVal(qm.running))
-	ch <- prometheus.MustNewConstMetric(qc.jobsSuspended, prometheus.GaugeValue, sumNVal(qm.suspended))
-	ch <- prometheus.MustNewConstMetric(qc.jobsCompleting, prometheus.GaugeValue, sumNVal(qm.completing))
-	ch <- prometheus.MustNewConstMetric(qc.jobsCompleted, prometheus.GaugeValue, sumNVal(qm.completed))
-	ch <- prometheus.MustNewConstMetric(qc.jobsConfiguring, prometheus.GaugeValue, sumNVal(qm.configuring))
-	ch <- prometheus.MustNewConstMetric(qc.jobsFailed, prometheus.GaugeValue, sumNVal(qm.failed))
-	ch <- prometheus.MustNewConstMetric(qc.jobsTimeout, prometheus.GaugeValue, sumNVal(qm.timeout))
-	ch <- prometheus.MustNewConstMetric(qc.jobsPreempted, prometheus.GaugeValue, sumNVal(qm.preempted))
-	ch <- prometheus.MustNewConstMetric(qc.jobsNodeFail, prometheus.GaugeValue, sumNVal(qm.nodeFail))
-	ch <- prometheus.MustNewConstMetric(qc.jobsCancelled, prometheus.GaugeValue, sumNVal(qm.cancelled))
-	ch <- prometheus.MustNewConstMetric(qc.jobsCoresRunning, prometheus.GaugeValue, sumNVal(qm.cRunning))
-	ch <- prometheus.MustNewConstMetric(qc.jobsCoresPending, prometheus.GaugeValue, sumNNVal(qm.cPending))
+	ch <- prometheus.MustNewConstMetric(qc.jobsPending, prometheus.GaugeValue, qm.jobTotals["PENDING"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsRunning, prometheus.GaugeValue, qm.jobTotals["RUNNING"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsSuspended, prometheus.GaugeValue, qm.jobTotals["SUSPENDED"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsCompleting, prometheus.GaugeValue, qm.jobTotals["COMPLETING"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsCompleted, prometheus.GaugeValue, qm.jobTotals["COMPLETED"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsConfiguring, prometheus.GaugeValue, qm.jobTotals["CONFIGURING"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsFailed, prometheus.GaugeValue, qm.jobTotals["FAILED"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsTimeout, prometheus.GaugeValue, qm.jobTotals["TIMEOUT"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsPreempted, prometheus.GaugeValue, qm.jobTotals["PREEMPTED"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsNodeFail, prometheus.GaugeValue, qm.jobTotals["NODE_FAIL"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsCancelled, prometheus.GaugeValue, qm.jobTotals["CANCELLED"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsCoresRunning, prometheus.GaugeValue, qm.coreTotals["RUNNING"])
+	ch <- prometheus.MustNewConstMetric(qc.jobsCoresPending, prometheus.GaugeValue, qm.coreTotals["PENDING"])
 }
 
 // pushAggregatedNVal aggregates NVal (user->partition->count) to {partition},

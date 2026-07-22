@@ -199,6 +199,13 @@ Provides detailed metrics on job states and resource usage.
 | `slurm_jobs_cores_running` | Total cores used by running jobs | (none) |
 | `slurm_jobs_cores_pending` | Total cores requested by pending jobs | (none) |
 
+A job submitted to several partitions (`sbatch -p debug,high`) is queued in each
+of them and counts once in each of the per-user/partition metrics above, the
+same rule the `partitions` collector follows. The global totals count it once,
+so `sum(slurm_queue_pending)` can exceed `slurm_jobs_pending` while
+`sum by(partition) (slurm_queue_pending)` names only partitions that exist.
+Alert on `slurm_jobs_pending` when you mean a number of jobs.
+
 #### Terminal states and the `MinJobAge` window
 
 `squeue` reports pending and running jobs when it is not told which states to

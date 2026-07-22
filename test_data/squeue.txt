@@ -31,6 +31,8 @@ debug|PENDING|8|Priority|carol
 debug|PENDING|2|Priority|dave
 debug|PENDING|4|Nodes required for job are DOWN, DRAINED or reserved for jobs in higher priority partitions|frank
 debug|PENDING|4|Priority|frank
+debug,high|PENDING|2|JobHeldUser|alice
+debug,high|PENDING|2|JobHeldUser|bob
 high|CANCELLED|2|None|alice
 high|CANCELLED|2|None|alice
 high|CANCELLED|8|None|alice
