@@ -167,7 +167,7 @@ while the `queue` collector does neither.
 
 Provides detailed metrics on job states and resource usage.
 
-- **Command:** `squeue -h -o "%P|%T|%C|%r|%u"`
+- **Command:** `squeue -h -o "%P|%T|%C|%r|%u" --states=all`
 
 **Per-user/partition metrics** — only emitted when jobs exist in that state:
 
@@ -198,6 +198,33 @@ Provides detailed metrics on job states and resource usage.
 | `slurm_jobs_cancelled` | Total cancelled jobs | (none) |
 | `slurm_jobs_cores_running` | Total cores used by running jobs | (none) |
 | `slurm_jobs_cores_pending` | Total cores requested by pending jobs | (none) |
+
+#### Terminal states and the `MinJobAge` window
+
+`squeue` reports pending and running jobs when it is not told which states to
+view. Everything below counts jobs that only `--states=all` makes visible:
+
+`slurm_jobs_failed`, `slurm_jobs_timeout`, `slurm_jobs_cancelled`,
+`slurm_jobs_preempted`, `slurm_jobs_node_fail`, `slurm_jobs_completed`, and
+their per-user and per-partition twins in `slurm_queue_*` and `slurm_cores_*`.
+
+These are gauges over a sliding window, not counters. `slurmctld` forgets a
+terminated job once it is older than `MinJobAge` (`slurm.conf`, 300 seconds by
+default), so `slurm_jobs_failed` answers "how many jobs failed in the last
+`MinJobAge` seconds", and it drops back to zero on its own. Two consequences:
+
+- A site that shortened `MinJobAge` sees lower numbers for the same failure
+  rate, and one that raised it sees higher numbers. Compare a cluster to itself
+  over time rather than to another cluster.
+- `slurm_jobs_failed > 0` is not an alerting condition, it is the normal state
+  of a busy cluster. Alert on a rate or on a ratio instead. The shipped
+  `SlurmJobFailureRateHigh` rule reads
+  `cluster:slurm_job_failure_rate:ratio15m`, which `rules.yml` computes from the
+  `sdiag` counters rather than from these gauges.
+
+Set `--no-collector.queue.terminal-states` to go back to the pending-and-running
+query if the extra work is measurable on your `slurmctld`. The six totals then
+stay at zero, which is the pre-1.9 behaviour.
 
 ### `reservations` Collector
 

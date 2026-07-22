@@ -62,6 +62,16 @@ var (
 			"Disable on clusters with many users to reduce cardinality.",
 	).Default("true").Bool()
 
+	// queueTerminalStates controls whether squeue is asked for every job state.
+	// Without it squeue reports pending and running jobs only, and the failure,
+	// timeout, cancellation and completion metrics all stay at zero (issue #27).
+	queueTerminalStates = kingpin.Flag(
+		"collector.queue.terminal-states",
+		"Ask squeue for terminal job states (FAILED, TIMEOUT, CANCELLED, COMPLETED, ...) "+
+			"in addition to pending and running ones. Disable to restore the pre-1.9 query "+
+			"if the extra slurmctld work is measurable on your cluster.",
+	).Default("true").Bool()
+
 	// fairshareUserMetrics controls whether per-user fairshare metrics are collected.
 	fairshareUserMetrics = kingpin.Flag(
 		"collector.fairshare.user-metrics",
@@ -106,8 +116,10 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"node":         func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
 	"drain_reason": func(l *logger.Logger) prometheus.Collector { return collector.NewDrainReasonCollector(l) },
 	"partitions":   func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
-	"queue":        func(l *logger.Logger) prometheus.Collector { return collector.NewQueueCollector(l, *queueUserLabel) },
-	"scheduler":    func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
+	"queue": func(l *logger.Logger) prometheus.Collector {
+		return collector.NewQueueCollector(l, *queueUserLabel, *queueTerminalStates)
+	},
+	"scheduler": func(l *logger.Logger) prometheus.Collector { return collector.NewSchedulerCollector(l) },
 	"fairshare": func(l *logger.Logger) prometheus.Collector {
 		return collector.NewFairShareCollector(l, *fairshareUserMetrics)
 	},

@@ -312,7 +312,7 @@ slurm_partition_jobs_running{partition="gpu"} 18
 
 ## `queue` collector
 
-Command: `squeue -h -o "%P|%T|%C|%r|%u"`
+Command: `squeue -h -o "%P|%T|%C|%r|%u" --states=all`
 
 ### With `--collector.queue.user-label` (default)
 
@@ -366,7 +366,7 @@ slurm_jobs_running 312
 
 # HELP slurm_jobs_failed Total failed jobs in the cluster
 # TYPE slurm_jobs_failed gauge
-slurm_jobs_failed 0
+slurm_jobs_failed 2
 
 # HELP slurm_jobs_cores_running Total cores used by running jobs
 # TYPE slurm_jobs_cores_running gauge
@@ -383,6 +383,38 @@ slurm_jobs_running == 0
 ```
 This works reliably because `slurm_jobs_running` is always present.
 With `sum(slurm_queue_running)`, PromQL returns "No Data" when there are no jobs.
+
+### With `--collector.queue.terminal-states` (default)
+
+`--states=all` brings the states a job ends in into the output, so the six
+terminal totals and their per-user twins carry values instead of a constant
+zero:
+
+```
+# HELP slurm_queue_failed Number of failed jobs
+# TYPE slurm_queue_failed gauge
+slurm_queue_failed{partition="gpu",user="alice"} 1
+slurm_queue_failed{partition="cpu",user="bob"} 1
+
+# HELP slurm_queue_timeout Jobs stopped by timeout
+# TYPE slurm_queue_timeout gauge
+slurm_queue_timeout{partition="cpu",user="bob"} 3
+
+# HELP slurm_jobs_completed Total completed jobs in the cluster
+# TYPE slurm_jobs_completed gauge
+slurm_jobs_completed 41
+```
+
+The window is `MinJobAge` (`slurm.conf`, 300 seconds by default): `slurmctld`
+forgets a terminated job past that age, so these gauges count the last few
+minutes and fall back to zero by themselves. Alert on a rate, never on
+`slurm_jobs_failed > 0`.
+
+### With `--no-collector.queue.terminal-states`
+
+The pre-1.9 query comes back and the same six totals sit at zero, as do the
+`slurm_queue_*` and `slurm_cores_*` series behind them. Only pending and running
+jobs are reported.
 
 ---
 

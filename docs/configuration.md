@@ -39,6 +39,7 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--collector.nodes.feature-set` | Include `active_feature_set` label in `slurm_nodes_*` metrics | `true` |
 | `--collector.fairshare.user-metrics` | Collect per-user fairshare metrics (`slurm_user_fairshare_*`). Disable on clusters with many users to reduce cardinality. | `true` |
 | `--collector.queue.user-label` | Include `user` label in `slurm_queue_*` metrics. Disable on clusters with many users to reduce cardinality. | `true` |
+| `--collector.queue.terminal-states` | Ask `squeue` for terminal job states (`FAILED`, `TIMEOUT`, `CANCELLED`, `COMPLETED`, ...) on top of pending and running ones. Disable to restore the pre-1.9 query. | `true` |
 | `--collector.sacct_efficiency` | Enable the sacct_efficiency collector (disabled by default — queries SlurmDBD). | `false` |
 | `--collector.sacct.interval` | Background refresh interval for sacct_efficiency. | `5m` |
 | `--collector.sacct.lookback` | Time window for sacct_efficiency queries. | `1h` |

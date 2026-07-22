@@ -75,7 +75,7 @@ func TestStatusTracker_SuccessIsZeroWhenSlurmCommandsFail(t *testing.T) {
 	tracker.Add("node", NewNodeCollector(log))
 	tracker.Add("drain_reason", NewDrainReasonCollector(log))
 	tracker.Add("partitions", NewPartitionsCollector(log))
-	tracker.Add("queue", NewQueueCollector(log, true))
+	tracker.Add("queue", NewQueueCollector(log, true, true))
 	tracker.Add("scheduler", NewSchedulerCollector(log))
 	tracker.Add("fairshare", NewFairShareCollector(log, true))
 	tracker.Add("users", NewUsersCollector(log))
