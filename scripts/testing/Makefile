@@ -118,8 +118,10 @@ workload-gpu:
 	@$(LIB) workload-gpu
 
 
+# scancel --state takes one value: passing it twice cancelled RUNNING only and
+# left the pending jobs in place, silently (#167).
 cancel-all:
-	@docker exec slurmctld bash -c "scancel --state=PENDING --state=RUNNING 2>/dev/null || true"
+	@docker exec slurmctld bash -c 'for s in PENDING RUNNING; do scancel --state=$$s 2>/dev/null || true; done'
 	@echo "  ✓ All jobs cancelled"
 
 # ── Node simulation ───────────────────────────────────────────────────────────
