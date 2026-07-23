@@ -15,11 +15,7 @@ func TestGPUsCollector_Collect(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		data, err := os.ReadFile("../../test_data/slurm-25.11.1-1/sinfo_gpus_idle.txt")
-		if err != nil {
-			return []byte("1 gres/gpu:a100:4 gres/gpu:a100:0(IDX:0,1,2,3)\n"), nil
-		}
-		return data, nil
+		return os.ReadFile("../../test_data/sinfo_gpus_snapshot.txt")
 	}
 
 	log := logger.NewLogger("error")

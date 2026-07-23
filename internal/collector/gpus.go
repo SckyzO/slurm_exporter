@@ -148,73 +148,109 @@ func ParseTotalGPUs(data []byte) float64 {
 	return numGPUs
 }
 
-// ParseGPUsMetrics collects and parses all GPU metrics from Slurm
-func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
+// availableGPUStates lists the node base states whose GPUs are schedulable and
+// therefore counted toward alloc/idle. Every other state (down, drained,
+// draining, reserved, ...) has its GPUs bucketed into "other". This is the set
+// sinfo's own "--states=idle,allocated" filter selected before issue #145
+// merged the three calls into one snapshot. "mixed" is included because Slurm
+// reports a partially-allocated node as MIXED and its used GPUs still count as
+// allocated (see the Slurm node-state definitions).
+var availableGPUStates = map[string]bool{
+	"idle":      true,
+	"allocated": true,
+	"mixed":     true,
+}
+
+// baseGPUState strips the flag suffixes sinfo appends to a StateLong token
+// (e.g. "mixed-", "drained*", "allocated+DRAIN") down to the leading state
+// word, so the availability lookup matches sinfo's base-state semantics.
+func baseGPUState(state string) string {
+	state = strings.ToLower(state)
+	for i := 0; i < len(state); i++ {
+		if state[i] < 'a' || state[i] > 'z' {
+			return state[:i]
+		}
+	}
+	return state
+}
+
+// isAvailableGPUState reports whether a node in the given StateLong contributes
+// its GPUs to the alloc/idle buckets rather than to "other".
+func isAvailableGPUState(state string) bool {
+	return availableGPUStates[baseGPUState(state)]
+}
+
+// splitGPUViews projects one consolidated
+//
+//	"<nodes> <StateLong> <Gres> <GresUsed>"
+//
+// snapshot into the three column layouts the separate sinfo calls used to
+// return, so the version-tested GRES parsers keep validating the counts:
+//
+//	total: "<nodes> <Gres>"            for every node
+//	alloc: "<nodes> <GresUsed>"        for available nodes only
+//	idle:  "<nodes> <Gres> <GresUsed>" for available nodes only
+//
+// Deriving all three from a single snapshot removes the alloc/total race
+// described in issue #145.
+func splitGPUViews(data []byte) (total, alloc, idle []byte) {
+	var totalView, allocView, idleView strings.Builder
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		nodes, state, gres, gresUsed := fields[0], fields[1], fields[2], fields[3]
+
+		totalView.WriteString(nodes + " " + gres + "\n")
+		if isAvailableGPUState(state) {
+			allocView.WriteString(nodes + " " + gresUsed + "\n")
+			idleView.WriteString(nodes + " " + gres + " " + gresUsed + "\n")
+		}
+	}
+	return []byte(totalView.String()), []byte(allocView.String()), []byte(idleView.String())
+}
+
+// computeGPUsFromSnapshot derives every GPU metric from a single consolidated
+// sinfo snapshot. Because total, alloc and idle come from the same instant, two
+// invariants hold by construction — no clamp is needed (issue #145 removed the
+// clamp issue #16 had added to mask the multi-call race):
+//
+//	GresUsed never exceeds the configured Gres per node, so
+//	    alloc = Σ GresUsed(available) ≤ Σ Gres(available) ≤ total  ⇒ util ≤ 1
+//	    other = total − alloc − idle  = Σ Gres(non-available)      ≥ 0
+func computeGPUsFromSnapshot(data []byte) GPUsMetrics {
+	totalView, allocView, idleView := splitGPUViews(data)
+
 	var gm GPUsMetrics
+	gm.total = ParseTotalGPUs(totalView)
+	gm.alloc = ParseAllocatedGPUs(allocView)
+	gm.idle = ParseIdleGPUs(idleView)
+	gm.other = gm.total - gm.alloc - gm.idle
+	if gm.total > 0 {
+		gm.utilization = gm.alloc / gm.total
+	}
+	return gm
+}
 
-	totalGPUsData, err := TotalGPUsData(logger)
+// ParseGPUsMetrics collects and parses all GPU metrics from a single sinfo
+// snapshot.
+func ParseGPUsMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
+	data, err := GPUsSnapshotData(logger)
 	if err != nil {
 		return nil, err
 	}
-	totalGPUs := ParseTotalGPUs(totalGPUsData)
-
-	allocatedGPUsData, err := AllocatedGPUsData(logger)
-	if err != nil {
-		return nil, err
-	}
-	allocatedGPUs := ParseAllocatedGPUs(allocatedGPUsData)
-
-	idleGPUsData, err := IdleGPUsData(logger)
-	if err != nil {
-		return nil, err
-	}
-	idleGPUs := ParseIdleGPUs(idleGPUsData)
-
-	// Calculate other GPUs (DRAIN, DOWN, RESERVED, MAINTENANCE, etc.).
-	// Clamp to zero because total/allocated/idle come from three separate
-	// sinfo invocations and cluster state can change between them, producing
-	// a transient negative result (see issue #16). The Debug log gives a
-	// trail if operators ever need to investigate suspected miscounting.
-	otherGPUs := totalGPUs - allocatedGPUs - idleGPUs
-	if otherGPUs < 0 {
-		logger.Debug("gpus collector: clamped negative 'other' to zero (likely sinfo timing race)",
-			"total", totalGPUs, "alloc", allocatedGPUs, "idle", idleGPUs, "computed_other", otherGPUs)
-		otherGPUs = 0
-	}
-
-	gm.alloc = allocatedGPUs
-	gm.idle = idleGPUs
-	gm.other = otherGPUs
-	gm.total = totalGPUs
-
-	if totalGPUs > 0 {
-		gm.utilization = allocatedGPUs / totalGPUs
-	}
-
+	gm := computeGPUsFromSnapshot(data)
 	return &gm, nil
 }
 
-// AllocatedGPUsData executes sinfo command to get allocated GPU information
-func AllocatedGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes:10 ,GresUsed:", "--state=allocated"}
-	return Execute(logger, "sinfo", args)
-}
-
-// IdleGPUsData executes sinfo command to get idle and allocated GPU information.
-//
-// Trailing ":" on each field forces variable column widths. Fixed widths
-// silently truncate rich GRES specs on busy GPU nodes (multi-type GPUs, MIG
-// slices), causing wrong GPU counts.
-// See https://github.com/SckyzO/slurm_exporter/issues/10.
-func IdleGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes: ,Gres: ,GresUsed:", "--state=idle,allocated"}
-	return Execute(logger, "sinfo", args)
-}
-
-// TotalGPUsData executes sinfo command to get total GPU information.
-// See IdleGPUsData for the rationale behind the variable-width format.
-func TotalGPUsData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-a", "-h", "--Format=Nodes: ,Gres:"}
+// GPUsSnapshotData executes a single sinfo call that carries the node count,
+// state, total GRES and used GRES together, so every GPU metric derives from
+// one consistent snapshot (issue #145). The trailing ":" on each field forces
+// variable column widths; fixed widths silently truncate rich GRES specs on
+// busy GPU nodes (multi-type GPUs, MIG slices) — see issue #10.
+func GPUsSnapshotData(logger *logger.Logger) ([]byte, error) {
+	args := []string{"-a", "-h", "--Format=Nodes: ,StateLong: ,Gres: ,GresUsed:"}
 	return Execute(logger, "sinfo", args)
 }
 
