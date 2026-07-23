@@ -128,9 +128,13 @@ cmd_start_monitoring() {
     if [ -d "$SCRIPT_DIR/monitoring" ]; then
         cp "$SCRIPT_DIR/monitoring/docker-compose.monitoring.yml" "$CLUSTER_DIR/docker-compose.monitoring.yml"
         cp "$SCRIPT_DIR/monitoring/prometheus.yml"                "$CLUSTER_DIR/monitoring/prometheus.yml" 2>/dev/null ||         { mkdir -p "$CLUSTER_DIR/monitoring"; cp "$SCRIPT_DIR/monitoring/prometheus.yml" "$CLUSTER_DIR/monitoring/prometheus.yml"; }
-        mkdir -p "$CLUSTER_DIR/monitoring/grafana/provisioning/datasources"                  "$CLUSTER_DIR/monitoring/grafana/provisioning/dashboards"
+        mkdir -p "$CLUSTER_DIR/monitoring/grafana/provisioning/datasources"
         cp "$SCRIPT_DIR/monitoring/grafana/provisioning/datasources/prometheus.yml"            "$CLUSTER_DIR/monitoring/grafana/provisioning/datasources/prometheus.yml"
-        cp "$SCRIPT_DIR/monitoring/grafana/provisioning/dashboards/dashboards.yml"            "$CLUSTER_DIR/monitoring/grafana/provisioning/dashboards/dashboards.yml"
+        # Dashboards are deployed via the Grafana HTTP API (see import-dashboards),
+        # not file provisioning. Purge any dashboards left in the provisioning dir
+        # by an older setup: a stale copy is reloaded every 30s and masks the
+        # API-imported dashboards, which is what made #156 look like a dashboard bug.
+        rm -rf "$CLUSTER_DIR/monitoring/grafana/provisioning/dashboards"
     fi
 
     if [ -f "$CLUSTER_DIR/docker-compose.monitoring.yml" ]; then
@@ -310,6 +314,20 @@ PY
         [ "$result" = "success" ] && ok_count=$((ok_count+1)) || fail_count=$((fail_count+1))
     done
     ok "$ok_count dashboards imported, $fail_count failed"
+
+    # Make the overview the landing page. This replaces the provisioning
+    # home-dashboard path that was removed to kill the stale-copy race (#156).
+    python3 - "$GRAFANA_URL" "$creds" << 'PY'
+import json, sys, urllib.request, urllib.error
+url, creds = sys.argv[1] + "/api/org/preferences", sys.argv[2]
+body = json.dumps({"homeDashboardUID": "slurm-overview"}).encode()
+req = urllib.request.Request(url, data=body, method="PUT",
+    headers={"Content-Type": "application/json", "Authorization": "Basic " + creds})
+try:
+    urllib.request.urlopen(req)
+except urllib.error.URLError as e:
+    print("  (home dashboard not set: %s)" % e)
+PY
 }
 
 

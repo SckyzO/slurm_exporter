@@ -55,10 +55,15 @@ cat > /work/script.js << 'JSEOF'
 const { chromium } = require('playwright');
 const SESSION = process.env.GSESSION;
 const BASE = process.env.GRAFANA_BASE || 'http://grafana:3000';
+// expectHeaders: table column names that MUST render. A broken transformation
+// (or a stale provisioned copy) collapses a table's value columns into repeated
+// dimension-named headers, so 'make screenshots' used to report ok on a table
+// with no usable column (issue #156). Asserting the renamed headers appear turns
+// that silent failure into a non-zero exit.
 const DASHBOARDS = [
-  { uid: 'slurm-overview',     name: 'overview',     sections: [0, 1300, 2500, 3600] },
+  { uid: 'slurm-overview',     name: 'overview',     sections: [0, 1300, 2500, 3600], expectHeaders: ['Partition', 'CPU Alloc', 'CPU Total', 'Running Jobs'] },
   { uid: 'slurm-jobs',         name: 'jobs',         sections: [0, 1200, 2400] },
-  { uid: 'slurm-nodes',        name: 'nodes',        sections: [0, 1200, 2400, 3600] },
+  { uid: 'slurm-nodes',        name: 'nodes',        sections: [0, 1200, 2400, 3600], expectHeaders: ['Partition', 'Alloc', 'Idle', 'Mixed', 'Down'] },
   { uid: 'slurm-usage',        name: 'usage',        sections: [0, 1200, 2400, 3600, 4800] },
   { uid: 'slurm-scheduler',    name: 'scheduler',    sections: [0, 1200, 2400, 3400] },
   { uid: 'slurm-health',       name: 'health',       sections: [0, 1200, 2400] },
@@ -77,22 +82,38 @@ const DASHBOARDS = [
   }]);
   const page = await ctx.newPage();
   await page.setViewportSize({ width: 1920, height: 1080 });
+  let failures = 0;
   for (const db of DASHBOARDS) {
     console.log('→ ' + db.name);
     try {
       await page.goto(BASE + '/d/' + db.uid + '?orgId=1&from=now-1h&to=now&kiosk',
         { waitUntil: 'networkidle', timeout: 35000 });
       await page.waitForTimeout(6000);
+      const seenHeaders = new Set();
       for (let i = 0; i < db.sections.length; i++) {
         await page.evaluate(y => window.scrollTo(0, y), db.sections[i]);
         await page.waitForTimeout(i === 0 ? 2500 : 1800);
         await page.screenshot({ path: '/screenshots/' + db.name + '-' + (i+1) + '.png' });
+        const hs = await page.evaluate(() =>
+          Array.from(document.querySelectorAll('[role="columnheader"]')).map(e => e.textContent.trim()));
+        hs.forEach(h => seenHeaders.add(h));
       }
       console.log('  ok (' + db.sections.length + ' screenshots)');
-    } catch(e) { console.error('  ERR ' + db.name + ': ' + e.message); }
+      if (db.expectHeaders) {
+        const missing = db.expectHeaders.filter(h => !seenHeaders.has(h));
+        if (missing.length) {
+          console.error('  COLUMN CHECK FAILED (' + db.name + '): missing ' + JSON.stringify(missing)
+            + ' — rendered headers: ' + JSON.stringify([...seenHeaders]));
+          failures++;
+        } else {
+          console.log('  column check ok (' + db.expectHeaders.join(', ') + ')');
+        }
+      }
+    } catch(e) { console.error('  ERR ' + db.name + ': ' + e.message); failures++; }
   }
   await browser.close();
   console.log('All done. Screenshots saved to /screenshots/');
+  if (failures) { console.error(failures + ' dashboard check(s) failed'); process.exit(3); }
 })().catch(e => { console.error('Fatal:', e.message); process.exit(1); });
 JSEOF
 

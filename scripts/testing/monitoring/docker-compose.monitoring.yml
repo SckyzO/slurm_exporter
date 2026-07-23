@@ -25,7 +25,9 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/01-slurm-overview.json
+      # Dashboards are deployed via the Grafana HTTP API (import-dashboards),
+      # not file provisioning; the landing page is set with /api/org/preferences.
+      # A provisioned home-dashboard path reintroduces the stale-copy race (#156).
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
