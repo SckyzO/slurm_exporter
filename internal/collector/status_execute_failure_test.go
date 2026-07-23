@@ -57,11 +57,13 @@ func TestStatusTracker_SuccessIsZeroWhenSlurmCommandsFail(t *testing.T) {
 		return nil, errors.New("simulated: slurmctld unreachable")
 	}
 
-	// Reset the shared scontrol cache so a previous test's payload cannot
-	// satisfy the collectors that read through it.
+	// Reset the shared caches so a previous test's payload cannot satisfy the
+	// collectors that read through them (scontrol nodes, and the squeue snapshot
+	// shared by accounts/users/partitions since #144).
 	oldCache := scontrolNodesCache
 	scontrolNodesCache = &timedCache{ttl: oldCache.ttl}
 	defer func() { scontrolNodesCache = oldCache }()
+	resetSqueueJobsCache()
 
 	log := logger.NewLogger("error")
 

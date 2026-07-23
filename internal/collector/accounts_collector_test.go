@@ -13,11 +13,13 @@ import (
 func TestAccountsCollector_Collect(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
+	resetSqueueJobsCache() // accounts reads through the shared squeue cache (#144)
+	// Wide shared-snapshot layout: JobID|Account|UserName|Partition|State|NumNodes|NumCPUs|tres-alloc.
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		return []byte(`1|hpc_team|RUNNING|1|4|N/A
-2|hpc_team|RUNNING|1|8|N/A
-3|ml_group|PENDING|1|2|N/A
-4|ml_group|RUNNING|1|4|gres/gpu:1`), nil
+		return []byte(`1|hpc_team|user|cpu|RUNNING|1|4|N/A
+2|hpc_team|user|cpu|RUNNING|1|8|N/A
+3|ml_group|user|cpu|PENDING|1|2|N/A
+4|ml_group|user|cpu|RUNNING|1|4|gres/gpu:1`), nil
 	}
 
 	log := logger.NewLogger("error")
@@ -54,6 +56,7 @@ func TestAccountsCollector_Describe(t *testing.T) {
 func TestAccountsCollector_ErrorHandling(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
+	resetSqueueJobsCache() // a warm shared cache would hide the injected failure (#144)
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
 		return nil, assert.AnError
 	}

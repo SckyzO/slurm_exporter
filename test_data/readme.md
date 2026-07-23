@@ -6,10 +6,27 @@ data files that correspond to each command's output.
 All test data files are anonymized (real cluster node names, user names, account names
 and reservation names have been replaced with generic equivalents).
 
+## Shared squeue snapshot (`collector/squeue_jobs.go`)
+
+- `squeue -a -r -h -O "JobID:|,Account:|,UserName:|,Partition:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:"`:
+  one consolidated snapshot of the whole job queue, cached per scrape and shared
+  by the `accounts`, `users` and `partitions` collectors. Before issue #144
+  these issued up to five separate full-queue dumps to `slurmctld` every scrape;
+  they now project their views from this single call. `-a -r` and the default
+  state set match what each collector requested individually, so no metric value
+  changes. `queue.go` is deliberately **not** a consumer (it omits `-a`/`-r` and
+  toggles `--states=all`; sharing it would change job-array counts).
+  - Test file: **`squeue_jobs.txt`** — captured on the `scripts/testing` cluster
+    (Slurm 25.11), covering RUNNING/PENDING/SUSPENDED jobs across several
+    accounts, users and partitions, plus a multi-partition (`cpu,gpu`) pending
+    job.
+
 ## `collector/accounts.go`
 
-- `squeue -a -r -h -O "JobID:|,Account:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc"`: job/CPU/GPU counts by account.
-  - Test file: **`squeue_tres.txt`**
+- Projects the account view (`JobID|Account|State|NumNodes|NumCPUs|tres-alloc`)
+  from the shared snapshot above: job/CPU/GPU counts by account.
+  - Test file: **`squeue_tres.txt`** — still backs `ParseAccountsMetrics`, which
+    is unchanged; the projection re-emits exactly this layout.
   - Uses `tres-alloc` (effective allocation, total) instead of the legacy `%b`
     (TRES per node) so that jobs submitted with `--gpus` or `--gpus-per-node`
     are accounted for (see issue #35).
@@ -57,12 +74,14 @@ and reservation names have been replaced with generic equivalents).
 
 - `sinfo -h -o "%R,%C"`: CPU state per partition.
   - Test files: **`slurm-25.11.1-1/sinfo_partitions_cpu.txt`**
-- `sinfo -h --Format=Nodes:10 ,Partition:30 ,Gres:50 ,GresUsed:50 --state=idle,allocated`: GPU state per partition.
+- `sinfo -h --Format=Nodes: ,Partition: ,Gres: ,GresUsed: --state=idle,allocated`: GPU state per partition.
   - Test files: **`slurm-25.11.1-1/sinfo_partitions_gpu.txt`**
-- `squeue -a -r -h -o "%P" --states=PENDING`: pending jobs per partition.
-  - Test files: **`slurm-25.11.1-1/squeue_partitions_pending_job.txt`**
-- `squeue -a -r -h -o "%P" --states=RUNNING`: running jobs per partition.
-  - Test files: **`slurm-25.11.1-1/squeue_partitions_running_job.txt`**
+- Pending and running job counts per partition are projected from the shared
+  squeue snapshot (see above), filtering the consolidated output by state
+  instead of issuing `squeue -o "%P" --states=PENDING` and `--states=RUNNING`
+  separately (issue #144). Multi-partition jobs keep their comma-separated
+  partition list, which is split across partitions.
+  - Test file: **`squeue_jobs.txt`** (shared).
 
 ## `collector/queue.go`
 
@@ -120,8 +139,11 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/users.go`
 
-- `squeue -a -r -h -O "JobID:|,UserName:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc"`: job/CPU/GPU counts by user.
-  - Test file: **`squeue_tres_users.txt`**
+- Projects the user view (`JobID|UserName|State|NumNodes|NumCPUs|tres-alloc`)
+  from the shared squeue snapshot (see the top of this file): job/CPU/GPU counts
+  by user.
+  - Test file: **`squeue_tres_users.txt`** — still backs `ParseUsersMetrics`,
+    which is unchanged; the projection re-emits exactly this layout.
   - Same `tres-alloc` rationale as accounts (issue #35).
 
 ---

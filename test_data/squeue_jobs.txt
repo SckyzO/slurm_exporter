@@ -1,0 +1,9 @@
+221|bio|bob|cpu|PENDING|1|8|cpu=8,mem=512M,node=1,billing=8
+220|hpc_team|alice|cpu|PENDING|1|4|cpu=4,mem=512M,node=1,billing=4
+214|hpc_team|alice|cpu|RUNNING|1|4|cpu=4,mem=512M,node=1,billing=4
+215|bio|bob|cpu|RUNNING|1|8|cpu=8,mem=512M,node=1,billing=8
+216|ml_group|eve|cpu|RUNNING|1|2|cpu=2,mem=512M,node=1,billing=2
+217|ml_group|eve|cpu|RUNNING|1|2|cpu=2,mem=512M,node=1,billing=2
+218|physics|frank|cpu|RUNNING|1|2|cpu=2,mem=512M,node=1,billing=2
+219|ml_group|dave|cpu|SUSPENDED|1|4|cpu=4,mem=512M,node=1,billing=4
+222|physics|carol|cpu,gpu|PENDING|1|2|cpu=2,mem=512M,node=1,billing=2
