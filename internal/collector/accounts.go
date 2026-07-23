@@ -31,15 +31,17 @@ func parseGPUsFromTRES(tres string) float64 {
 	return count
 }
 
-// AccountsData runs squeue grouped by Slurm account.
-//
-// The trailing colon on `tres-alloc:` is required: without it, squeue caps
-// the last field at 20 characters and the GPU suffix is silently dropped.
+// AccountsData returns the job queue grouped by Slurm account, projected from
+// the shared squeue snapshot (SqueueJobsData) so accounts, users and partitions
+// share a single controller query per scrape (issue #144). The projection emits
+// the exact layout ParseAccountsMetrics consumes:
+// "JobID|Account|State|NumNodes|NumCPUs|tres-alloc".
 func AccountsData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{
-		"-a", "-r", "-h",
-		"-O", "JobID:|,Account:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:",
-	})
+	data, err := SqueueJobsData(logger)
+	if err != nil {
+		return nil, err
+	}
+	return projectAccountsView(data), nil
 }
 
 type JobMetrics struct {

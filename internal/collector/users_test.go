@@ -73,10 +73,12 @@ func TestParseUsersMetrics_FromTestData(t *testing.T) {
 func TestUsersCollector_Collect(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
+	resetSqueueJobsCache() // users reads through the shared squeue cache (#144)
+	// Wide shared-snapshot layout: JobID|Account|UserName|Partition|State|NumNodes|NumCPUs|tres-alloc.
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		return []byte(`1|alice|RUNNING|1|4|cpu=4,mem=8G,node=1
-2|bob|PENDING|1|2|cpu=2,mem=4G,node=1
-3|alice|RUNNING|1|8|cpu=8,mem=16G,node=1,gres/gpu=2`), nil
+		return []byte(`1|acct|alice|cpu|RUNNING|1|4|cpu=4,mem=8G,node=1
+2|acct|bob|cpu|PENDING|1|2|cpu=2,mem=4G,node=1
+3|acct|alice|cpu|RUNNING|1|8|cpu=8,mem=16G,node=1,gres/gpu=2`), nil
 	}
 
 	log := logger.NewLogger("error")
@@ -114,6 +116,7 @@ func TestUsersCollector_Describe(t *testing.T) {
 func TestUsersCollector_ErrorHandling(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
+	resetSqueueJobsCache() // a warm shared cache would hide the injected failure (#144)
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
 		return nil, assert.AnError
 	}
