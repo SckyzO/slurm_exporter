@@ -32,8 +32,6 @@ func GPUsGetMetrics(logger *logger.Logger) (*GPUsMetrics, error) {
 func ParseAllocatedGPUs(data []byte) float64 {
 	var numGPUs = 0.0
 	sinfoLines := string(data)
-	// Regex to match GPU specifications: gpu:type:count or gpu:count
-	re := regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
 	if len(sinfoLines) > 0 {
 		for _, line := range strings.Split(sinfoLines, "\n") {
 			if len(line) > 0 && strings.Contains(line, "gpu:") {
@@ -43,20 +41,7 @@ func ParseAllocatedGPUs(data []byte) float64 {
 				}
 
 				numNodes, _ := strconv.ParseFloat(fields[0], 64)
-				nodeActiveGPUs := fields[1]
-				numNodeActiveGPUs := 0.0
-
-				// Parse GPU specifications separated by commas
-				for _, gpuSpec := range strings.Split(nodeActiveGPUs, ",") {
-					if strings.Contains(gpuSpec, "gpu:") {
-						matches := re.FindStringSubmatch(gpuSpec)
-						if len(matches) > 2 {
-							gpuCount, _ := strconv.ParseFloat(matches[2], 64)
-							numNodeActiveGPUs += gpuCount
-						}
-					}
-				}
-				numGPUs += numNodes * numNodeActiveGPUs
+				numGPUs += numNodes * parseGPUCount(fields[1])
 			}
 		}
 	}
@@ -72,7 +57,6 @@ func ParseAllocatedGPUs(data []byte) float64 {
 func ParseIdleGPUs(data []byte) float64 {
 	var numGPUs = 0.0
 	sinfoLines := string(data)
-	re := regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
 	if len(sinfoLines) > 0 {
 		for _, line := range strings.Split(sinfoLines, "\n") {
 			if len(line) > 0 && strings.Contains(line, "gpu:") {
@@ -89,12 +73,12 @@ func ParseIdleGPUs(data []byte) float64 {
 					numGPUs += 0
 				case 2:
 					// Two columns: nodes and total GPUs (no allocated info)
-					totalGPUs := parseGPUCount(fields[1], re)
+					totalGPUs := parseGPUCount(fields[1])
 					numGPUs += numNodes * totalGPUs
 				default:
 					// Three or more columns: nodes, total GPUs, allocated GPUs
-					totalGPUs := parseGPUCount(fields[1], re)
-					allocatedGPUs := parseGPUCount(fields[2], re)
+					totalGPUs := parseGPUCount(fields[1])
+					allocatedGPUs := parseGPUCount(fields[2])
 					idleGPUs := totalGPUs - allocatedGPUs
 					numGPUs += numNodes * idleGPUs
 				}
@@ -105,16 +89,27 @@ func ParseIdleGPUs(data []byte) float64 {
 	return numGPUs
 }
 
-// parseGPUCount extracts the total GPU count from a GPU specification string
-func parseGPUCount(gpuSpec string, re *regexp.Regexp) float64 {
+// gpuGresRe matches one GPU entry in a Slurm GRES/GresUsed field —
+// "gpu:<type>:<count>" or "gpu:<count>", with an optional "(null)" type and an
+// optional "(IDX:…)"/"(S:…)" suffix. Capture group 2 is the count. Compiled
+// once at package level rather than per Collect(), the convention the other
+// collectors follow (see nodes.go, scheduler.go).
+var gpuGresRe = regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
+
+// parseGPUCount sums the GPU counts across every gpu: entry in a comma-separated
+// GRES specification. A node can expose several GPU types at once
+// ("gpu:A100:4,gpu:H100:2" → 6), and non-gpu GRES (e.g. "mig:…") is ignored.
+// Shared by the cluster-wide (gpus.go) and per-partition (partitions.go) paths.
+func parseGPUCount(gpuSpec string) float64 {
 	var count = 0.0
 	for _, spec := range strings.Split(gpuSpec, ",") {
-		if strings.Contains(spec, "gpu:") {
-			matches := re.FindStringSubmatch(spec)
-			if len(matches) > 2 {
-				gpuCount, _ := strconv.ParseFloat(matches[2], 64)
-				count += gpuCount
-			}
+		if !strings.Contains(spec, "gpu:") {
+			continue
+		}
+		matches := gpuGresRe.FindStringSubmatch(spec)
+		if len(matches) > 2 {
+			gpuCount, _ := strconv.ParseFloat(matches[2], 64)
+			count += gpuCount
 		}
 	}
 	return count
@@ -128,7 +123,6 @@ func parseGPUCount(gpuSpec string, re *regexp.Regexp) float64 {
 func ParseTotalGPUs(data []byte) float64 {
 	var numGPUs = 0.0
 	sinfoLines := string(data)
-	re := regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
 
 	if len(sinfoLines) > 0 {
 		for _, line := range strings.Split(sinfoLines, "\n") {
@@ -139,7 +133,7 @@ func ParseTotalGPUs(data []byte) float64 {
 				}
 
 				numNodes, _ := strconv.ParseFloat(fields[0], 64)
-				nodeGPUs := parseGPUCount(fields[1], re)
+				nodeGPUs := parseGPUCount(fields[1])
 				numGPUs += numNodes * nodeGPUs
 			}
 		}
