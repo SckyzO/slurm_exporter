@@ -5,11 +5,21 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
+
+// infoSeries is one resolved slurm_info series, held in memory so the versions
+// are probed once rather than re-forked on every scrape (issue #149).
+type infoSeries struct {
+	typ     string
+	binary  string
+	version string
+	value   float64
+}
 
 // SlurmInfoCollector defines a Prometheus collector for Slurm binary and version information
 type SlurmInfoCollector struct {
@@ -17,6 +27,11 @@ type SlurmInfoCollector struct {
 	requiredBinaries []string
 	optionalBinaries []string
 	logger           *logger.Logger
+
+	// Slurm binary versions cannot change while the process runs, so they are
+	// resolved once on the first scrape and served from memory thereafter.
+	resolveOnce sync.Once
+	series      []infoSeries
 }
 
 func NewSlurmInfoCollector(logger *logger.Logger) *SlurmInfoCollector {
@@ -46,23 +61,39 @@ func (c *SlurmInfoCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *SlurmInfoCollector) Collect(ch chan<- prometheus.Metric) {
-	version, found := GetBinaryVersion(c.logger, "sinfo")
-	versionValue := 0.0
-	if found {
-		versionValue = 1.0
+	c.resolveOnce.Do(c.resolve)
+	for _, s := range c.series {
+		ch <- prometheus.MustNewConstMetric(c.slurmInfo, prometheus.GaugeValue, s.value, s.typ, s.binary, s.version)
 	}
+}
 
-	ch <- prometheus.MustNewConstMetric(c.slurmInfo, prometheus.GaugeValue, versionValue, "general", "", version)
+// resolve probes every binary's version once and builds the series to emit on
+// every scrape. Called through resolveOnce so the `<binary> --version` forks
+// happen a single time for the process lifetime rather than on each scrape
+// (issue #149). A Slurm upgrade under a running exporter is not a supported
+// state — the process is restarted by whatever performed the upgrade.
+func (c *SlurmInfoCollector) resolve() {
+	// sinfo is probed once and reused for both the "general" series and its
+	// entry in requiredBinaries, removing the duplicate fork.
+	version, found := GetBinaryVersion(c.logger, "sinfo")
+	generalValue := 0.0
+	if found {
+		generalValue = 1.0
+	}
+	series := []infoSeries{{typ: "general", binary: "", version: version, value: generalValue}}
 
 	// Required binaries: always emit a series (value=0 with version="not_found"
 	// if the binary is missing, so absence is visible in alerts).
 	for _, binary := range c.requiredBinaries {
-		binVersion, binFound := GetBinaryVersion(c.logger, binary)
+		binVersion, binFound := version, found
+		if binary != "sinfo" {
+			binVersion, binFound = GetBinaryVersion(c.logger, binary)
+		}
 		binValue := 0.0
 		if binFound {
 			binValue = 1.0
 		}
-		ch <- prometheus.MustNewConstMetric(c.slurmInfo, prometheus.GaugeValue, binValue, "binary", binary, binVersion)
+		series = append(series, infoSeries{typ: "binary", binary: binary, version: binVersion, value: binValue})
 	}
 
 	// Optional binaries: emit only if the binary is found on disk. No log,
@@ -76,8 +107,10 @@ func (c *SlurmInfoCollector) Collect(ch chan<- prometheus.Metric) {
 		if !binFound {
 			continue
 		}
-		ch <- prometheus.MustNewConstMetric(c.slurmInfo, prometheus.GaugeValue, 1.0, "binary", binary, binVersion)
+		series = append(series, infoSeries{typ: "binary", binary: binary, version: binVersion, value: 1.0})
 	}
+
+	c.series = series
 }
 
 // binaryAvailable reports whether the given binary can be found on disk
