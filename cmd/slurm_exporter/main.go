@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -265,26 +266,59 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	// Start HTTP server with exporter toolkit (supports TLS, Basic Auth, etc.)
+	// Start HTTP server with exporter toolkit (supports TLS, Basic Auth, etc.).
+	// serve is the blocking listen call; injecting it keeps runServer testable
+	// without binding the test to the exporter-toolkit listener.
 	server := &http.Server{
 		ReadHeaderTimeout: 5 * time.Second, // Mitigate Slowloris attack (G112)
 	}
-	if err := web.ListenAndServe(server, toolkitFlags, log.Logger); err != nil {
+	serve := func() error { return web.ListenAndServe(server, toolkitFlags, log.Logger) }
+	if err := runServer(ctx, server, serve, sacctDone, log); err != nil {
 		log.Error("Failed to start HTTP server", "err", err)
 		stop()     // release signal handler explicitly before bypassing defer via os.Exit
 		os.Exit(1) //nolint:gocritic // stop() called explicitly above
 	}
+}
 
-	// Graceful shutdown: wait for the sacct_efficiency background goroutine to
-	// finish (if it was started). Bounded by a short timeout so we don't hang
-	// the process when sacct is genuinely stuck.
-	if sacctDone != nil {
-		log.Info("Waiting for sacct_efficiency background goroutine to finish...")
-		select {
-		case <-sacctDone:
-			log.Info("sacct_efficiency stopped cleanly")
-		case <-time.After(5 * time.Second):
-			log.Warn("sacct_efficiency did not stop within 5s, exiting anyway")
+// runServer runs the HTTP server until ctx is cancelled (SIGTERM/SIGINT) or the
+// server stops on its own. serve is the blocking listen call (web.ListenAndServe
+// in production). On cancellation the server is shut down gracefully and the
+// sacct_efficiency goroutine, if running, is given a bounded window to exit.
+// Returns a non-nil error only when the server fails to start; a clean shutdown
+// returns nil.
+func runServer(ctx context.Context, server *http.Server, serve func() error, sacctDone <-chan struct{}, log *logger.Logger) error {
+	errCh := make(chan error, 1)
+	go func() { errCh <- serve() }()
+
+	select {
+	case err := <-errCh:
+		// The server stopped on its own. ErrServerClosed only happens after a
+		// Shutdown/Close we did not trigger here, so treat everything else as a
+		// startup failure.
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
 		}
+		return nil
+	case <-ctx.Done():
+		log.Info("Shutdown signal received, stopping HTTP server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Error("HTTP server shutdown failed", "err", err)
+		}
+
+		// Graceful shutdown: wait for the sacct_efficiency background goroutine
+		// to finish (if it was started). Bounded so we don't hang when sacct is
+		// genuinely stuck.
+		if sacctDone != nil {
+			log.Info("Waiting for sacct_efficiency background goroutine to finish...")
+			select {
+			case <-sacctDone:
+				log.Info("sacct_efficiency stopped cleanly")
+			case <-time.After(5 * time.Second):
+				log.Warn("sacct_efficiency did not stop within 5s, exiting anyway")
+			}
+		}
+		return nil
 	}
 }
