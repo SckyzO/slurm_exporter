@@ -75,6 +75,24 @@ var scontrolNodesCache = &timedCache{ttl: 25 * time.Second}
 // Same TTL as above, for the same reason.
 var sinfoNodeStateCache = &timedCache{ttl: 25 * time.Second}
 
+// squeueJobsCache holds one consolidated squeue snapshot of the whole job queue
+// (SqueueJobsData). The accounts, users and partitions collectors each used to
+// dump the full queue from slurmctld on every scrape — up to five separate
+// squeue calls; they now share this single snapshot. Same 25s TTL rationale as
+// scontrolNodesCache: one fetch per scrape, always fresh. See issue #144.
+var squeueJobsCache = &timedCache{ttl: 25 * time.Second}
+
+// cacheRegistry maps each shared cache's slurm_exporter_cache_age_seconds label
+// to a getter returning the live instance. updateCacheAge iterates it, so
+// exposing a new shared cache is a one-line registration here rather than an
+// edit to the publisher. Getters (not raw pointers) keep the age metric correct
+// even when a test swaps a cache var out for an isolated instance.
+var cacheRegistry = map[string]func() *timedCache{
+	"scontrol_nodes":   func() *timedCache { return scontrolNodesCache },
+	"sinfo_node_state": func() *timedCache { return sinfoNodeStateCache },
+	"squeue_jobs":      func() *timedCache { return squeueJobsCache },
+}
+
 // ── Cache age metric ──────────────────────────────────────────────────────────
 
 var cacheAgeGauge = prometheus.NewGaugeVec(
@@ -95,6 +113,7 @@ func RegisterCacheMetrics(reg prometheus.Registerer) {
 // updateCacheAge publishes the current age of all known caches.
 // Called from collectors that use caches so the metric stays up to date.
 func updateCacheAge() {
-	cacheAgeGauge.WithLabelValues("scontrol_nodes").Set(scontrolNodesCache.AgeSeconds())
-	cacheAgeGauge.WithLabelValues("sinfo_node_state").Set(sinfoNodeStateCache.AgeSeconds())
+	for name, get := range cacheRegistry {
+		cacheAgeGauge.WithLabelValues(name).Set(get().AgeSeconds())
+	}
 }

@@ -16,13 +16,16 @@ var (
 	userJobSuspended = regexp.MustCompile(`^suspended`)
 )
 
-// UsersData runs squeue grouped by user. The trailing colon on `tres-alloc:`
-// is required for the same reason as in AccountsData — see that function.
+// UsersData returns the job queue grouped by user, projected from the shared
+// squeue snapshot (SqueueJobsData) — the same single controller query accounts
+// and partitions read (issue #144). The projection emits the exact layout
+// ParseUsersMetrics consumes: "JobID|UserName|State|NumNodes|NumCPUs|tres-alloc".
 func UsersData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{
-		"-a", "-r", "-h",
-		"-O", "JobID:|,UserName:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:",
-	})
+	data, err := SqueueJobsData(logger)
+	if err != nil {
+		return nil, err
+	}
+	return projectUsersView(data), nil
 }
 
 type UserJobMetrics struct {
