@@ -32,22 +32,6 @@ func PartitionsGpuData(logger *logger.Logger) ([]byte, error) {
 	return Execute(logger, "sinfo", []string{"-h", "--Format=Nodes: ,Partition: ,Gres: ,GresUsed:", "--state=idle,allocated"})
 }
 
-/*
-PartitionsPendingJobsData executes the squeue command to retrieve pending job counts per partition.
-Expected squeue output format: "%P" (PartitionName).
-*/
-func PartitionsPendingJobsData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{"-a", "-r", "-h", "-o", "%P", "--states=PENDING"})
-}
-
-/*
-PartitionsRunningJobsData executes the squeue command to retrieve running job counts per partition.
-Expected squeue output format: "%P" (PartitionName).
-*/
-func PartitionsRunningJobsData(logger *logger.Logger) ([]byte, error) {
-	return Execute(logger, "squeue", []string{"-a", "-r", "-h", "-o", "%P", "--states=RUNNING"})
-}
-
 type PartitionMetrics struct {
 	cpuAllocated float64
 	cpuIdle      float64
@@ -190,15 +174,15 @@ func ParsePartitionsMetrics(logger *logger.Logger) (map[string]*PartitionMetrics
 	}
 	parsePartitionGPUs(gpuData, partitions)
 
-	pendingData, err := PartitionsPendingJobsData(logger)
+	// Pending and running job counts come from the shared squeue snapshot
+	// (issue #144): the default state set includes PENDING and RUNNING, and the
+	// -a -r flags match the dedicated per-state queries this replaced, so the
+	// counts are identical while slurmctld is queried once instead of twice.
+	jobsData, err := SqueueJobsData(logger)
 	if err != nil {
 		return nil, err
 	}
-	runningData, err := PartitionsRunningJobsData(logger)
-	if err != nil {
-		return nil, err
-	}
-	parsePartitionJobs(pendingData, runningData, partitions)
+	parsePartitionJobs(projectPartitionView(jobsData, "PENDING"), projectPartitionView(jobsData, "RUNNING"), partitions)
 
 	return partitions, nil
 }
