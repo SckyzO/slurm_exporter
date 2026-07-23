@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,6 +10,46 @@ import (
 
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
+
+// TestSlurmInfoCollector_VersionsResolvedOnce is the non-regression test for
+// issue #149: binary versions are immutable for the process lifetime, so the
+// info collector must fork `<binary> --version` at most once per binary — never
+// twice for sinfo in a single scrape, and never again on later scrapes.
+func TestSlurmInfoCollector_VersionsResolvedOnce(t *testing.T) {
+	oldAvail := binaryAvailable
+	defer func() { binaryAvailable = oldAvail }()
+	binaryAvailable = func(binary string) bool { return true } // all present
+
+	oldExecute := Execute
+	defer func() { Execute = oldExecute }()
+	var mu sync.Mutex
+	calls := map[string]int{}
+	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
+		mu.Lock()
+		calls[command]++
+		mu.Unlock()
+		return []byte("slurm 23.11.10"), nil
+	}
+
+	log := logger.NewLogger("error")
+	c := NewSlurmInfoCollector(log)
+	reg := prometheus.NewRegistry()
+	require.NoError(t, reg.Register(c))
+
+	// Two scrapes: versions cannot change between them.
+	_, err := reg.Gather()
+	require.NoError(t, err)
+	_, err = reg.Gather()
+	require.NoError(t, err)
+
+	for _, binary := range []string{
+		"sinfo", "squeue", "sdiag", "scontrol", "sacct", // required
+		"sbatch", "salloc", "srun", // optional (all present here)
+	} {
+		assert.Equal(t, 1, calls[binary],
+			"%s --version must be forked exactly once for the whole process, not per scrape (and sinfo not twice)", binary)
+	}
+}
 
 // TestSlurmInfoCollector_OptionalBinariesSilentlySkipped verifies that the
 // optional job-submission binaries (sbatch/salloc/srun) are not emitted as
