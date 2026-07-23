@@ -25,14 +25,21 @@ type ReservationNodesMetrics struct {
 	drain   float64
 	planned float64
 	other   float64
-	// healthy aggregates non-degraded states: alloc + idle + mix + planned.
+	// healthy counts nodes whose base state is up (alloc/idle/mix) and that are
+	// not drained. DRAIN and DOWN nodes are excluded even inside a reservation.
 	healthy float64
 }
 
 // ParseReservationNodesMetrics parses "scontrol show nodes -o" output and returns
 // per-reservation node state counts. Only nodes with a ReservationName field are
-// included. States are compound (e.g. ALLOCATED+MAINTENANCE+RESERVED); the primary
-// state (before the first '+') determines the category.
+// included.
+//
+// A node state is compound: a single base state followed by any number of flags,
+// e.g. MIXED+DRAIN+MAINTENANCE+RESERVED. The base state (before the first '+')
+// picks the primary bucket (alloc/idle/mix/down/other); DRAIN and PLANNED are
+// flags, counted in their own buckets on top of the base one, so a MIXED+DRAIN
+// node lands in both mix and drain. Reading only the head of the string missed
+// them entirely and let drained nodes count as healthy (issue #142).
 func ParseReservationNodesMetrics(input []byte) map[string]*ReservationNodesMetrics {
 	reservations := make(map[string]*ReservationNodesMetrics)
 
@@ -53,33 +60,58 @@ func ParseReservationNodesMetrics(input []byte) map[string]*ReservationNodesMetr
 			continue
 		}
 
-		// Extract primary state from compound state (e.g. ALLOCATED+MAINTENANCE+RESERVED)
-		primaryState := strings.ToLower(strings.SplitN(stateMatches[1], "+", 2)[0])
+		// Split the compound state into base + flags. A trailing '*' marks a
+		// non-responding node and is irrelevant to these counts, so strip it.
+		raw := strings.ReplaceAll(strings.ToUpper(stateMatches[1]), "*", "")
+		parts := strings.Split(raw, "+")
+		base, flags := parts[0], parts[1:]
+
+		hasFlag := func(name string) bool {
+			for _, f := range flags {
+				if f == name {
+					return true
+				}
+			}
+			return false
+		}
+		drained := hasFlag("DRAIN")
 
 		if _, exists := reservations[resvName]; !exists {
 			reservations[resvName] = &ReservationNodesMetrics{}
 		}
 		rm := reservations[resvName]
 
+		// Base state picks the primary bucket. upBase marks the states that are
+		// otherwise usable and thus eligible for the healthy count.
+		upBase := false
 		switch {
-		case strings.HasPrefix(primaryState, "alloc"):
+		case strings.HasPrefix(base, "ALLOC"):
 			rm.alloc++
-			rm.healthy++
-		case strings.HasPrefix(primaryState, "idle"):
+			upBase = true
+		case strings.HasPrefix(base, "IDLE"):
 			rm.idle++
-			rm.healthy++
-		case strings.HasPrefix(primaryState, "mix"):
+			upBase = true
+		case strings.HasPrefix(base, "MIX"):
 			rm.mix++
-			rm.healthy++
-		case strings.HasPrefix(primaryState, "planned"):
-			rm.planned++
-			rm.healthy++
-		case strings.HasPrefix(primaryState, "down"):
+			upBase = true
+		case strings.HasPrefix(base, "DOWN"):
 			rm.down++
-		case strings.HasPrefix(primaryState, "drain"):
-			rm.drain++
 		default:
 			rm.other++
+		}
+
+		// Flags are orthogonal to the base state: a node can be both MIXED and
+		// DRAIN, or IDLE and PLANNED.
+		if drained {
+			rm.drain++
+		}
+		if hasFlag("PLANNED") {
+			rm.planned++
+		}
+
+		// A drained node is not usable even if its base state is up.
+		if upBase && !drained {
+			rm.healthy++
 		}
 	}
 	return reservations
@@ -130,7 +162,7 @@ func NewReservationNodesCollector(logger *logger.Logger) *ReservationNodesCollec
 		drain:   prometheus.NewDesc("slurm_reservation_nodes_drain", "Drained nodes in reservation", labels, nil),
 		planned: prometheus.NewDesc("slurm_reservation_nodes_planned", "Planned nodes in reservation", labels, nil),
 		other:   prometheus.NewDesc("slurm_reservation_nodes_other", "Nodes in other states in reservation", labels, nil),
-		healthy: prometheus.NewDesc("slurm_reservation_nodes_healthy", "Healthy nodes in reservation (alloc+idle+mix+planned)", labels, nil),
+		healthy: prometheus.NewDesc("slurm_reservation_nodes_healthy", "Healthy nodes in reservation (up base state, not drained)", labels, nil),
 		logger:  logger,
 	}
 }
