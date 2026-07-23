@@ -95,9 +95,17 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/sacct_efficiency.go`
 
-- `sacct -X -P -n --starttime <window> --format User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED`: job efficiency data.
+- `sacct -P -n --starttime <window> --format JobID,User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED`: job efficiency data.
   - Test file: **`sacct_efficiency.txt`**
   - Requires `JobAcctGatherType=jobacct_gather/linux` (or similar) in slurm.conf to populate TotalCPU/MaxRSS.
+  - No `-X`: `MaxRSS` is a step-level field, empty on the allocation line, so the
+    step lines (`<jobid>.batch`, `<jobid>.0`, …) are read and their peak `MaxRSS`
+    is attributed back to the job by `JobID`.
+  - The line **format** was captured from the test cluster (Slurm 25.11). The
+    `MaxRSS` values on the step lines are representative rather than captured: the
+    containerised cluster uses `proctrack/linuxproc`, which does not gather
+    `MaxRSS`, so a real capture leaves that column empty. A cluster with a working
+    `JobAcctGather` (`proctrack/cgroup`) populates it exactly in this shape.
   - Disabled by default (`--collector.sacct_efficiency` to enable).
 
 ## `collector/node_drain.go`

@@ -23,8 +23,13 @@ type SacctJobRecord struct {
 	TotalCPUSeconds float64
 	// CPU time allocated (AllocCPUs × Elapsed, seconds)
 	CPUTimeSeconds float64
-	// Peak memory used (MB)
+	// Peak memory used (MB), aggregated as the max over the job's steps.
 	MaxRSSMB float64
+	// MaxRSSPresent is true only when at least one step reported a MaxRSS value.
+	// A job whose accounting has no MaxRSS (steps never ran, jobacct_gather off,
+	// or -X used) must be left out of the memory-efficiency average rather than
+	// folded in at 0% (issue #143).
+	MaxRSSPresent bool
 	// Memory requested (MB)
 	ReqMemMB float64
 }
@@ -58,17 +63,27 @@ func parseSacctDuration(s string) float64 {
 	return days*86400 + h*3600 + m*60 + sec
 }
 
-// parseSacctMemory converts Slurm memory strings to MB.
-// Formats: "2G", "512M", "1024K", "4096" (bytes)
-func parseSacctMemory(s string) float64 {
+// parseSacctMemory converts a Slurm memory string to MB (MiB) and reports
+// whether it parsed a real value. Accepted suffixes are K, M, G, T and P
+// (Slurm's memory units), optionally followed by 'n' (per-node) or 'c'
+// (per-cpu). An empty string, "0", the "16?" placeholder, or anything that
+// fails to parse returns (0, false) so callers can tell "no data" from a
+// genuine zero rather than folding a phantom 0% into an average (issue #143).
+func parseSacctMemory(s string) (float64, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "0" || s == "16?" {
-		return 0
+		return 0, false
 	}
-	// ReqMem may have 'n' (per-node) or 'c' (per-cpu) suffix — strip it
+	// ReqMem may have 'n' (per-node) or 'c' (per-cpu) suffix — strip it.
 	s = strings.TrimRight(s, "nc")
 	multiplier := 1.0
 	switch {
+	case strings.HasSuffix(s, "P"):
+		multiplier = 1024 * 1024 * 1024
+		s = strings.TrimSuffix(s, "P")
+	case strings.HasSuffix(s, "T"):
+		multiplier = 1024 * 1024
+		s = strings.TrimSuffix(s, "T")
 	case strings.HasSuffix(s, "G"):
 		multiplier = 1024
 		s = strings.TrimSuffix(s, "G")
@@ -78,45 +93,103 @@ func parseSacctMemory(s string) float64 {
 		multiplier = 1.0 / 1024
 		s = strings.TrimSuffix(s, "K")
 	}
-	v, _ := strconv.ParseFloat(s, 64)
-	return v * multiplier
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, false
+	}
+	return v * multiplier, true
 }
 
-// ParseSacctEfficiency parses sacct -X -P -n output into per-job records.
-// Expected format: User|Account|AllocCPUS|Elapsed|TotalCPU|CPUTime|MaxRSS|ReqMem
+// ParseSacctEfficiency parses sacct -P -n output (steps included, no -X) into
+// per-job records.
+// Expected format: JobID|User|Account|AllocCPUS|Elapsed|TotalCPU|CPUTime|MaxRSS|ReqMem
+//
+// MaxRSS is a step-level statistic: it is empty on the allocation (JobID "123")
+// line and only carried by the step lines ("123.batch", "123.0", …). The old
+// query used -X, which returns allocation lines only, so MaxRSS came back empty
+// for every job and the memory-efficiency metric was pinned at 0 (issue #143).
+// We now read steps too, correlate them to their job by the JobID prefix before
+// the first '.', and take the peak MaxRSS across the job's steps. Identity and
+// requested resources (User, Account, AllocCPUS, times, ReqMem) come from the
+// allocation line, which is authoritative for them.
 func ParseSacctEfficiency(input []byte) []SacctJobRecord {
-	var records []SacctJobRecord
+	// job accumulates one job's allocation line plus the peak MaxRSS seen across
+	// its step lines, regardless of the order they arrive in.
+	type job struct {
+		rec       SacctJobRecord
+		haveAlloc bool
+		maxRSS    float64
+		rssSeen   bool
+	}
+	order := make([]string, 0)
+	byID := make(map[string]*job)
+
 	for _, line := range strings.Split(string(input), "\n") {
 		fields := strings.Split(line, "|")
-		if len(fields) < 8 {
+		if len(fields) < 9 {
 			continue
 		}
-		user := strings.TrimSpace(fields[0])
-		account := strings.TrimSpace(fields[1])
+		jobID := strings.TrimSpace(fields[0])
+		if jobID == "" {
+			continue
+		}
+		baseID := jobID
+		isStep := false
+		if dot := strings.IndexByte(jobID, '.'); dot != -1 {
+			baseID = jobID[:dot]
+			isStep = true
+		}
+
+		j := byID[baseID]
+		if j == nil {
+			j = &job{}
+			byID[baseID] = j
+			order = append(order, baseID)
+		}
+
+		// MaxRSS lives on step lines; keep the peak across all of the job's steps.
+		if rss, ok := parseSacctMemory(fields[7]); ok && (!j.rssSeen || rss > j.maxRSS) {
+			j.maxRSS = rss
+			j.rssSeen = true
+		}
+
+		if isStep {
+			continue // step lines carry only step-level stats
+		}
+
+		// Allocation line: authoritative for identity and requested resources.
+		user := strings.TrimSpace(fields[1])
+		account := strings.TrimSpace(fields[2])
 		if user == "" || account == "" {
 			continue
 		}
-		alloc, _ := strconv.ParseFloat(strings.TrimSpace(fields[2]), 64)
-		elapsed := parseSacctDuration(fields[3])
-		totalCPU := parseSacctDuration(fields[4])
-		cpuTime := parseSacctDuration(fields[5])
-		maxRSS := parseSacctMemory(fields[6])
-		reqMem := parseSacctMemory(fields[7])
-
+		alloc, _ := strconv.ParseFloat(strings.TrimSpace(fields[3]), 64)
+		elapsed := parseSacctDuration(fields[4])
 		if alloc == 0 || elapsed == 0 {
 			continue // skip jobs with no resource usage
 		}
-
-		records = append(records, SacctJobRecord{
+		reqMem, _ := parseSacctMemory(fields[8])
+		j.rec = SacctJobRecord{
 			User:            user,
 			Account:         account,
 			AllocCPUs:       alloc,
 			ElapsedSeconds:  elapsed,
-			TotalCPUSeconds: totalCPU,
-			CPUTimeSeconds:  cpuTime,
-			MaxRSSMB:        maxRSS,
+			TotalCPUSeconds: parseSacctDuration(fields[5]),
+			CPUTimeSeconds:  parseSacctDuration(fields[6]),
 			ReqMemMB:        reqMem,
-		})
+		}
+		j.haveAlloc = true
+	}
+
+	records := make([]SacctJobRecord, 0, len(order))
+	for _, id := range order {
+		j := byID[id]
+		if !j.haveAlloc {
+			continue // steps whose allocation line was missing or filtered out
+		}
+		j.rec.MaxRSSMB = j.maxRSS
+		j.rec.MaxRSSPresent = j.rssSeen
+		records = append(records, j.rec)
 	}
 	return records
 }
@@ -153,7 +226,10 @@ func AggregateSacctEfficiency(records []SacctJobRecord) map[string]map[string]*S
 			agg.CPUEfficiencyPct += r.TotalCPUSeconds / r.CPUTimeSeconds * 100
 			agg.CPUJobCount++
 		}
-		if r.ReqMemMB > 0 && r.MaxRSSMB >= 0 {
+		// Only jobs that both requested memory and have a recorded MaxRSS
+		// contribute to the memory-efficiency average. A missing MaxRSS means
+		// "no data", not "0% efficient" (issue #143).
+		if r.ReqMemMB > 0 && r.MaxRSSPresent {
 			agg.MemEfficiencyPct += r.MaxRSSMB / r.ReqMemMB * 100
 			agg.MemJobCount++
 		}
@@ -264,11 +340,22 @@ func (c *SacctEfficiencyCollector) Done() <-chan struct{} {
 }
 
 func (c *SacctEfficiencyCollector) refresh() {
-	startTime := time.Now().Add(-c.lookback).Format("2006-01-02T15:04:05")
+	now := time.Now()
+	startTime := now.Add(-c.lookback).Format("2006-01-02T15:04:05")
+	endTime := now.Format("2006-01-02T15:04:05")
+	// No -X: we need the step lines, because MaxRSS is a step-level statistic and
+	// is empty on the allocation line. JobID leads the format so ParseSacctEfficiency
+	// can correlate steps back to their job (issue #143).
+	//
+	// --endtime is required: with --state and only --starttime, sacct returns no
+	// rows at all (Slurm bounds a state-filtered search to [starttime, endtime]
+	// and the endtime default does not cover our window). Without it the whole
+	// collector reported nothing, not just memory (issue #143).
 	data, err := Execute(c.logger, "sacct", []string{
-		"-X", "-P", "-n",
+		"-P", "-n",
 		"--starttime", startTime,
-		"--format", "User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem",
+		"--endtime", endTime,
+		"--format", "JobID,User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem",
 		"--state", "COMPLETED,FAILED,TIMEOUT,CANCELLED",
 	})
 	if err != nil {
@@ -284,10 +371,17 @@ func (c *SacctEfficiencyCollector) refresh() {
 		for user, agg := range users {
 			metrics = append(metrics,
 				prometheus.MustNewConstMetric(c.cpuEfficiency, prometheus.GaugeValue, agg.CPUEfficiencyPct, account, user),
-				prometheus.MustNewConstMetric(c.memEfficiency, prometheus.GaugeValue, agg.MemEfficiencyPct, account, user),
 				prometheus.MustNewConstMetric(c.jobsCompleted, prometheus.GaugeValue, agg.JobCount, account, user),
 				prometheus.MustNewConstMetric(c.cpuHoursAllocated, prometheus.GaugeValue, agg.CPUHoursAllocated, account, user),
 			)
+			// Emit memory efficiency only when at least one job had a MaxRSS to
+			// average. Without this, sites whose accounting has no MaxRSS would
+			// report a permanent 0, so a SlurmLowMemEfficiency alert built on it
+			// could never stop firing (issue #143).
+			if agg.MemJobCount > 0 {
+				metrics = append(metrics,
+					prometheus.MustNewConstMetric(c.memEfficiency, prometheus.GaugeValue, agg.MemEfficiencyPct, account, user))
+			}
 		}
 	}
 

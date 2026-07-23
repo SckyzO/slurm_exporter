@@ -388,12 +388,16 @@ Aggregated job efficiency metrics from `sacct`. **Disabled by default.**
 Enable with `--collector.sacct_efficiency`.
 Requires `JobAcctGatherType=jobacct_gather/linux|cgroup` in `slurm.conf`.
 
-- **Command:** `sacct -X -P -n --starttime <lookback> --format User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED`
+- **Command:** `sacct -P -n --starttime <lookback> --format JobID,User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED`
+
+  `MaxRSS` is a step-level statistic and is empty on the job allocation line, so
+  the query does **not** use `-X`: the step lines are read and their peak
+  `MaxRSS` is attributed back to the job by `JobID`.
 
 | Metric | Description | Labels |
 |---|---|---|
 | `slurm_job_cpu_efficiency_avg` | Avg CPU efficiency (TotalCPU/CPUTime×100) over lookback window | `account`, `user` |
-| `slurm_job_mem_efficiency_avg` | Avg memory efficiency (MaxRSS/ReqMem×100) over lookback window | `account`, `user` |
+| `slurm_job_mem_efficiency_avg` | Avg memory efficiency (MaxRSS/ReqMem×100) over lookback window. Only emitted for an account+user that has at least one job with a recorded `MaxRSS`; absent when no memory data exists (e.g. `JobAcctGather` disabled) rather than reported as 0. | `account`, `user` |
 | `slurm_job_count_completed` | Jobs completed in lookback window | `account`, `user` |
 | `slurm_job_cpu_hours_allocated` | Allocated CPU-hours in lookback window | `account`, `user` |
 | `slurm_sacct_last_refresh_timestamp_seconds` | Unix timestamp of last sacct refresh | (none) |
