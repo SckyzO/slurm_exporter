@@ -29,12 +29,17 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/gpus.go`
 
-- `sinfo -a -h --Format=Nodes:10 ,GresUsed: --state=allocated`: allocated GPUs.
-  - Test files: **`slurm-*/sinfo_gpus_allocated.txt`**
-- `sinfo -a -h --Format=Nodes:10 ,Gres:50 ,GresUsed:50 --state=idle,allocated`: idle + allocated GPUs.
-  - Test files: **`slurm-*/sinfo_gpus_idle.txt`**
-- `sinfo -a -h --Format=Nodes:10 ,Gres:50`: total GPUs.
-  - Test files: **`slurm-*/sinfo_gpus_total.txt`**
+- `sinfo -a -h --Format=Nodes: ,StateLong: ,Gres: ,GresUsed:`: one consolidated
+  snapshot — node count, state, total GRES and used GRES — from which total,
+  allocated, idle and other GPUs are all derived. A single call removes the race
+  between the three separate snapshots this replaced (issue #145).
+  - Test file: **`sinfo_gpus_snapshot.txt`**
+
+  The per-version **`slurm-*/sinfo_gpus_{allocated,idle,total}.txt`** fixtures
+  still back the version matrix in `gpus_test.go`, which exercises the individual
+  GRES parsers (`ParseAllocatedGPUs`, `ParseIdleGPUs`, `ParseTotalGPUs`) across
+  Slurm releases. `splitGPUViews` feeds those same parsers from the consolidated
+  snapshot, so the version fixtures keep protecting the GRES parsing.
 
 ## `collector/node.go`
 

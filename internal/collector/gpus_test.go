@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
 // gpuFixtureExpect holds the GPU counts each per-version fixture in
@@ -18,9 +16,10 @@ import (
 // MIG slices, commas inside the IDX list), so this table is the version matrix
 // that protects the parser and the alert-bearing slurm_gpus_* metrics.
 //
-// other = max(0, total-alloc-idle) and util = alloc/total mirror the derivation
-// in ParseGPUsMetrics; they are asserted independently rather than recomputed so
-// a regression in that formula is caught too.
+// other = total-alloc-idle and util = alloc/total mirror the derivation in
+// computeGPUsFromSnapshot; they are asserted per version so a regression in that
+// formula — or a negative "other" (issue #145 removed the clamp that #16 added)
+// — is caught on every real fixture.
 type gpuExpect struct {
 	total float64
 	alloc float64
@@ -85,42 +84,19 @@ func TestGPUsMetrics(t *testing.T) {
 
 			idle := ParseIdleGPUs(readFixture(t, path, "sinfo_gpus_idle.txt"))
 			assert.Equal(t, want.idle, idle, "idle GPUs")
-		})
-	}
-}
 
-// TestGPUsGetMetrics drives the full GPUsGetMetrics path per version through a
-// mocked Execute, covering the other/utilization derivation on top of the raw
-// parsers.
-func TestGPUsGetMetrics(t *testing.T) {
-	oldExecute := Execute
-	defer func() { Execute = oldExecute }()
+			// Mirror computeGPUsFromSnapshot's clampless derivation and pin the
+			// invariant issue #145 relies on: on real data, total-alloc-idle is
+			// never negative, so no clamp is needed.
+			other := total - alloc - idle
+			assert.Equal(t, want.other, other, "other GPUs")
+			assert.GreaterOrEqual(t, other, 0.0, "other GPUs must never be negative")
 
-	for version, path := range gpuFixtureVersions(t) {
-		t.Run(version, func(t *testing.T) {
-			want := gpuFixtureExpect[version]
-
-			Execute = func(logger *logger.Logger, command string, args []string) ([]byte, error) {
-				var file string
-				switch {
-				case strings.Contains(args[2], "GresUsed:") && strings.Contains(args[2], "Gres:"):
-					file = "sinfo_gpus_idle.txt"
-				case strings.Contains(args[2], "GresUsed:"):
-					file = "sinfo_gpus_allocated.txt"
-				case strings.Contains(args[2], "Gres:"):
-					file = "sinfo_gpus_total.txt"
-				}
-				return os.ReadFile(filepath.Join(path, file))
+			var util float64
+			if total > 0 {
+				util = alloc / total
 			}
-
-			metrics, err := GPUsGetMetrics(logger.NewLogger("debug"))
-			require.NoError(t, err)
-
-			assert.Equal(t, want.total, metrics.total, "total GPUs")
-			assert.Equal(t, want.alloc, metrics.alloc, "allocated GPUs")
-			assert.Equal(t, want.idle, metrics.idle, "idle GPUs")
-			assert.Equal(t, want.other, metrics.other, "other GPUs")
-			assert.InDelta(t, want.util, metrics.utilization, 1e-9, "GPU utilization")
+			assert.InDelta(t, want.util, util, 1e-9, "GPU utilization")
 		})
 	}
 }
