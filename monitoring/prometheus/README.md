@@ -76,7 +76,10 @@ configuration. They're documented here so you can add them locally:
 - **`SlurmLowCPUEfficiency` / `SlurmLowMemEfficiency`** — alerts on
   `slurm_job_cpu_efficiency_avg` / `slurm_job_mem_efficiency_avg`.
   Requires `--collector.sacct_efficiency` (disabled by default — opt-in
-  because it queries SlurmDBD).
+  because it queries SlurmDBD). `slurm_job_mem_efficiency_avg` is only exported
+  when memory accounting is available (`JobAcctGather` enabled); it is absent
+  rather than 0 when there is no `MaxRSS`, so a `SlurmLowMemEfficiency` alert
+  will not fire on clusters that never gather it.
 
 ---
 
