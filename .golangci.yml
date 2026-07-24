@@ -11,8 +11,14 @@ linters:
     # --- Correctness ---
     - errcheck       # Unchecked errors (silent failures from strconv, io, etc.)
     - govet          # Reports suspicious constructs (shadow, printf misuse, etc.)
-    - staticcheck    # Comprehensive static analysis (supersedes gosimple, stylecheck, unused)
+    - staticcheck    # Comprehensive static analysis (v2 merged gosimple + stylecheck into it)
     - ineffassign    # Detects assignments whose value is never used
+    # unused is a SEPARATE linter in golangci-lint v2 — the v2 merge folded
+    # gosimple and stylecheck into staticcheck, not unused. With `default: none`
+    # it is off unless listed here, which is how an unreferenced package-level
+    # regexp and a write-only struct field survived every `make check`: the
+    # deadcode target only reports unreachable functions — see issue #151.
+    - unused         # Unused constants, variables, functions, types and struct fields
 
     # --- Security ---
     - gosec          # Security checks (G103 unsafe, G304 file inclusion, G401 weak crypto, etc.)
@@ -28,6 +34,13 @@ linters:
     - whitespace     # Unnecessary blank lines
 
   settings:
+    unused:
+      # A field that is only ever written is dead weight: it makes a reader
+      # assume a dimension the collector does not have. Keeping the default
+      # (true) hid NodesMetrics.total, allocated by newNodesMetrics() and never
+      # read — slurm_nodes_total comes from SlurmGetTotal(). See issue #151.
+      field-writes-are-uses: false
+
     gosec:
       # G304 (file path from variable) is expected in test helpers that read fixture files
       excludes:

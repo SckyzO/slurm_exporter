@@ -11,7 +11,6 @@ import (
 
 // Pre-compiled regexes for parsing scontrol show nodes -o output.
 var (
-	resvNodeNameRe  = regexp.MustCompile(`NodeName=(\S+)`)
 	resvNodeStateRe = regexp.MustCompile(`State=(\S+)`)
 	resvNodeResvRe  = regexp.MustCompile(`ReservationName=(\S+)`)
 )
