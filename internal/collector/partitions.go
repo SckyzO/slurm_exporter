@@ -1,7 +1,6 @@
 package collector
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -41,30 +40,6 @@ type PartitionMetrics struct {
 	jobRunning   float64
 	gpuIdle      float64
 	gpuAllocated float64
-}
-
-var (
-	partitionGpuRe = regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
-)
-
-// parseGpuCount sums every gpu:*:N match in a GRES string.
-//
-// A node can expose several GPU types at once ("gpu:A100:4,gpu:H100:2" → 6),
-// so matching only the first entry undercounts slurm_partition_gpus_*.
-// gpus.go::parseGPUCount applies the same rule.
-func parseGpuCount(gpuSpec string, re *regexp.Regexp) float64 {
-	var count = 0.0
-	for _, spec := range strings.Split(gpuSpec, ",") {
-		if !strings.Contains(spec, "gpu:") {
-			continue
-		}
-		matches := re.FindStringSubmatch(spec)
-		if len(matches) > 2 {
-			gpuCount, _ := strconv.ParseFloat(matches[2], 64)
-			count += gpuCount
-		}
-	}
-	return count
 }
 
 // parsePartitionCPUs parses sinfo "%R,%C" output into the partitions map.
@@ -109,8 +84,8 @@ func parsePartitionGPUs(data []byte, partitions map[string]*PartitionMetrics) {
 		// Strip the default-partition marker (*) so labels are consistent with
 		// nodes.go and other partition consumers — see issue #20.
 		partition := strings.TrimRight(fields[1], "*")
-		nodeGpus := parseGpuCount(fields[2], partitionGpuRe)
-		allocatedGpus := parseGpuCount(fields[3], partitionGpuRe)
+		nodeGpus := parseGPUCount(fields[2])
+		allocatedGpus := parseGPUCount(fields[3])
 		if _, exists := partitions[partition]; !exists {
 			partitions[partition] = &PartitionMetrics{}
 		}

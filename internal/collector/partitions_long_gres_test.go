@@ -14,7 +14,7 @@ import (
 // which silently truncated partition names longer than 30 chars and GRES
 // strings longer than 50 chars.
 //
-// This test also covers the multi-type GPU undercount fix in parseGpuCount.
+// This test also covers the multi-type GPU undercount fix in parseGPUCount.
 // The fixture's GRES line `gpu:nvidia_a100_80gb:8,mig:...,gpu:nvidia_h100_80gb:4`
 // sums to 12 GPUs per node (mig spec ignored by the gpu: regex).
 func TestParsePartitionGPUsLongValues(t *testing.T) {
@@ -30,13 +30,13 @@ func TestParsePartitionGPUsLongValues(t *testing.T) {
 	require.Contains(t, partitions, longName,
 		"long partition name must be preserved (not truncated)")
 
-	// Counts after parseGpuCount fix (sums all gpu: matches):
+	// Counts after parseGPUCount fix (sums all gpu: matches):
 	//   per node total = 8 + 4 = 12 (mig: spec ignored by gpu: regex)
 	//   per node alloc = 3 + 2 = 5
 	//   per node idle  = 12 - 5 = 7
 	//   × 2 nodes → alloc=10, idle=14
 	assert.Equal(t, 10.0, partitions[longName].gpuAllocated,
-		"multi-type GRES counts must be summed (regression test for parseGpuCount fix)")
+		"multi-type GRES counts must be summed (regression test for parseGPUCount fix)")
 	assert.Equal(t, 14.0, partitions[longName].gpuIdle)
 
 	// Short partition baseline (single-type GPU, unambiguous).
@@ -45,10 +45,11 @@ func TestParsePartitionGPUsLongValues(t *testing.T) {
 	assert.Equal(t, 16.0, partitions["short_part"].gpuIdle)
 }
 
-// TestParseGpuCountMultiType is a focused unit test for the
-// parseGpuCount fix in partitions.go. Pre-fix, FindStringSubmatch returned
-// only the first gpu: match; multi-type GRES strings were undercounted.
-func TestParseGpuCountMultiType(t *testing.T) {
+// TestParseGPUCountMultiType is a focused unit test for the shared
+// parseGPUCount helper (gpus.go). Pre-fix, FindStringSubmatch returned only the
+// first gpu: match; multi-type GRES strings were undercounted. This is the one
+// helper both the cluster-wide and per-partition GPU paths now use (issue #150).
+func TestParseGPUCountMultiType(t *testing.T) {
 	cases := []struct {
 		name string
 		gres string
@@ -64,7 +65,7 @@ func TestParseGpuCountMultiType(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := parseGpuCount(tc.gres, partitionGpuRe)
+			got := parseGPUCount(tc.gres)
 			assert.Equal(t, tc.want, got)
 		})
 	}
