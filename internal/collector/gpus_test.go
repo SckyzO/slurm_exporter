@@ -26,16 +26,23 @@ type gpuExpect struct {
 	idle  float64
 	other float64
 	util  float64
+	// idleUncovered marks a version whose sinfo_gpus_idle.txt is absent or cannot
+	// be trusted, so the idle and other assertions are skipped for it. See #177:
+	// slurm-23.11.10's idle fixture was a malformed 2-column capture, the version
+	// can no longer be recaptured, and the real 3-column format is covered by
+	// slurm-23.11.10-2.
+	idleUncovered bool
 }
 
 var gpuFixtureExpect = map[string]gpuExpect{
 	"20.11.8": {total: 48, alloc: 7, idle: 41, other: 0, util: 7.0 / 48.0},
 	"21.08.5": {total: 16, alloc: 0, idle: 16, other: 0, util: 0},
-	// 23.11.10's sinfo_gpus_idle.txt has 2 columns, not the 3 IdleGPUsData emits,
-	// so ParseIdleGPUs takes its 2-column branch and idle here is an artefact
-	// (nodes×column) rather than total-alloc. This pins current behaviour only;
-	// recapturing the fixture is tracked in #177.
-	"23.11.10":   {total: 232, alloc: 33, idle: 33, other: 166, util: 33.0 / 232.0},
+	// 23.11.10's idle fixture was a malformed 2-column capture (not the 3 columns
+	// IdleGPUsData emits), so its old idle/other values were artefacts. The version
+	// can no longer be recaptured (23.11.10 is no longer published upstream) and its
+	// real 3-column idle format is already covered by 23.11.10-2, so the idle case is
+	// dropped here (#177). total/alloc/util stay real.
+	"23.11.10":   {total: 232, alloc: 33, util: 33.0 / 232.0, idleUncovered: true},
 	"23.11.10-2": {total: 10, alloc: 6, idle: 4, other: 0, util: 0.6},
 	"25.05":      {total: 4232, alloc: 4226, idle: 6, other: 0, util: 4226.0 / 4232.0},
 	"25.11.1-1":  {total: 154, alloc: 78, idle: 24, other: 52, util: 78.0 / 154.0},
@@ -82,15 +89,17 @@ func TestGPUsMetrics(t *testing.T) {
 			alloc := ParseAllocatedGPUs(readFixture(t, path, "sinfo_gpus_allocated.txt"))
 			assert.Equal(t, want.alloc, alloc, "allocated GPUs")
 
-			idle := ParseIdleGPUs(readFixture(t, path, "sinfo_gpus_idle.txt"))
-			assert.Equal(t, want.idle, idle, "idle GPUs")
+			if !want.idleUncovered {
+				idle := ParseIdleGPUs(readFixture(t, path, "sinfo_gpus_idle.txt"))
+				assert.Equal(t, want.idle, idle, "idle GPUs")
 
-			// Mirror computeGPUsFromSnapshot's clampless derivation and pin the
-			// invariant issue #145 relies on: on real data, total-alloc-idle is
-			// never negative, so no clamp is needed.
-			other := total - alloc - idle
-			assert.Equal(t, want.other, other, "other GPUs")
-			assert.GreaterOrEqual(t, other, 0.0, "other GPUs must never be negative")
+				// Mirror computeGPUsFromSnapshot's clampless derivation and pin
+				// the invariant issue #145 relies on: on real data,
+				// total-alloc-idle is never negative, so no clamp is needed.
+				other := total - alloc - idle
+				assert.Equal(t, want.other, other, "other GPUs")
+				assert.GreaterOrEqual(t, other, 0.0, "other GPUs must never be negative")
+			}
 
 			var util float64
 			if total > 0 {
