@@ -1,9 +1,14 @@
 # Project name
 PROJECT_NAME = slurm_exporter
 
-# Go environment configuration
+# Go environment configuration.
+# The host-build fallback (used only when no Go is installed) is derived from
+# go.mod's `go` directive so it can never drift from the module's required
+# version. A hardcoded default here silently targeted 1.22.2 while the module
+# and the containerised tooling had moved to 1.26.x (issue #114).
 GO_INSTALLED_VERSION := $(shell go version 2>/dev/null | awk '{print $$3}' | sed 's/go//g')
-GO_VERSION ?= $(if $(GO_INSTALLED_VERSION),$(GO_INSTALLED_VERSION),1.22.2)
+GO_MODULE_VERSION := $(shell awk '/^go / {print $$2; exit}' go.mod)
+GO_VERSION ?= $(if $(GO_INSTALLED_VERSION),$(GO_INSTALLED_VERSION),$(GO_MODULE_VERSION))
 OS ?= linux
 ARCH ?= amd64
 GOPATH := $(shell pwd)/go/modules
@@ -68,8 +73,9 @@ go/modules/pkg/mod: go.mod
 # ─── Containerised tooling ────────────────────────────────────────────────────
 # The check / report / lint / vet / race targets below run inside a single
 # self-contained image (scripts/docker/tools/) that bundles Go, golangci-lint,
-# gocyclo, misspell, and ineffassign. The only host requirement is Docker —
-# no Go toolchain needed.
+# gocyclo, misspell, and ineffassign. These targets need only Docker on the
+# host — no Go toolchain. (The build / setup / run targets above are the
+# exception: they compile with the host Go directly.)
 
 TOOLS_IMG     := slurm_exporter-tools:latest
 TOOLS_CTX     := scripts/docker/tools
@@ -183,7 +189,7 @@ run: $(GOBIN)
 
 # ─── Docker images (local debug) ─────────────────────────────────────────────
 # Two variants:
-#   - standard  (Dockerfile)         bundles slurm-client 23.11 from Ubuntu
+#   - standard  (Dockerfile)         bundles slurm-client 25.11 from Ubuntu
 #   - minimal   (Dockerfile.minimal) ships only the exporter, mount your own
 # Release images are built and published by GoReleaser on tag push; these
 # targets only exist for local iteration.
