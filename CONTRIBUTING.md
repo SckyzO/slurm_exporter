@@ -252,9 +252,16 @@ The quick summary:
 8. Open the release PR with the v1.8.2 template structure.
 9. After merge: close integrated community PRs with a thank-you and respond
    to acknowledged-but-deferred issues.
-10. **Test the binary on a real cluster before the final tag.** Approach A
-    (RC tag `vX.Y.Z-rc1` → GitHub pre-release → staging overnight) for
-    breaking/minor releases; approach B (local `make build` → scp to
-    staging) for trivial patches. Decision matrix in the playbook.
+10. **Test the binary on a real cluster before the final tag, against two
+    major Slurm releases.** The exporter parses `squeue` / `sinfo` /
+    `scontrol` / `sacct` output, which drifts between Slurm majors — one green
+    version proves nothing about the others. Validate against the **newest**
+    and the **oldest still-supported** major (SchedMD supports each major for
+    ~18 months). **Re-derive the pair from SchedMD's release list every time**
+    — the window rolls, so never hardcode the numbers here. Approach A (RC tag
+    `vX.Y.Z-rc1` → GitHub pre-release → staging overnight) for breaking/minor
+    releases; approach B (local `make build` → scp to staging) for trivial
+    patches. Decision matrix in the playbook. Harness support for a second
+    major (the upstream test image only publishes one) is tracked in #189.
 11. Tag the final `vX.Y.Z`; CI (`.github/workflows/release.yml`) runs
     `lint → test → goreleaser release` and publishes automatically.
