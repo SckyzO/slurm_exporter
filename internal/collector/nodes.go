@@ -41,7 +41,6 @@ type NodesMetrics struct {
 	resv    map[string]float64
 	other   map[string]float64
 	planned map[string]float64
-	total   map[string]float64
 }
 
 // newNodesMetrics returns a NodesMetrics with every per-feature-set bucket
@@ -62,7 +61,6 @@ func newNodesMetrics() *NodesMetrics {
 		resv:    make(map[string]float64),
 		other:   make(map[string]float64),
 		planned: make(map[string]float64),
-		total:   make(map[string]float64),
 	}
 }
 
