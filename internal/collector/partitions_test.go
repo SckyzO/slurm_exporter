@@ -40,12 +40,17 @@ func TestParsePartitionsMetricsWithRealOutput(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
 
-	testDataDirs, _ := filepath.Glob("../../test_data/slurm-*")
+	testDataDirs, err := filepath.Glob("../../test_data/slurm-*")
+	require.NoError(t, err)
+	require.NotEmpty(t, testDataDirs, "no per-version fixtures under ../../test_data/slurm-*")
+
+	ran := false
 	for _, dir := range testDataDirs {
 		slurmVersion := filepath.Base(dir)
 		if slurmVersion != "slurm-25.11.1-1" {
 			continue
 		}
+		ran = true
 		t.Run(slurmVersion, func(t *testing.T) {
 			Execute = func(logger *logger.Logger, command string, args []string) ([]byte, error) {
 				path := pickPartitionFixturePath(dir, command, args)
@@ -78,6 +83,7 @@ func TestParsePartitionsMetricsWithRealOutput(t *testing.T) {
 			assert.Greater(t, metrics["a100"].gpuAllocated, 0.0, "a100 should have allocated GPUs")
 		})
 	}
+	require.True(t, ran, "fixture slurm-25.11.1-1 not found; partition fixtures moved or renamed (#177)")
 }
 
 // TestParsePartitionCPUsStripsAsterisk verifies that the default partition marker (*)
