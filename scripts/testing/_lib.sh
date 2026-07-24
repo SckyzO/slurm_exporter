@@ -91,6 +91,7 @@ MYSQL_USER=slurm
 MYSQL_PASSWORD=password
 MYSQL_DATABASE=slurm_acct_db
 SSH_ENABLE=false
+MARIADB_IMAGE=${MARIADB_IMAGE}
 ENVEOF
     ok ".env written"
 }
@@ -99,7 +100,29 @@ ENVEOF
 cmd_start_cluster() {
     step "3/9" "Starting cluster..."
     cd "$CLUSTER_DIR"
-    docker compose up -d --scale "cpu-worker=${NODES}"
+
+    # Pin MariaDB via an override we own. docker compose up auto-merges
+    # docker-compose.override.yml from the project dir, so this overrides the
+    # clone's floating mariadb:12 without editing its tracked files (#187).
+    if [ -f "$SCRIPT_DIR/docker-compose.override.yml" ]; then
+        cp "$SCRIPT_DIR/docker-compose.override.yml" "$CLUSTER_DIR/docker-compose.override.yml"
+    fi
+
+    if ! docker compose up -d --scale "cpu-worker=${NODES}"; then
+        # A stale var_lib_mysql volume (initialised by an older MariaDB than the
+        # pinned image) makes slurmdbd abort with a bare SIGABRT. Surface the one
+        # thing the operator needs instead of "exited (134)" (#187).
+        if docker logs slurmdbd 2>&1 | grep -q "Column count of mysql.proc is wrong"; then
+            die "slurmdbd aborted: the MySQL data volume was initialised by an older MariaDB
+    than the image now in use, and its system tables cannot be upgraded in place
+    (the root password is random per volume). Rebuild from a clean volume:
+
+        make -C scripts/testing clean && make -C scripts/testing setup
+
+    (this destroys all test-cluster volumes, including Prometheus and Grafana)"
+        fi
+        die "docker compose up failed — see the output above"
+    fi
     ok "Containers started"
 }
 
