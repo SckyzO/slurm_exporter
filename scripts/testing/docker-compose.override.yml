@@ -1,0 +1,16 @@
+# Pins the MariaDB image for the giovtorres/slurm-docker-cluster clone.
+#
+# The clone's tracked docker-compose.yml uses the floating tag `mariadb:12`,
+# and its var_lib_mysql volume persists across runs. When Docker Hub moves the
+# tag to a newer 12.x, the volume's system tables belong to the previous minor,
+# mysql.proc gets the wrong column count, and slurmdbd aborts (SIGABRT). See
+# issue #187.
+#
+# `docker compose up` auto-merges docker-compose.override.yml from the project
+# directory, so we own the pin without editing the third-party clone (the same
+# copy-into-$CLUSTER_DIR mechanism already used for docker-compose.monitoring.yml).
+# MARIADB_IMAGE is supplied via the generated .env (cmd_write_env in _lib.sh),
+# sourced from scripts/testing/cluster.conf.
+services:
+  mysql:
+    image: ${MARIADB_IMAGE}
