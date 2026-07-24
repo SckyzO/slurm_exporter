@@ -255,10 +255,13 @@ The quick summary:
 10. **Test the binary on a real cluster before the final tag, against two
     major Slurm releases.** The exporter parses `squeue` / `sinfo` /
     `scontrol` / `sacct` output, which drifts between Slurm majors — one green
-    version proves nothing about the others. Validate against the **newest**
-    and the **oldest still-supported** major (SchedMD supports each major for
-    ~18 months). **Re-derive the pair from SchedMD's release list every time**
-    — the window rolls, so never hardcode the numbers here. Approach A (RC tag
+    version proves nothing about the others. A validated release supports the
+    same window Slurm itself does: SchedMD ships a major every 6 months and
+    supports in-place upgrades from the previous three majors, so the window is
+    the newest major plus the previous three (~2 years). Validate the **two
+    ends** of that window and **re-derive them each release** — the window
+    rolls, so never hardcode the numbers here (e.g. against Slurm 26.05 the ends
+    are 24.11 and 26.05). Approach A (RC tag
     `vX.Y.Z-rc1` → GitHub pre-release → staging overnight) for breaking/minor
     releases; approach B (local `make build` → scp to staging) for trivial
     patches. Decision matrix in the playbook. Harness support for a second
