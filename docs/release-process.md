@@ -224,6 +224,15 @@ make -C scripts/testing setup     # Step 2 — bring up cluster + deploy binary
 # Step 10 — visual Grafana dashboard pass
 ```
 
+**Run this against two Slurm majors, not one.** Slurm CLI output drifts between
+majors, so a green run on the version the harness happens to pin proves nothing
+about the version half our users run. Execute Steps 2–9 once on the **newest**
+supported major and once on the **oldest still-supported** one — set
+`SLURM_VERSION` via `scripts/testing/cluster.local.conf`; majors with no
+published image are built from source automatically. See
+[validation-checklist § Which Slurm major](validation-checklist.md#step-2--bring-up-the-docker-test-cluster)
+and [CONTRIBUTING § Releasing](../CONTRIBUTING.md#releasing) (#189).
+
 ### Spot-check the release theme
 
 For v1.8.2 we explicitly verified:

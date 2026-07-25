@@ -95,6 +95,38 @@ Specifically:
 - Dashboard import fails: check `docker logs grafana`; usually a Grafana
   startup delay, retry `make -C scripts/testing redeploy-dashboards`.
 
+### Which Slurm major — and why you run this twice
+
+`make setup` brings the cluster up on the Slurm version in
+`scripts/testing/cluster.conf` (`SLURM_VERSION`). Override it without touching
+the tracked config by creating `scripts/testing/cluster.local.conf` (gitignored):
+
+```bash
+echo 'SLURM_VERSION=26.05.2' > scripts/testing/cluster.local.conf
+```
+
+The harness resolves the image in three ways, cheapest first: reuse a local
+image, pull the published upstream tag (only recent **25.11.x** are published),
+or **build from source** for any other supported major (`26.05.*`, `25.05.*`,
+`24.11.*`) — it fetches the SchedMD source tarball and compiles Slurm, which
+takes tens of minutes on a cold cache.
+
+**Release gate (#189):** the exporter parses `squeue` / `sinfo` / `scontrol` /
+`sacct` output, and that output drifts between Slurm majors — one green version
+proves nothing about the other. For a release, run Steps 2–9 **twice**: once on
+the **newest** supported major and once on the **oldest still-supported** one
+(the two ends of SchedMD's ~2-year window — re-derive both at release time, see
+[CONTRIBUTING § Releasing](../CONTRIBUTING.md#releasing)). Switch major from a
+clean slate — the MariaDB and Slurm state volumes are version-sensitive (#187):
+
+```bash
+make -C scripts/testing clean
+echo 'SLURM_VERSION=<other-major>' > scripts/testing/cluster.local.conf
+make -C scripts/testing setup
+```
+
+Delete `cluster.local.conf` when done to fall back to the default version.
+
 ---
 
 ## Step 3 — Restart the exporter with all collectors + debug logs
@@ -482,6 +514,11 @@ Tick each as you go:
 - [ ] Step 10 — All Grafana dashboards render with data
 - [ ] Step 11 — Cluster teardown
 
-Once every box is ticked, the release is ready for the **real-platform
-validation** step described in
+For a **release** (not a per-PR check), tick this list **twice** — once on the
+newest and once on the oldest supported Slurm major (see
+[Step 2 § Which Slurm major](#step-2--bring-up-the-docker-test-cluster)). A green
+run on a single major does not validate the release (#189).
+
+Once every box is ticked (on both majors), the release is ready for the
+**real-platform validation** step described in
 [release-process.md § Test on a real platform before the final tag](release-process.md#test-on-a-real-platform-before-the-final-tag).

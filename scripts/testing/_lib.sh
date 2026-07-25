@@ -73,11 +73,48 @@ cmd_check_deps() {
 }
 
 # ── pull-image ────────────────────────────────────────────────────────────────
+# ── prepare-image ─────────────────────────────────────────────────────────────
+# Ensure the local image slurm-docker-cluster:${SLURM_VERSION} exists — the tag
+# the clone's compose file references for every Slurm service. Three paths,
+# cheapest first:
+#   1. already present locally (a prior run)         → reuse, nothing to do
+#   2. a published upstream tag (recent 25.11.x)     → pull + retag (fast)
+#   3. no published tag (26.05.*, 25.05.*, 24.11.*)  → build from source
+#
+# Upstream (giovtorres) only publishes recent 25.11 bare tags, so validating a
+# release against the newest and oldest supported Slurm majors (#189) needs the
+# build fallback. The clone's Dockerfile fetches slurm-${SLURM_VERSION}.tar.bz2
+# from SchedMD and rpmbuilds it (build owner: the slurmdbd service); this
+# compiles Slurm and is slow (tens of minutes on a cold cache).
 cmd_pull_image() {
-    step "1/9" "Pulling Docker image giovtorres/slurm-docker-cluster:${SLURM_VERSION}..."
-    docker pull "giovtorres/slurm-docker-cluster:${SLURM_VERSION}" 2>&1 | grep -E 'Pull|Status|already' || true
-    docker tag "giovtorres/slurm-docker-cluster:${SLURM_VERSION}" "slurm-docker-cluster:${SLURM_VERSION}" 2>/dev/null || true
-    ok "Image ready"
+    local local_tag="slurm-docker-cluster:${SLURM_VERSION}"
+    step "1/9" "Preparing image ${local_tag}..."
+
+    if docker image inspect "$local_tag" >/dev/null 2>&1; then
+        ok "Image already present (reusing)"
+        return 0
+    fi
+
+    if docker pull "giovtorres/slurm-docker-cluster:${SLURM_VERSION}" >/dev/null 2>&1; then
+        docker tag "giovtorres/slurm-docker-cluster:${SLURM_VERSION}" "$local_tag"
+        ok "Image pulled and tagged"
+        return 0
+    fi
+
+    warn "No published tag for ${SLURM_VERSION} — building from source (compiles Slurm, slow)"
+    cd "$CLUSTER_DIR"
+    # Pass the version explicitly: .env is written by the next step, and compose
+    # reads SLURM_VERSION from the shell env with precedence. MARIADB_IMAGE is
+    # supplied too so a stale docker-compose.override.yml (#187) doesn't warn on
+    # an unset variable while parsing the (unbuilt) mysql service.
+    if ! SLURM_VERSION="$SLURM_VERSION" MARIADB_IMAGE="$MARIADB_IMAGE" \
+            docker compose build slurmdbd; then
+        die "Build from source failed for Slurm ${SLURM_VERSION}.
+    Verify the source tarball exists (SchedMD publishes only supported majors):
+        https://download.schedmd.com/slurm/slurm-${SLURM_VERSION}.tar.bz2
+    Re-derive the version from SchedMD at release time — the support window rolls (#189)."
+    fi
+    ok "Image built from source"
 }
 
 # ── write-env ─────────────────────────────────────────────────────────────────
