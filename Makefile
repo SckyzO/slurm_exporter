@@ -105,6 +105,24 @@ race: tools-image
 	@echo "Running tests with race detector (containerised)"
 	@$(IN_TOOLS) -c 'CGO_ENABLED=1 go test -race -count=1 ./...'
 
+# Regenerate the documentation derived from the command registry, currently
+# test_data/readme.md (in container). The registry in internal/collector is the
+# single source of truth for every Slurm CLI call the exporter makes; run this
+# after changing one.
+.PHONY: generate
+generate: tools-image
+	@echo "Regenerating derived docs (containerised)"
+	@$(IN_TOOLS) -c 'go generate ./...'
+
+# Fail when a generated file on disk no longer matches the registry (in
+# container). Part of `check`, so a command change that skipped `make generate`
+# cannot reach master — which is how test_data/readme.md drifted in the first
+# place (issue #195).
+.PHONY: generate-check
+generate-check: tools-image
+	@echo "Checking derived docs are current (containerised)"
+	@$(IN_TOOLS) -c 'go run ./tools/gen-fixture-doc -check'
+
 # go vet (in container).
 .PHONY: vet
 vet: tools-image
@@ -164,7 +182,7 @@ deadcode: tools-image
 
 # Full pre-commit / pre-release verification — mirrors what CI runs.
 .PHONY: check
-check: vet lint test vuln actionlint zizmor deadcode
+check: vet lint test vuln actionlint zizmor deadcode generate-check
 
 # Offline equivalent of the goreportcard.com checks (in container).
 # Runs gofmt -s, go vet, gocyclo, ineffassign, misspell, and a LICENSE check,
