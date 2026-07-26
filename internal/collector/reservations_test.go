@@ -10,7 +10,7 @@ import (
 )
 
 func TestParseReservations(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sreservations.txt")
+	data, err := os.ReadFile("../../test_data/reservations.txt")
 	require.NoError(t, err)
 
 	reservations, err := parseReservations(data)
@@ -41,7 +41,7 @@ func TestParseReservations(t *testing.T) {
 // surfacing as a phantom 1968-01-12 reservation in dashboards. The fix skips
 // records that didn't yield a ReservationName.
 func TestParseReservations_NoReservations(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sreservations_empty.txt")
+	data, err := os.ReadFile("../../test_data/reservations_empty.txt")
 	require.NoError(t, err)
 
 	reservations, err := parseReservations(data)

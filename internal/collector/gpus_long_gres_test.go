@@ -20,7 +20,7 @@ import (
 // causing the trailing "gpu:nvidia_h100_80gb:4" to be lost (4 GPUs × 2 nodes
 // = 8 GPUs missing from the total).
 func TestParseTotalGPUsLongGres(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sinfo_gpus_total_long_gres.txt")
+	data, err := os.ReadFile("../../test_data/gpus_snapshot_long_gres.txt")
 	if err != nil {
 		t.Fatalf("Can not open test data: %v", err)
 	}

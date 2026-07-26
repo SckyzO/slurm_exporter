@@ -12,7 +12,7 @@ import (
 )
 
 func TestSchedulerCollector_Collect(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sdiag.txt")
+	data, err := os.ReadFile("../../test_data/scheduler.txt")
 	require.NoError(t, err)
 
 	oldExecute := Execute

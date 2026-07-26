@@ -28,7 +28,7 @@ slurm_node_status{name="a048",status="idle", partition="all"} 1
 */
 
 func TestNodeMetrics(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sinfo_mem.txt")
+	data, err := os.ReadFile("../../test_data/node_detail.txt")
 	if err != nil {
 		t.Fatalf("Can not open test data: %v", err)
 	}

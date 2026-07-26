@@ -18,7 +18,7 @@ import (
 // to survive, for the day Slurm prints one the exporter does not know.
 func relativeTimeReservation(t *testing.T) string {
 	t.Helper()
-	data, err := os.ReadFile("../../test_data/sreservations_relative_time.txt")
+	data, err := os.ReadFile("../../test_data/reservations_relative_time.txt")
 	require.NoError(t, err)
 	return string(data)
 }
@@ -84,7 +84,7 @@ func TestReservationStaysSilentWhenScontrolPrintsNoTimestamp(t *testing.T) {
 // TestReservationExportsReadableTimestamps guards the other direction: the fix
 // must not stop publishing timestamps that parse.
 func TestReservationExportsReadableTimestamps(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sreservations.txt")
+	data, err := os.ReadFile("../../test_data/reservations.txt")
 	require.NoError(t, err)
 	stubExecute(t, string(data))
 
