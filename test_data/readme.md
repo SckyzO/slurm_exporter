@@ -1,163 +1,355 @@
-# Slurm Commands Used in slurm_exporter
+<!--
+GENERATED FILE. DO NOT EDIT.
 
-This file documents all Slurm shell commands executed by `slurm_exporter` and the test
-data files that correspond to each command's output.
+Source of truth: internal/collector/command_registry.go
+Regenerate with:  make generate   (or: go generate ./...)
 
-All test data files are anonymized (real cluster node names, user names, account names
-and reservation names have been replaced with generic equivalents).
+Editing this file by hand is pointless: CI regenerates it and fails on the diff.
+Change the registry instead. command_registry_test.go then proves that the
+registry still matches what the collectors actually run.
+-->
 
-## Shared squeue snapshot (`collector/squeue_jobs.go`)
+# Slurm commands used by slurm_exporter
 
-- `squeue -a -r -h -O "JobID:|,Account:|,UserName:|,Partition:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:"`:
-  one consolidated snapshot of the whole job queue, cached per scrape and shared
-  by the `accounts`, `users` and `partitions` collectors. Before issue #144
-  these issued up to five separate full-queue dumps to `slurmctld` every scrape;
-  they now project their views from this single call. `-a -r` and the default
-  state set match what each collector requested individually, so no metric value
-  changes. `queue.go` is deliberately **not** a consumer (it omits `-a`/`-r` and
-  toggles `--states=all`; sharing it would change job-array counts).
-  - Test file: **`squeue_jobs.txt`** — captured on the `scripts/testing` cluster
-    (Slurm 25.11), covering RUNNING/PENDING/SUSPENDED jobs across several
-    accounts, users and partitions, plus a multi-partition (`cpu,gpu`) pending
-    job.
+Every Slurm CLI invocation the exporter makes, and the fixture under `test_data/`
+that protects it.
 
-## `collector/accounts.go`
+This mapping is derived from `internal/collector/command_registry.go`, which is
+itself checked against the real collectors: `TestRegistryMatchesCollectors` invokes
+each `*Data()` function with `Execute` stubbed and compares what it genuinely
+passes to what the table declares. A command cannot change without this file
+changing with it.
 
-- Projects the account view (`JobID|Account|State|NumNodes|NumCPUs|tres-alloc`)
-  from the shared snapshot above: job/CPU/GPU counts by account.
-  - Test file: **`squeue_tres.txt`** — still backs `ParseAccountsMetrics`, which
-    is unchanged; the projection re-emits exactly this layout.
-  - Uses `tres-alloc` (effective allocation, total) instead of the legacy `%b`
-    (TRES per node) so that jobs submitted with `--gpus` or `--gpus-per-node`
-    are accounted for (see issue #35).
+All fixtures are anonymised: cluster, node, user, account and reservation names
+are replaced with generic equivalents. See `CONTRIBUTING.md` § Test Data.
 
-## `collector/cpus.go`
 
-- `sinfo -h -o "%C"`: CPU state (allocated/idle/other/total) for the cluster.
-  - Test file: **`sinfo_cpus.txt`**
+## Index
 
-## `collector/fairshare.go`
+| Command | Binary | Owned by | Fixtures |
+|---|---|---|---|
+| [`squeue_jobs`](#squeue_jobs) | `squeue` | `squeue_jobs.go` | 3 |
+| [`queue_all_states`](#queue_all_states) | `squeue` | `queue.go` | 1 |
+| [`queue_default_states`](#queue_default_states) | `squeue` | `queue.go` | none |
+| [`cpus`](#cpus) | `sinfo` | `cpus.go` | 1 |
+| [`fairshare`](#fairshare) | `sshare` | `fairshare.go` | 1 |
+| [`gpus_snapshot`](#gpus_snapshot) | `sinfo` | `gpus.go` | 2 |
+| [`node_detail`](#node_detail) | `sinfo` | `node.go` | 3 |
+| [`nodes_global`](#nodes_global) | `sinfo` | `nodes.go` | none |
+| [`scontrol_nodes`](#scontrol_nodes) | `scontrol` | `reservation_nodes.go` | 1 |
+| [`partitions_cpu`](#partitions_cpu) | `sinfo` | `partitions.go` | 1 |
+| [`partitions_gpu`](#partitions_gpu) | `sinfo` | `partitions.go` | 2 |
+| [`drain_reason`](#drain_reason) | `sinfo` | `node_drain.go` | none |
+| [`reservations`](#reservations) | `scontrol` | `reservations.go` | 3 |
+| [`licenses`](#licenses) | `scontrol` | `licenses.go` | 1 |
+| [`scheduler`](#scheduler) | `sdiag` | `scheduler.go` | 1 |
+| [`binary_version`](#binary_version) | `8 binaries` | `slurm_binary_info.go` | none |
+| [`sacct_efficiency`](#sacct_efficiency) | `sacct` | `sacct_efficiency.go` | 1 |
 
-- `sshare -a -P -n -o Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare`: fairshare factor, shares and decay-weighted usage per account and user.
-  - Test file: **`sshare_users.txt`**
-  - Lines with `RawShares=parent` are skipped (inherit from parent account).
-  - Lines with an empty Account field are skipped.
-  - User-level metrics require `--collector.fairshare.user-metrics=true` (default).
+## Commands
 
-## `collector/gpus.go`
+### squeue_jobs
 
-- `sinfo -a -h --Format=Nodes: ,StateLong: ,Gres: ,GresUsed:`: one consolidated
-  snapshot — node count, state, total GRES and used GRES — from which total,
-  allocated, idle and other GPUs are all derived. A single call removes the race
-  between the three separate snapshots this replaced (issue #145).
-  - Test file: **`sinfo_gpus_snapshot.txt`**
+```sh
+squeue -a -r -h -O 'JobID:|,Account:|,UserName:|,Partition:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:'
+```
 
-  The per-version **`slurm-*/sinfo_gpus_{allocated,idle,total}.txt`** fixtures
-  still back the version matrix in `gpus_test.go`, which exercises the individual
-  GRES parsers (`ParseAllocatedGPUs`, `ParseIdleGPUs`, `ParseTotalGPUs`) across
-  Slurm releases. `splitGPUViews` feeds those same parsers from the consolidated
-  snapshot, so the version fixtures keep protecting the GRES parsing.
+One consolidated snapshot of the whole job queue, cached per scrape and shared by the accounts, users and partitions collectors. Before issue #144 these issued up to five separate full-queue dumps to slurmctld every scrape; they now project their views from this single call. The -a -r flags and the default state set match what each collector requested individually, so no metric value changes.
 
-## `collector/node.go`
+Owned by `squeue_jobs.go`. Also read by `accounts.go`, `users.go` and `partitions.go`.
 
-- `sinfo -h -N -O NodeList,AllocMem,Memory,CPUsState,StateLong,Partition`: per-node detail.
-  - Test file: **`sinfo_mem.txt`**
+- queue.go is deliberately NOT a consumer: it omits -a/-r and toggles --states=all, and folding it in here would change job-array counts.
+- The trailing colon on every field forces variable-width columns. Without it squeue caps a field at 20 characters and silently drops the tail (issues #10 and #35).
+- tres-alloc (effective total allocation) is used instead of the legacy %b (TRES per node) so jobs submitted with --gpus or --gpus-per-node are accounted for (issue #35).
 
-## `collector/nodes.go`
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `squeue_jobs.txt` | 25.11 | The consolidated layout itself: RUNNING/PENDING/SUSPENDED jobs across several accounts, users and partitions, plus a multi-partition (cpu,gpu) pending job that the partitions projection has to split. |
+| `squeue_tres.txt` | unrecorded | Backs ParseAccountsMetrics, which the accounts projection re-emits verbatim: proves the projection produces the layout the parser expects. |
+| `squeue_tres_users.txt` | unrecorded | Same contract as squeue_tres.txt for the users projection (ParseUsersMetrics). |
 
-- `sinfo -h -o "%D|%T|%b" -p <partition>`: node counts by state and feature set.
-  - Test file: **`sinfo.txt`**
-- `scontrol show nodes -o`: total node count.
-- `sinfo -h -o "%R"`: partition list.
+### queue_all_states
 
-## `collector/partitions.go`
+```sh
+squeue -h -o '%P|%T|%C|%r|%u' --states=all
+```
 
-- `sinfo -h -o "%R,%C"`: CPU state per partition.
-  - Test files: **`slurm-25.11.1-1/sinfo_partitions_cpu.txt`**
-- `sinfo -h --Format=Nodes: ,Partition: ,Gres: ,GresUsed: --state=idle,allocated`: GPU state per partition.
-  - Test files: **`slurm-25.11.1-1/sinfo_partitions_gpu.txt`**
-- Pending and running job counts per partition are projected from the shared
-  squeue snapshot (see above), filtering the consolidated output by state
-  instead of issuing `squeue -o "%P" --states=PENDING` and `--states=RUNNING`
-  separately (issue #144). Multi-partition jobs keep their comma-separated
-  partition list, which is split across partitions.
-  - Test file: **`squeue_jobs.txt`** (shared).
+Job states, cores, reason and user, pipe-delimited so commas inside the reason field stay inside their column. --states=all is what brings the terminal states into the output: squeue reports only pending and running jobs when it is not told which states to view, so nine of the eleven states the collector counts never appeared and every metric built from them read a constant zero. slurm_jobs_failed said the cluster had never had a failure (issue #27).
 
-## `collector/queue.go`
+Owned by `queue.go`.
 
-- `squeue -h -o "%P|%T|%C|%r|%u" --states=all`: job states, cores, reason, user (pipe-delimited to safely handle commas in reason field). `--states=all` is what brings the terminal states into the output; it is dropped by `--no-collector.queue.terminal-states`.
-  - Test file: **`squeue.txt`** — captured on the `scripts/testing` cluster
-    (Slurm 25.11.2, 10 nodes) and covering eight states: RUNNING, PENDING,
-    SUSPENDED, CANCELLED, COMPLETED, FAILED, TIMEOUT and NODE_FAIL. PREEMPTED
-    needs `PreemptType` configured, COMPLETING lasts as long as an epilog and
-    CONFIGURING as long as a node boots, so those three are covered by a
-    hand-written input in `TestParseQueueMetricsUnreachableStates` instead.
+- The window is bounded by MinJobAge (slurm.conf, 300s by default): slurmctld forgets a terminated job once it is older than that.
+- Dropped by --no-collector.queue.terminal-states, which restores the pre-1.9 query, the queue_default_states entry below.
 
-## `collector/reservations.go`
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `squeue.txt` | 25.11.2 | Eight states in one capture: RUNNING, PENDING, SUSPENDED, CANCELLED, COMPLETED, FAILED, TIMEOUT, NODE_FAIL. PREEMPTED needs PreemptType configured, COMPLETING lasts as long as an epilog and CONFIGURING as long as a node boots, so those three are covered by a hand-written input in TestParseQueueMetricsUnreachableStates instead. |
 
-- `scontrol show reservation`: active reservation details.
-  - Test file: **`sreservations.txt`**
+### queue_default_states
 
-## `collector/reservation_nodes.go`
+```sh
+squeue -h -o '%P|%T|%C|%r|%u'
+```
 
-- `scontrol show nodes -o`: node states with reservation membership.
-  - Test file: **`scontrol_nodes_reservation.txt`**
+The same query without --states=all, restoring the pre-1.9 behaviour for sites that would rather not ask slurmctld for the terminal states.
 
-## `collector/scheduler.go`
+Owned by `queue.go`. Runs only with `--no-collector.queue.terminal-states`.
 
-- `sdiag`: `slurmctld` internal scheduler statistics.
-  - Test file: **`sdiag.txt`**
+**No fixture.** Deliberate: the output is a subset of squeue.txt and the parser is the same one, so a second capture would protect nothing. What the flag changes is the query itself, which the contract test pins.
 
-## `collector/slurm_binary_info.go`
+### cpus
 
-- `<binary> --version` for: `sinfo`, `squeue`, `sdiag`, `scontrol`, `sacct`, `sbatch`, `salloc`, `srun`.
+```sh
+sinfo -h -o '%C'
+```
 
-## `collector/licenses.go`
+Cluster-wide CPU states as allocated/idle/other/total.
 
-- `scontrol show licenses -o`: license total/used/free/reserved counts.
-  - Test file: **`slicense.txt`**
+Owned by `cpus.go`.
 
-## `collector/sacct_efficiency.go`
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `sinfo_cpus.txt` | unrecorded | The single A/I/O/T line the parser splits on slashes. |
 
-- `sacct -P -n --starttime <window> --format JobID,User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED`: job efficiency data.
-  - Test file: **`sacct_efficiency.txt`**
-  - Requires `JobAcctGatherType=jobacct_gather/linux` (or similar) in slurm.conf to populate TotalCPU/MaxRSS.
-  - No `-X`: `MaxRSS` is a step-level field, empty on the allocation line, so the
-    step lines (`<jobid>.batch`, `<jobid>.0`, …) are read and their peak `MaxRSS`
-    is attributed back to the job by `JobID`.
-  - The line **format** was captured from the test cluster (Slurm 25.11). The
-    `MaxRSS` values on the step lines are representative rather than captured: the
-    containerised cluster uses `proctrack/linuxproc`, which does not gather
-    `MaxRSS`, so a real capture leaves that column empty. A cluster with a working
-    `JobAcctGather` (`proctrack/cgroup`) populates it exactly in this shape.
-  - Disabled by default (`--collector.sacct_efficiency` to enable).
+### fairshare
 
-## `collector/node_drain.go`
+```sh
+sshare -a -P -n -o Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare
+```
 
-- `sinfo -h -N -o "%N|%E|%H|%T"`: node drain/down reason and timestamp.
-  - No dedicated test file (data varies by cluster state, tested with inline fixtures).
+Fairshare factor, shares and decay-weighted usage per account and per user.
 
-## `collector/users.go`
+Owned by `fairshare.go`.
 
-- Projects the user view (`JobID|UserName|State|NumNodes|NumCPUs|tres-alloc`)
-  from the shared squeue snapshot (see the top of this file): job/CPU/GPU counts
-  by user.
-  - Test file: **`squeue_tres_users.txt`** — still backs `ParseUsersMetrics`,
-    which is unchanged; the projection re-emits exactly this layout.
-  - Same `tres-alloc` rationale as accounts (issue #35).
+- Lines with RawShares=parent are skipped: they inherit from the parent account.
+- Lines with an empty Account field are skipped.
+- User-level metrics require --collector.fairshare.user-metrics (default on).
 
----
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `sshare_users.txt` | unrecorded | An account tree with both the parent rows that must be skipped and the user rows that must not. |
 
-## Versioned GPU test data
+### gpus_snapshot
 
-GPU sinfo output format varies between Slurm versions. Each subdirectory contains
-`sinfo_gpus_allocated.txt`, `sinfo_gpus_idle.txt`, and `sinfo_gpus_total.txt`:
+```sh
+sinfo -a -h '--Format=Nodes: ,StateLong: ,Gres: ,GresUsed:'
+```
 
-| Directory | Slurm version | Notes |
-|-----------|---------------|-------|
-| `slurm-20.11.8/` | 20.11.8 | Classic format |
-| `slurm-21.08.5/` | 21.08.5 | IDX format |
-| `slurm-23.11.10/` | 23.11.10 | |
-| `slurm-23.11.10-2/` | 23.11.10 patch 2 | |
-| `slurm-25.05/` | 25.05.x | `nvidia_gb200` GPU type; demonstrates column-overflow bug with 1056+ nodes and `--Format=Nodes: ,GresUsed:` |
-| `slurm-25.11.1-1/` | 25.11.1-1 | Latest; also contains partition test data |
+One consolidated snapshot (node count, state, total GRES and used GRES) from which total, allocated, idle and other GPUs are all derived. A single call removes the race between the three separate snapshots this replaced (issue #145).
+
+Owned by `gpus.go`.
+
+- The trailing colon on each field forces variable column widths; fixed widths silently truncate rich GRES specs on busy GPU nodes: multi-type GPUs, MIG slices (issue #10).
+- The per-version slurm-*/sinfo_gpus_{allocated,idle,total}.txt fixtures still back the version matrix in gpus_test.go, which exercises the individual GRES parsers across Slurm releases. splitGPUViews feeds those same parsers from this consolidated snapshot, so the version fixtures keep protecting the GRES parsing even though the three commands they were captured from are retired.
+- Coverage gap: the format of the command executed today, meaning four --Format fields in a given order plus the (null) path, is validated on a single Slurm version, while the retired commands are covered on six. See issue #195, gap A.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `sinfo_gpus_snapshot.txt` | 25.05.3 | The four-column consolidated layout the collector parses today. |
+| `sinfo_gpus_total_long_gres.txt` | unrecorded | A GRES string long enough to be truncated by a fixed-width --Format, which is what the trailing colons exist to prevent (issue #10). |
+
+### node_detail
+
+```sh
+sinfo -h -N -O 'NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition:'
+```
+
+Per-node CPU and memory detail, one row per node.
+
+Owned by `node.go`.
+
+- The trailing colon on each field forces variable column widths. Without it node names longer than 20 characters — the default NodeList width — collide with the next column and produce fewer than six whitespace-separated tokens, silently dropping those nodes (issue #10).
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `sinfo_mem.txt` | unrecorded | The nominal six-column per-node layout. |
+| `sinfo_default_partition.txt` | unrecorded | A node in the default partition, whose name carries the * marker that has to be stripped before it becomes a label value. |
+| `sinfo_long_names_fixed.txt` | unrecorded | A 25-character node name alongside short ones, in the variable-width output the trailing colons produce (_fixed meaning after the fix). Under the old fixed-width format that name collided with the next column and the node vanished from the metrics map; the regression net for issue #10. |
+
+### nodes_global
+
+```sh
+sinfo -h -o '%R|%D|%T|%b'
+```
+
+Node counts by partition, state and feature set, for every partition in one call. This replaced N per-partition calls (sinfo -p <partition>), cutting the RPC load on slurmctld on clusters with many partitions; the single-partition path was removed as unreachable in #100.
+
+Owned by `nodes.go`.
+
+**No fixture.** Still to do. test_data/sinfo.txt backed this command until d52d93f (#100, v1.8.4) deleted it, and nodes_test.go has worked on inline strings ever since. The most central command of the nodes collector has no captured cluster output at all. Capturing one is the first job of tools/fixture-capture.
+
+### scontrol_nodes
+
+```sh
+scontrol show nodes -o
+```
+
+Full node detail, one node per line. Read by two collectors — reservation_nodes for per-reservation node membership and state, nodes for the cluster-wide total — behind scontrolNodesCache, so the RPC is sent once per scrape rather than twice.
+
+Owned by `reservation_nodes.go`. Also read by `nodes.go`.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `scontrol_nodes_reservation.txt` | unrecorded | Nodes carrying reservation membership, including the drained-but-up case that decides whether a reserved node counts as healthy. |
+
+### partitions_cpu
+
+```sh
+sinfo -h -o '%R,%C'
+```
+
+CPU states per partition.
+
+Owned by `partitions.go`.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `slurm-25.11.1-1/sinfo_partitions_cpu.txt` | 25.11.1-1 | Per-partition A/I/O/T lines. |
+
+### partitions_gpu
+
+```sh
+sinfo -h '--Format=Nodes: ,Partition: ,Gres: ,GresUsed:' --state=idle,allocated
+```
+
+GPU totals and usage per partition, restricted to idle and allocated nodes.
+
+Owned by `partitions.go`.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `slurm-25.11.1-1/sinfo_partitions_gpu.txt` | 25.11.1-1 | The nominal four-column per-partition GRES layout. |
+| `sinfo_partitions_gpu_long.txt` | unrecorded | GRES strings long enough to overflow a fixed-width column, the per-partition counterpart of the issue #10 trap. |
+
+### drain_reason
+
+```sh
+sinfo -h -N -o '%N|%E|%H|%T'
+```
+
+Drain or down reason per node, with the timestamp the state was set.
+
+Owned by `node_drain.go`.
+
+**No fixture.** Deliberate: the output depends entirely on which nodes happen to be drained when the capture is taken, so a capture would document one cluster's bad day rather than a format. The tests use inline inputs that pin the timestamp and reason shapes instead.
+
+### reservations
+
+```sh
+scontrol show reservation
+```
+
+Active reservation details as key=value blocks, one blank-line-separated block per reservation.
+
+Owned by `reservations.go`.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `sreservations.txt` | unrecorded | The nominal multi-reservation block layout. |
+| `sreservations_empty.txt` | unrecorded | What scontrol prints when no reservation exists, which is a sentence of prose rather than an empty file. The parser has to produce no metrics from it, rather than one bogus one. |
+| `sreservations_relative_time.txt` | unrecorded | Reservation timestamps in the relative form Slurm emits for near-term reservations, which the absolute-layout parser must not silently accept. |
+
+### licenses
+
+```sh
+scontrol show licenses -o
+```
+
+License total, used, free and reserved counts, one license per line.
+
+Owned by `licenses.go`.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `slicense.txt` | unrecorded | Several licenses with distinct total/used/free splits. |
+
+### scheduler
+
+```sh
+sdiag
+```
+
+slurmctld internal scheduler statistics, including per-RPC counters.
+
+Owned by `scheduler.go`.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `sdiag.txt` | unrecorded | The header counters (jobs submitted/started/completed/canceled/failed), the main schedule statistics block and the backfill block. It stops there: the Remote Procedure Call tables that scheduler.go also parses, per operation and per user, are absent from this capture, so the RPC metrics rest on TestSchedulerRPCLineRe_HyphenatedUsername alone: one inline line against one regexp, with no captured report behind them. |
+
+### binary_version
+
+```sh
+sinfo --version
+squeue --version
+sdiag --version
+scontrol --version
+sacct --version
+sbatch --version
+salloc --version
+srun --version
+```
+
+The version of each Slurm binary, probed once per process rather than on every scrape (issue #149): a Slurm upgrade under a running exporter is not a supported state, the process is restarted by whatever performed it.
+
+Owned by `slurm_binary_info.go`.
+
+- sinfo, squeue, sdiag, scontrol and sacct are required: a missing one is reported with version="not_found" and value 0 so operators can alert on it.
+- sbatch, salloc and srun are optional and emit nothing when absent. The exporter never invokes them, so requiring them would block monitoring-only deployments (issue #24).
+- sshare is executed by the fairshare collector but never version-probed.
+
+**No fixture.** Deliberate: the parser reads one field of a one-line output, and the value it reads is the Slurm version of whichever host runs the capture. A fixture would pin that host's version, not a format.
+
+### sacct_efficiency
+
+```sh
+sacct -P -n --starttime '<starttime>' --endtime '<endtime>' --format JobID,User,Account,AllocCPUS,Elapsed,TotalCPU,CPUTime,MaxRSS,ReqMem --state COMPLETED,FAILED,TIMEOUT,CANCELLED
+```
+
+Completed-job CPU and memory efficiency over the lookback window. Disabled by default because it queries SlurmDBD, which is expensive on a busy cluster; refreshed in the background on --collector.sacct.interval rather than on the scrape path.
+
+Owned by `sacct_efficiency.go`. Runs only with `--collector.sacct_efficiency`.
+
+- --endtime is mandatory: with --state and only --starttime, sacct returns no rows at all: Slurm bounds a state-filtered search to [starttime, endtime] and the default endtime does not cover the window. Without it the whole collector reported nothing, not just memory (issue #143).
+- No -X: MaxRSS is a step-level statistic and is empty on the allocation line, so the step lines (<jobid>.batch, <jobid>.0, …) are read and their peak MaxRSS attributed back to the job by JobID. JobID therefore leads --format.
+- Populating TotalCPU and MaxRSS requires a working JobAcctGatherType in slurm.conf.
+
+| Fixture | Slurm | What it protects |
+|---|---|---|
+| `sacct_efficiency.txt` | 25.11 | Allocation lines with their step lines, so the JobID correlation and the MaxRSS attribution are both exercised. The line format is a real capture; the MaxRSS values are representative rather than captured, because the containerised test cluster runs proctrack/linuxproc, which does not gather MaxRSS and leaves the column empty. A cluster with proctrack/cgroup fills it in exactly this shape (issue #143). |
+
+## Coverage gaps
+
+4 of the 17 commands run against no captured cluster output:
+
+| Command | Owned by | Why |
+|---|---|---|
+| [`queue_default_states`](#queue_default_states) | `queue.go` | Deliberate: the output is a subset of squeue.txt and the parser is the same one, so a second capture would protect nothing. What the flag changes is the query itself, which the contract test pins. |
+| [`nodes_global`](#nodes_global) | `nodes.go` | Still to do. test_data/sinfo.txt backed this command until d52d93f (#100, v1.8.4) deleted it, and nodes_test.go has worked on inline strings ever since. The most central command of the nodes collector has no captured cluster output at all. Capturing one is the first job of tools/fixture-capture. |
+| [`drain_reason`](#drain_reason) | `node_drain.go` | Deliberate: the output depends entirely on which nodes happen to be drained when the capture is taken, so a capture would document one cluster's bad day rather than a format. The tests use inline inputs that pin the timestamp and reason shapes instead. |
+| [`binary_version`](#binary_version) | `slurm_binary_info.go` | Deliberate: the parser reads one field of a one-line output, and the value it reads is the Slurm version of whichever host runs the capture. A fixture would pin that host's version, not a format. |
+
+## Versioned GPU fixtures
+
+GPU `sinfo` output changed shape between Slurm releases, so the GRES parsers
+are exercised against a matrix of captures rather than a single one. The
+matrix is discovered at run time by `gpus_test.go`, which asserts coverage in
+both directions: a declared version with no fixture fails, and a fixture no
+version claims fails too. That symmetry exists because the glob once resolved
+to a directory that did not exist, so every test body was skipped while the
+suite still reported a pass (#148, then #176 and #177).
+
+`Supported` follows the window in `CONTRIBUTING.md` § Releasing: the newest
+Slurm major plus the previous three. It rolls with every Slurm release, so a
+directory dropping out of the window is expected. Those captures are kept as
+free regression protection rather than as peers of the supported ones.
+
+| Directory | Slurm | Supported | Notes |
+|---|---|---|---|
+| `slurm-20.11.8/` | 20.11.8 | no (historical) | Classic GRES format. |
+| `slurm-21.08.5/` | 21.08.5 | no (historical) | IDX format. sinfo_gpus_allocated.txt is empty on purpose — a cluster with GPUs and none allocated — and gpus_test.go asserts a 0 result rather than skipping the case. |
+| `slurm-23.11.10/` | 23.11.10 | no (historical) | No idle fixture. The file was a two-column capture where IdleGPUsData emits three, so the idle and other counts derived from it were artefacts of the malformation; #177 deleted it. It cannot be recaptured — 23.11.10 is no longer published upstream — and the real three-column idle format is already covered by 23.11.10-2, so the gap is marked with idleUncovered in gpus_test.go rather than filled. |
+| `slurm-23.11.10-2/` | 23.11.10 patch 2 | no (historical) | — |
+| `slurm-25.05/` | 25.05.x | yes | nvidia_gb200 GPU type on a large machine: 1058 nodes on the total line, 1056 on the allocated one. Four-digit node counts are what overflow a fixed-width Nodes: column, so this is the capture that shows why the --Format fields end with colons. |
+| `slurm-25.11.1-1/` | 25.11.1-1 | yes | Also carries the per-partition CPU and GPU captures. |
+

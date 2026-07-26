@@ -42,5 +42,10 @@ jobs:
           cache: false
       - name: Build
         run: go build -v ./...
+      # test_data/readme.md is generated from the command registry in
+      # internal/collector. Regenerating it here would hide the drift; failing
+      # is the point (issue #195).
+      - name: Derived docs are current
+        run: go run ./tools/gen-fixture-doc -check
       - name: Test (race + coverage)
         run: go test -race -count=1 -coverprofile=coverage.out ./...
