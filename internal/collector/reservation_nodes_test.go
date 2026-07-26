@@ -14,7 +14,7 @@ import (
 // flag, not the primary state, so a MIXED+DRAIN node must land in both the mix
 // and drain buckets and must NOT be counted healthy.
 func TestParseReservationNodesMetrics(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/scontrol_nodes_reservation.txt")
+	data, err := os.ReadFile("../../test_data/scontrol_nodes.txt")
 	require.NoError(t, err, "cannot open test data")
 
 	metrics := ParseReservationNodesMetrics(data)

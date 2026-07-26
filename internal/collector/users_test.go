@@ -52,7 +52,7 @@ func TestParseUsersMetrics_IgnoresMalformed(t *testing.T) {
 }
 
 func TestParseUsersMetrics_FromTestData(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/squeue_tres_users.txt")
+	data, err := os.ReadFile("../../test_data/squeue_jobs_users_view.txt")
 	require.NoError(t, err)
 	um := ParseUsersMetrics(data)
 

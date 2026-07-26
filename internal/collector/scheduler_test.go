@@ -10,7 +10,7 @@ import (
 )
 
 func TestSchedulerMetrics(t *testing.T) {
-	file, err := os.Open("../../test_data/sdiag.txt")
+	file, err := os.Open("../../test_data/scheduler.txt")
 	require.NoError(t, err, "cannot open test data")
 	data, err := io.ReadAll(file)
 	require.NoError(t, err, "cannot read test data")
@@ -70,7 +70,7 @@ func TestSchedulerRPCLineRe_HyphenatedUsername(t *testing.T) {
 }
 
 func TestParseSchedulerMetrics_JobCounters(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sdiag.txt")
+	data, err := os.ReadFile("../../test_data/scheduler.txt")
 	require.NoError(t, err)
 
 	sm := ParseSchedulerMetrics(data)

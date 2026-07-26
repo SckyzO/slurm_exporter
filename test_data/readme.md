@@ -65,8 +65,8 @@ Owned by `squeue_jobs.go`. Also read by `accounts.go`, `users.go` and `partition
 | Fixture | Slurm | What it protects |
 |---|---|---|
 | `squeue_jobs.txt` | 25.11 | The consolidated layout itself: RUNNING/PENDING/SUSPENDED jobs across several accounts, users and partitions, plus a multi-partition (cpu,gpu) pending job that the partitions projection has to split. |
-| `squeue_tres.txt` | unrecorded | Backs ParseAccountsMetrics, which the accounts projection re-emits verbatim: proves the projection produces the layout the parser expects. |
-| `squeue_tres_users.txt` | unrecorded | Same contract as squeue_tres.txt for the users projection (ParseUsersMetrics). |
+| `squeue_jobs_accounts_view.txt` | unrecorded | Backs ParseAccountsMetrics, which the accounts projection re-emits verbatim: proves the projection produces the layout the parser expects. |
+| `squeue_jobs_users_view.txt` | unrecorded | Same contract as squeue_jobs_accounts_view.txt for the users projection (ParseUsersMetrics). |
 
 ### queue_all_states
 
@@ -83,7 +83,7 @@ Owned by `queue.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `squeue.txt` | 25.11.2 | Eight states in one capture: RUNNING, PENDING, SUSPENDED, CANCELLED, COMPLETED, FAILED, TIMEOUT, NODE_FAIL. PREEMPTED needs PreemptType configured, COMPLETING lasts as long as an epilog and CONFIGURING as long as a node boots, so those three are covered by a hand-written input in TestParseQueueMetricsUnreachableStates instead. |
+| `queue_all_states.txt` | 25.11.2 | Eight states in one capture: RUNNING, PENDING, SUSPENDED, CANCELLED, COMPLETED, FAILED, TIMEOUT, NODE_FAIL. PREEMPTED needs PreemptType configured, COMPLETING lasts as long as an epilog and CONFIGURING as long as a node boots, so those three are covered by a hand-written input in TestParseQueueMetricsUnreachableStates instead. |
 
 ### queue_default_states
 
@@ -95,7 +95,7 @@ The same query without --states=all, restoring the pre-1.9 behaviour for sites t
 
 Owned by `queue.go`. Runs only with `--no-collector.queue.terminal-states`.
 
-**No fixture.** Deliberate: the output is a subset of squeue.txt and the parser is the same one, so a second capture would protect nothing. What the flag changes is the query itself, which the contract test pins.
+**No fixture.** Deliberate: the output is a subset of queue_all_states.txt and the parser is the same one, so a second capture would protect nothing. What the flag changes is the query itself, which the contract test pins.
 
 ### cpus
 
@@ -109,7 +109,7 @@ Owned by `cpus.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `sinfo_cpus.txt` | unrecorded | The single A/I/O/T line the parser splits on slashes. |
+| `cpus.txt` | unrecorded | The single A/I/O/T line the parser splits on slashes. |
 
 ### fairshare
 
@@ -127,7 +127,7 @@ Owned by `fairshare.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `sshare_users.txt` | unrecorded | An account tree with both the parent rows that must be skipped and the user rows that must not. |
+| `fairshare.txt` | unrecorded | An account tree with both the parent rows that must be skipped and the user rows that must not. |
 
 ### gpus_snapshot
 
@@ -145,8 +145,8 @@ Owned by `gpus.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `sinfo_gpus_snapshot.txt` | 25.05.3 | The four-column consolidated layout the collector parses today. |
-| `sinfo_gpus_total_long_gres.txt` | unrecorded | A GRES string long enough to be truncated by a fixed-width --Format, which is what the trailing colons exist to prevent (issue #10). |
+| `gpus_snapshot.txt` | 25.05.3 | The four-column consolidated layout the collector parses today. |
+| `gpus_snapshot_long_gres.txt` | unrecorded | A GRES string long enough to be truncated by a fixed-width --Format, which is what the trailing colons exist to prevent (issue #10). |
 
 ### node_detail
 
@@ -162,9 +162,9 @@ Owned by `node.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `sinfo_mem.txt` | unrecorded | The nominal six-column per-node layout. |
-| `sinfo_default_partition.txt` | unrecorded | A node in the default partition, whose name carries the * marker that has to be stripped before it becomes a label value. |
-| `sinfo_long_names_fixed.txt` | unrecorded | A 25-character node name alongside short ones, in the variable-width output the trailing colons produce (_fixed meaning after the fix). Under the old fixed-width format that name collided with the next column and the node vanished from the metrics map; the regression net for issue #10. |
+| `node_detail.txt` | unrecorded | The nominal six-column per-node layout. |
+| `node_detail_default_partition.txt` | unrecorded | A node in the default partition, whose name carries the * marker that has to be stripped before it becomes a label value. |
+| `node_detail_long_names.txt` | unrecorded | A 25-character node name alongside short ones, in the variable-width output the trailing colons produce. Under the old fixed-width format that name collided with the next column and the node vanished from the metrics map; the regression net for issue #10. |
 
 ### nodes_global
 
@@ -190,7 +190,7 @@ Owned by `reservation_nodes.go`. Also read by `nodes.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `scontrol_nodes_reservation.txt` | unrecorded | Nodes carrying reservation membership, including the drained-but-up case that decides whether a reserved node counts as healthy. |
+| `scontrol_nodes.txt` | unrecorded | Nodes carrying reservation membership, including the drained-but-up case that decides whether a reserved node counts as healthy. |
 
 ### partitions_cpu
 
@@ -204,7 +204,7 @@ Owned by `partitions.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `slurm-25.11.1-1/sinfo_partitions_cpu.txt` | 25.11.1-1 | Per-partition A/I/O/T lines. |
+| `slurm-25.11.1-1/partitions_cpu.txt` | 25.11.1-1 | Per-partition A/I/O/T lines. |
 
 ### partitions_gpu
 
@@ -218,8 +218,8 @@ Owned by `partitions.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `slurm-25.11.1-1/sinfo_partitions_gpu.txt` | 25.11.1-1 | The nominal four-column per-partition GRES layout. |
-| `sinfo_partitions_gpu_long.txt` | unrecorded | GRES strings long enough to overflow a fixed-width column, the per-partition counterpart of the issue #10 trap. |
+| `slurm-25.11.1-1/partitions_gpu.txt` | 25.11.1-1 | The nominal four-column per-partition GRES layout. |
+| `partitions_gpu_long_gres.txt` | unrecorded | GRES strings long enough to overflow a fixed-width column, the per-partition counterpart of the issue #10 trap. |
 
 ### drain_reason
 
@@ -245,9 +245,9 @@ Owned by `reservations.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `sreservations.txt` | unrecorded | The nominal multi-reservation block layout. |
-| `sreservations_empty.txt` | unrecorded | What scontrol prints when no reservation exists, which is a sentence of prose rather than an empty file. The parser has to produce no metrics from it, rather than one bogus one. |
-| `sreservations_relative_time.txt` | unrecorded | Reservation timestamps in the relative form Slurm emits for near-term reservations, which the absolute-layout parser must not silently accept. |
+| `reservations.txt` | unrecorded | The nominal multi-reservation block layout. |
+| `reservations_empty.txt` | unrecorded | What scontrol prints when no reservation exists, which is a sentence of prose rather than an empty file. The parser has to produce no metrics from it, rather than one bogus one. |
+| `reservations_relative_time.txt` | unrecorded | Reservation timestamps in the relative form Slurm emits for near-term reservations, which the absolute-layout parser must not silently accept. |
 
 ### licenses
 
@@ -261,7 +261,7 @@ Owned by `licenses.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `slicense.txt` | unrecorded | Several licenses with distinct total/used/free splits. |
+| `licenses.txt` | unrecorded | Several licenses with distinct total/used/free splits. |
 
 ### scheduler
 
@@ -275,7 +275,7 @@ Owned by `scheduler.go`.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
-| `sdiag.txt` | unrecorded | The header counters (jobs submitted/started/completed/canceled/failed), the main schedule statistics block and the backfill block. It stops there: the Remote Procedure Call tables that scheduler.go also parses, per operation and per user, are absent from this capture, so the RPC metrics rest on TestSchedulerRPCLineRe_HyphenatedUsername alone: one inline line against one regexp, with no captured report behind them. |
+| `scheduler.txt` | unrecorded | The header counters (jobs submitted/started/completed/canceled/failed), the main schedule statistics block and the backfill block. It stops there: the Remote Procedure Call tables that scheduler.go also parses, per operation and per user, are absent from this capture, so the RPC metrics rest on TestSchedulerRPCLineRe_HyphenatedUsername alone: one inline line against one regexp, with no captured report behind them. |
 
 ### binary_version
 
@@ -324,7 +324,7 @@ Owned by `sacct_efficiency.go`. Runs only with `--collector.sacct_efficiency`.
 
 | Command | Owned by | Why |
 |---|---|---|
-| [`queue_default_states`](#queue_default_states) | `queue.go` | Deliberate: the output is a subset of squeue.txt and the parser is the same one, so a second capture would protect nothing. What the flag changes is the query itself, which the contract test pins. |
+| [`queue_default_states`](#queue_default_states) | `queue.go` | Deliberate: the output is a subset of queue_all_states.txt and the parser is the same one, so a second capture would protect nothing. What the flag changes is the query itself, which the contract test pins. |
 | [`nodes_global`](#nodes_global) | `nodes.go` | Still to do. test_data/sinfo.txt backed this command until d52d93f (#100, v1.8.4) deleted it, and nodes_test.go has worked on inline strings ever since. The most central command of the nodes collector has no captured cluster output at all. Capturing one is the first job of tools/fixture-capture. |
 | [`drain_reason`](#drain_reason) | `node_drain.go` | Deliberate: the output depends entirely on which nodes happen to be drained when the capture is taken, so a capture would document one cluster's bad day rather than a format. The tests use inline inputs that pin the timestamp and reason shapes instead. |
 | [`binary_version`](#binary_version) | `slurm_binary_info.go` | Deliberate: the parser reads one field of a one-line output, and the value it reads is the Slurm version of whichever host runs the capture. A fixture would pin that host's version, not a format. |

@@ -24,11 +24,11 @@ func pickPartitionFixturePath(dir, command string, args []string) string {
 	switch command {
 	case "sinfo":
 		if len(args) >= 3 && args[1] == "-o" && args[2] == "%R,%C" {
-			return filepath.Join(dir, "sinfo_partitions_cpu.txt")
+			return filepath.Join(dir, "partitions_cpu.txt")
 		}
 		if len(args) >= 2 && strings.Contains(args[1], "--Format=") &&
 			strings.Contains(args[1], "Gres") && strings.Contains(args[1], "GresUsed") {
-			return filepath.Join(dir, "sinfo_partitions_gpu.txt")
+			return filepath.Join(dir, "partitions_gpu.txt")
 		}
 	case "squeue":
 		return "../../test_data/squeue_jobs.txt"

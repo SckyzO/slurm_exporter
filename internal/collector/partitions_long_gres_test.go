@@ -18,7 +18,7 @@ import (
 // The fixture's GRES line `gpu:nvidia_a100_80gb:8,mig:...,gpu:nvidia_h100_80gb:4`
 // sums to 12 GPUs per node (mig spec ignored by the gpu: regex).
 func TestParsePartitionGPUsLongValues(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sinfo_partitions_gpu_long.txt")
+	data, err := os.ReadFile("../../test_data/partitions_gpu_long_gres.txt")
 	require.NoError(t, err)
 
 	partitions := make(map[string]*PartitionMetrics)

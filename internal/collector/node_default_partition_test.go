@@ -10,7 +10,7 @@ import (
 // The default-partition "*" marker (sinfo %P) must not leak into the
 // partition label: "gpu*" -> "gpu". Fixture also has an unmarked partition.
 func TestNodeMetricsDefaultPartitionMarker(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sinfo_default_partition.txt")
+	data, err := os.ReadFile("../../test_data/node_detail_default_partition.txt")
 	if err != nil {
 		t.Fatalf("Can not open test data: %v", err)
 	}
