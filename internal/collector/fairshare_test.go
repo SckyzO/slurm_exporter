@@ -100,10 +100,10 @@ root|user2|parent|0|200|0.2|0.7`
 }
 
 func TestParseFairShareMetrics_FromTestData(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sshare_users.txt")
+	data, err := os.ReadFile("../../test_data/fairshare.txt")
 	require.NoError(t, err)
 	metrics := ParseFairShareMetrics(data)
-	// sshare_users.txt: 10 lines, 2 parent lines (ci-bot, user3) → 8 entries
+	// fairshare.txt: 10 lines, 2 parent lines (ci-bot, user3) → 8 entries
 	assert.Len(t, metrics, 8)
 	// Accounts must not be empty
 	for _, m := range metrics {
@@ -114,7 +114,7 @@ func TestParseFairShareMetrics_FromTestData(t *testing.T) {
 // ── FairShareGetMetrics via Execute mock ───────────────────────────────────────
 
 func TestFairShareGetMetrics_ViaExecuteMock(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sshare_users.txt")
+	data, err := os.ReadFile("../../test_data/fairshare.txt")
 	require.NoError(t, err)
 
 	oldExecute := Execute

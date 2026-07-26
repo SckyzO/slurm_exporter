@@ -13,7 +13,7 @@ import (
 )
 
 func TestQueueCollector_Collect(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/squeue.txt")
+	data, err := os.ReadFile("../../test_data/queue_all_states.txt")
 	require.NoError(t, err)
 
 	oldExecute := Execute
@@ -58,7 +58,7 @@ func TestQueueCollector_Describe(t *testing.T) {
 // `slurm_cores_suspended` were declared and counted but never pushed to
 // Prometheus in Collect(). The fixture contains at least one SUSPENDED job.
 func TestQueueCollector_EmitsSuspendedMetrics(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/squeue.txt")
+	data, err := os.ReadFile("../../test_data/queue_all_states.txt")
 	require.NoError(t, err)
 
 	oldExecute := Execute

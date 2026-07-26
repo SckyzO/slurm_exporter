@@ -16,7 +16,7 @@ import (
 )
 
 func TestParseQueueMetrics(t *testing.T) {
-	file, err := os.Open("../../test_data/squeue.txt")
+	file, err := os.Open("../../test_data/queue_all_states.txt")
 	require.NoError(t, err, "cannot open test data")
 	data, err := io.ReadAll(file)
 	require.NoError(t, err, "cannot read test data")
@@ -128,7 +128,7 @@ func collectPushed(t *testing.T, push func(chan<- prometheus.Metric)) map[string
 // version of this test reimplemented the aggregation in its own body and never
 // called the helper at all.
 func TestPushAggregatedNVal(t *testing.T) {
-	file, err := os.Open("../../test_data/squeue.txt")
+	file, err := os.Open("../../test_data/queue_all_states.txt")
 	require.NoError(t, err)
 	data, err := io.ReadAll(file)
 	require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestPushAggregatedNVal(t *testing.T) {
 // TestPushAggregatedNNVal calls the pending helper, which collapses the user
 // dimension to {partition, reason}.
 func TestPushAggregatedNNVal(t *testing.T) {
-	file, err := os.Open("../../test_data/squeue.txt")
+	file, err := os.Open("../../test_data/queue_all_states.txt")
 	require.NoError(t, err)
 	data, err := io.ReadAll(file)
 	require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestSumNNVal(t *testing.T) {
 // TestGlobalQueueMetrics verifies the global totals against the fixture.
 // These metrics must always be emitted, even when 0.
 func TestGlobalQueueMetrics(t *testing.T) {
-	file, err := os.Open("../../test_data/squeue.txt")
+	file, err := os.Open("../../test_data/queue_all_states.txt")
 	require.NoError(t, err, "cannot open test data")
 	data, err := io.ReadAll(file)
 	require.NoError(t, err)

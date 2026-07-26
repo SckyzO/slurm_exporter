@@ -158,13 +158,13 @@ var CommandRegistry = []Command{
 				Slurm: "25.11",
 			},
 			{
-				File: "squeue_tres.txt",
+				File: "squeue_jobs_accounts_view.txt",
 				Why: "Backs ParseAccountsMetrics, which the accounts projection re-emits " +
 					"verbatim: proves the projection produces the layout the parser expects.",
 			},
 			{
-				File: "squeue_tres_users.txt",
-				Why: "Same contract as squeue_tres.txt for the users projection " +
+				File: "squeue_jobs_users_view.txt",
+				Why: "Same contract as squeue_jobs_accounts_view.txt for the users projection " +
 					"(ParseUsersMetrics).",
 			},
 		},
@@ -190,7 +190,7 @@ var CommandRegistry = []Command{
 		},
 		Fixtures: []Fixture{
 			{
-				File: "squeue.txt",
+				File: "queue_all_states.txt",
 				Why: "Eight states in one capture: RUNNING, PENDING, SUSPENDED, CANCELLED, " +
 					"COMPLETED, FAILED, TIMEOUT, NODE_FAIL. PREEMPTED needs PreemptType " +
 					"configured, COMPLETING lasts as long as an epilog and CONFIGURING as long " +
@@ -209,7 +209,7 @@ var CommandRegistry = []Command{
 		OptIn:  "--no-collector.queue.terminal-states",
 		Doc: "The same query without --states=all, restoring the pre-1.9 behaviour for " +
 			"sites that would rather not ask slurmctld for the terminal states.",
-		NoFixtureReason: "Deliberate: the output is a subset of squeue.txt and the parser is the " +
+		NoFixtureReason: "Deliberate: the output is a subset of queue_all_states.txt and the parser is the " +
 			"same one, so a second capture would protect nothing. What the flag changes is " +
 			"the query itself, which the contract test pins.",
 		invoke: func(log *logger.Logger, _ string) { _, _ = QueueData(log, false) },
@@ -221,7 +221,7 @@ var CommandRegistry = []Command{
 		Source: "cpus.go",
 		Doc:    "Cluster-wide CPU states as allocated/idle/other/total.",
 		Fixtures: []Fixture{
-			{File: "sinfo_cpus.txt", Why: "The single A/I/O/T line the parser splits on slashes."},
+			{File: "cpus.txt", Why: "The single A/I/O/T line the parser splits on slashes."},
 		},
 		invoke: func(log *logger.Logger, _ string) { _, _ = CPUsData(log) },
 	},
@@ -240,7 +240,7 @@ var CommandRegistry = []Command{
 		},
 		Fixtures: []Fixture{
 			{
-				File: "sshare_users.txt",
+				File: "fairshare.txt",
 				Why: "An account tree with both the parent rows that must be skipped and the " +
 					"user rows that must not.",
 			},
@@ -271,12 +271,12 @@ var CommandRegistry = []Command{
 		},
 		Fixtures: []Fixture{
 			{
-				File:  "sinfo_gpus_snapshot.txt",
+				File:  "gpus_snapshot.txt",
 				Why:   "The four-column consolidated layout the collector parses today.",
 				Slurm: "25.05.3",
 			},
 			{
-				File: "sinfo_gpus_total_long_gres.txt",
+				File: "gpus_snapshot_long_gres.txt",
 				Why: "A GRES string long enough to be truncated by a fixed-width --Format, " +
 					"which is what the trailing colons exist to prevent (issue #10).",
 			},
@@ -297,18 +297,18 @@ var CommandRegistry = []Command{
 				"silently dropping those nodes (issue #10).",
 		},
 		Fixtures: []Fixture{
-			{File: "sinfo_mem.txt", Why: "The nominal six-column per-node layout."},
+			{File: "node_detail.txt", Why: "The nominal six-column per-node layout."},
 			{
-				File: "sinfo_default_partition.txt",
+				File: "node_detail_default_partition.txt",
 				Why: "A node in the default partition, whose name carries the * marker that " +
 					"has to be stripped before it becomes a label value.",
 			},
 			{
-				File: "sinfo_long_names_fixed.txt",
+				File: "node_detail_long_names.txt",
 				Why: "A 25-character node name alongside short ones, in the variable-width " +
-					"output the trailing colons produce (_fixed meaning after the fix). Under " +
-					"the old fixed-width format that name collided with the next column and the " +
-					"node vanished from the metrics map; the regression net for issue #10.",
+					"output the trailing colons produce. Under the old fixed-width format that " +
+					"name collided with the next column and the node vanished from the metrics " +
+					"map; the regression net for issue #10.",
 			},
 		},
 		invoke: func(log *logger.Logger, _ string) { _, _ = NodeData(log) },
@@ -340,7 +340,7 @@ var CommandRegistry = []Command{
 			"per scrape rather than twice.",
 		Fixtures: []Fixture{
 			{
-				File: "scontrol_nodes_reservation.txt",
+				File: "scontrol_nodes.txt",
 				Why: "Nodes carrying reservation membership, including the drained-but-up " +
 					"case that decides whether a reserved node counts as healthy.",
 			},
@@ -355,7 +355,7 @@ var CommandRegistry = []Command{
 		Doc:    "CPU states per partition.",
 		Fixtures: []Fixture{
 			{
-				File:  "slurm-25.11.1-1/sinfo_partitions_cpu.txt",
+				File:  "slurm-25.11.1-1/partitions_cpu.txt",
 				Why:   "Per-partition A/I/O/T lines.",
 				Slurm: "25.11.1-1",
 			},
@@ -371,12 +371,12 @@ var CommandRegistry = []Command{
 		Doc:    "GPU totals and usage per partition, restricted to idle and allocated nodes.",
 		Fixtures: []Fixture{
 			{
-				File:  "slurm-25.11.1-1/sinfo_partitions_gpu.txt",
+				File:  "slurm-25.11.1-1/partitions_gpu.txt",
 				Why:   "The nominal four-column per-partition GRES layout.",
 				Slurm: "25.11.1-1",
 			},
 			{
-				File: "sinfo_partitions_gpu_long.txt",
+				File: "partitions_gpu_long_gres.txt",
 				Why: "GRES strings long enough to overflow a fixed-width column, the " +
 					"per-partition counterpart of the issue #10 trap.",
 			},
@@ -403,15 +403,15 @@ var CommandRegistry = []Command{
 		Doc: "Active reservation details as key=value blocks, one blank-line-separated " +
 			"block per reservation.",
 		Fixtures: []Fixture{
-			{File: "sreservations.txt", Why: "The nominal multi-reservation block layout."},
+			{File: "reservations.txt", Why: "The nominal multi-reservation block layout."},
 			{
-				File: "sreservations_empty.txt",
+				File: "reservations_empty.txt",
 				Why: "What scontrol prints when no reservation exists, which is a sentence of " +
 					"prose rather than an empty file. The parser has to produce no metrics from " +
 					"it, rather than one bogus one.",
 			},
 			{
-				File: "sreservations_relative_time.txt",
+				File: "reservations_relative_time.txt",
 				Why: "Reservation timestamps in the relative form Slurm emits for near-term " +
 					"reservations, which the absolute-layout parser must not silently accept.",
 			},
@@ -427,7 +427,7 @@ var CommandRegistry = []Command{
 		Source: "licenses.go",
 		Doc:    "License total, used, free and reserved counts, one license per line.",
 		Fixtures: []Fixture{
-			{File: "slicense.txt", Why: "Several licenses with distinct total/used/free splits."},
+			{File: "licenses.txt", Why: "Several licenses with distinct total/used/free splits."},
 		},
 		invoke: func(log *logger.Logger, _ string) { _, _ = LicenseData(log) },
 	},
@@ -439,7 +439,7 @@ var CommandRegistry = []Command{
 		Doc:    "slurmctld internal scheduler statistics, including per-RPC counters.",
 		Fixtures: []Fixture{
 			{
-				File: "sdiag.txt",
+				File: "scheduler.txt",
 				Why: "The header counters (jobs submitted/started/completed/canceled/failed), " +
 					"the main schedule statistics block and the backfill block. It stops there: " +
 					"the Remote Procedure Call tables that scheduler.go also parses, per " +

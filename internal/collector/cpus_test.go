@@ -10,7 +10,7 @@ import (
 )
 
 func TestCPUsMetrics(t *testing.T) {
-	file, err := os.Open("../../test_data/sinfo_cpus.txt")
+	file, err := os.Open("../../test_data/cpus.txt")
 	require.NoError(t, err, "cannot open test data")
 	data, err := io.ReadAll(file)
 	require.NoError(t, err, "cannot read test data")

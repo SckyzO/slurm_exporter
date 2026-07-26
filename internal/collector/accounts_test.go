@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseAccountsMetrics(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/squeue_tres.txt")
+	data, err := os.ReadFile("../../test_data/squeue_jobs_accounts_view.txt")
 	require.NoError(t, err, "cannot open test data")
 
 	am := ParseAccountsMetrics(data)

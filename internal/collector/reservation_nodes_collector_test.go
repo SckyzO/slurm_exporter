@@ -15,7 +15,7 @@ func TestReservationNodesCollector_Collect(t *testing.T) {
 	// Reset shared cache
 	scontrolNodesCache = &timedCache{ttl: scontrolNodesCache.ttl}
 
-	data, err := os.ReadFile("../../test_data/scontrol_nodes_reservation.txt")
+	data, err := os.ReadFile("../../test_data/scontrol_nodes.txt")
 	require.NoError(t, err)
 
 	oldExecute := Execute

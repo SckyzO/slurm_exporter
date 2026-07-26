@@ -15,7 +15,7 @@ import (
 // A single snapshot makes the alloc/total race structurally impossible, so the
 // utilization ratio can never exceed 1 (the unclamped >1.0 the issue reported).
 //
-// The fixture test_data/sinfo_gpus_snapshot.txt is a real, anonymized capture
+// The fixture test_data/gpus_snapshot.txt is a real, anonymized capture
 // of `sinfo -a -h --Format=Nodes: ,StateLong: ,Gres: ,GresUsed:` from a GPU
 // cluster (Slurm 25.05.3). Its 16 GPU nodes carry 4 GPUs each:
 //
@@ -32,7 +32,7 @@ func TestGPUsSnapshotSingleCall(t *testing.T) {
 	calls := 0
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
 		calls++
-		return os.ReadFile("../../test_data/sinfo_gpus_snapshot.txt")
+		return os.ReadFile("../../test_data/gpus_snapshot.txt")
 	}
 
 	m, err := GPUsGetMetrics(logger.NewLogger("debug"))

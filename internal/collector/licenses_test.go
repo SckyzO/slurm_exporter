@@ -9,7 +9,7 @@ import (
 )
 
 func TestLicenseMetrics(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/slicense.txt")
+	data, err := os.ReadFile("../../test_data/licenses.txt")
 	require.NoError(t, err, "cannot open test data")
 
 	lm := ParseLicenseMetrics(data)

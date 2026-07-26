@@ -15,7 +15,7 @@ func TestGPUsCollector_Collect(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		return os.ReadFile("../../test_data/sinfo_gpus_snapshot.txt")
+		return os.ReadFile("../../test_data/gpus_snapshot.txt")
 	}
 
 	log := logger.NewLogger("error")

@@ -19,7 +19,7 @@ import (
 //
 // with a 25-char node name that would have collided under the old format.
 func TestNodeMetricsLongNames(t *testing.T) {
-	data, err := os.ReadFile("../../test_data/sinfo_long_names_fixed.txt")
+	data, err := os.ReadFile("../../test_data/node_detail_long_names.txt")
 	if err != nil {
 		t.Fatalf("Can not open test data: %v", err)
 	}
