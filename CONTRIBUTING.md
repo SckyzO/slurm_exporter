@@ -112,11 +112,20 @@ Integration tests (steps 4-9) are required for any change to:
 Every new collector must have:
 
 1. A `*Data(logger)` function calling `Execute()`
-2. A `Parse*()` function with pure logic (no I/O — testable without cluster)
-3. A `*Collector` struct implementing `prometheus.Collector`
-4. A `New*Collector()` constructor
-5. A `test_data/<command_output>.txt` fixture with anonymized real output
-6. A `*_test.go` file covering:
+2. An entry in `CommandRegistry` (`internal/collector/command_registry.go`) for
+   every Slurm command it runs — the single source of truth the docs and the
+   capture tooling are generated from. `command_registry_test.go` runs your
+   `*Data()` function behind a stubbed `Execute` and fails if the entry does not
+   match what it really passes, so this is checked, not trusted.
+3. A `Parse*()` function with pure logic (no I/O — testable without cluster)
+4. A `*Collector` struct implementing `prometheus.Collector`
+5. A `New*Collector()` constructor
+6. A `test_data/<command_output>.txt` fixture with anonymized real output,
+   declared in the registry entry's `Fixtures` with a `Why` saying what it
+   protects. No fixture at all is allowed, but then `NoFixtureReason` has to say
+   whether that is deliberate or work still to do — a gap left implicit reads as
+   coverage.
+7. A `*_test.go` file covering:
    - The parser with at least: happy path, empty input, malformed lines, edge cases
    - The collector via `Execute` mock using the test_data fixture
    - `Describe()` descriptor count
@@ -179,7 +188,10 @@ All fixtures in `test_data/` must be anonymized:
 - Real account names → `account_a`, `hpc_team`, `ml_group`
 - Real node names → `c1`, `c2`, `a001`, `b001`
 
-See `test_data/readme.md` for the mapping of commands to fixture files.
+`test_data/readme.md` maps commands to fixture files. It is **generated** from
+`internal/collector/command_registry.go` — edit the registry and run
+`make generate`, never the readme itself. `make check` and CI fail on a stale
+one, which is what stops the two from drifting apart again (issue #195).
 
 ---
 
