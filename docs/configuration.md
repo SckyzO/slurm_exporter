@@ -37,6 +37,7 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--log.format` | Log format: `json`, `text` | `text` |
 | `--[no-]collector.<name>` | Enable or disable a collector (kingpin boolean flag). Most collectors default to enabled; `sacct_efficiency` defaults to disabled. | see below |
 | `--collector.nodes.feature-set` | Include `active_feature_set` label in `slurm_nodes_*` metrics | `true` |
+| `--collector.node.gres` | Expose `slurm_node_gres_total` and `slurm_node_gres_used`, broken down by `gres_type`. Disable on clusters with many GPU models or MIG profiles to reduce cardinality. | `true` |
 | `--collector.fairshare.user-metrics` | Collect per-user fairshare metrics (`slurm_user_fairshare_*`). Disable on clusters with many users to reduce cardinality. | `true` |
 | `--collector.queue.user-label` | Include `user` label in `slurm_queue_*` metrics. Disable on clusters with many users to reduce cardinality. | `true` |
 | `--collector.queue.terminal-states` | Ask `squeue` for terminal job states (`FAILED`, `TIMEOUT`, `CANCELLED`, `COMPLETED`, ...) on top of pending and running ones. Disable to restore the pre-1.9 query. | `true` |

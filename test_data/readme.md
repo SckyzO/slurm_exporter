@@ -34,7 +34,7 @@ are replaced with generic equivalents. See `CONTRIBUTING.md` § Test Data.
 | [`cpus`](#cpus) | `sinfo` | `cpus.go` | 1 |
 | [`fairshare`](#fairshare) | `sshare` | `fairshare.go` | 1 |
 | [`gpus_snapshot`](#gpus_snapshot) | `sinfo` | `gpus.go` | 2 |
-| [`node_detail`](#node_detail) | `sinfo` | `node.go` | 3 |
+| [`node_detail`](#node_detail) | `sinfo` | `node.go` | 4 |
 | [`nodes_global`](#nodes_global) | `sinfo` | `nodes.go` | none |
 | [`scontrol_nodes`](#scontrol_nodes) | `scontrol` | `reservation_nodes.go` | 1 |
 | [`partitions_cpu`](#partitions_cpu) | `sinfo` | `partitions.go` | 1 |
@@ -151,10 +151,10 @@ Owned by `gpus.go`.
 ### node_detail
 
 ```sh
-sinfo -h -N -O 'NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition:'
+sinfo -h -N -O 'NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition: ,Gres: ,GresUsed:'
 ```
 
-Per-node CPU and memory detail, one row per node.
+Per-node CPU, memory and GRES detail, one row per node and partition. The Gres and GresUsed columns feed slurm_node_gres_total and slurm_node_gres_used, the only metrics in the exporter carrying a GPU model, and the only per-node view of them.
 
 Owned by `node.go`.
 
@@ -164,6 +164,7 @@ Owned by `node.go`.
 |---|---|---|
 | `node_detail.txt` | unrecorded | The nominal six-column per-node layout. |
 | `node_detail_default_partition.txt` | unrecorded | A node in the default partition, whose name carries the * marker that has to be stripped before it becomes a label value. |
+| `slurm-25.05/node_detail_gres.txt` | 25.05.3 | The GRES columns on a real GPU cluster: five nodes across allocated, mixed, idle, maint and drained, each in four partitions, plus a CPU node whose columns read "(null)" and must publish nothing. Carries "gpu:model_a:2(IDX:0,3)", the non-contiguous index list whose comma breaks a naive split of the GRES string. |
 | `node_detail_long_names.txt` | unrecorded | A 25-character node name alongside short ones, in the variable-width output the trailing colons produce. Under the old fixed-width format that name collided with the next column and the node vanished from the metrics map; the regression net for issue #10. |
 
 ### nodes_global

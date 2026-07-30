@@ -287,9 +287,12 @@ var CommandRegistry = []Command{
 		Name:   "node_detail",
 		Binary: "sinfo",
 		Args: []string{"-h", "-N", "-O",
-			"NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition:"},
+			"NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition: ,Gres: ,GresUsed:"},
 		Source: "node.go",
-		Doc:    "Per-node CPU and memory detail, one row per node.",
+		Doc: "Per-node CPU, memory and GRES detail, one row per node and partition. " +
+			"The Gres and GresUsed columns feed slurm_node_gres_total and " +
+			"slurm_node_gres_used, the only metrics in the exporter carrying a GPU " +
+			"model, and the only per-node view of them.",
 		Notes: []string{
 			"The trailing colon on each field forces variable column widths. Without it " +
 				"node names longer than 20 characters — the default NodeList width — collide " +
@@ -302,6 +305,15 @@ var CommandRegistry = []Command{
 				File: "node_detail_default_partition.txt",
 				Why: "A node in the default partition, whose name carries the * marker that " +
 					"has to be stripped before it becomes a label value.",
+			},
+			{
+				File: "slurm-25.05/node_detail_gres.txt",
+				Why: "The GRES columns on a real GPU cluster: five nodes across allocated, " +
+					"mixed, idle, maint and drained, each in four partitions, plus a CPU node " +
+					"whose columns read \"(null)\" and must publish nothing. Carries " +
+					"\"gpu:model_a:2(IDX:0,3)\", the non-contiguous index list whose comma " +
+					"breaks a naive split of the GRES string.",
+				Slurm: "25.05.3",
 			},
 			{
 				File: "node_detail_long_names.txt",
