@@ -50,7 +50,8 @@ func drainTimeIsUnset(since string) bool {
 }
 
 // ParseDrainReasonMetrics parses "sinfo -h -N -o '%N|%E|%H|%T'" output.
-// Only nodes with a non-empty, non-"none" reason are returned.
+// Nodes whose reason is empty, "none" or "unknown" are skipped; every other
+// reason is returned, including the ones slurmctld sets itself (issue #198).
 func ParseDrainReasonMetrics(input []byte) []DrainReasonMetrics {
 	var results []DrainReasonMetrics
 	seen := make(map[string]bool) // deduplicate by node (node can appear in multiple partitions)
@@ -68,8 +69,18 @@ func ParseDrainReasonMetrics(input []byte) []DrainReasonMetrics {
 		since := strings.TrimSpace(fields[2])
 		state := strings.TrimSpace(fields[3])
 
+		// Drop the rows that carry no information. sinfo prints "none" or
+		// "unknown" for every healthy node, so exporting them would publish one
+		// series per node in the cluster to say nothing.
+		//
+		// "not responding" is deliberately NOT in this list. slurmctld writes it
+		// itself when it loses contact with a node, which makes it the opposite
+		// of empty: it is the only place the difference between an unreachable
+		// node and an admin-drained one shows up. Filtering it meant a node
+		// slurmctld had downed produced no series at all, which is exactly the
+		// case an operator wants to alert on (issue #198).
 		reasonLower := strings.ToLower(reason)
-		if node == "" || reason == "" || reasonLower == "none" || reasonLower == "not responding" || reasonLower == "unknown" {
+		if node == "" || reason == "" || reasonLower == "none" || reasonLower == "unknown" {
 			continue
 		}
 		// Only interested in degraded node states
@@ -114,7 +125,9 @@ func NewDrainReasonCollector(log *logger.Logger) *DrainReasonCollector {
 	return &DrainReasonCollector{
 		info: prometheus.NewDesc(
 			"slurm_node_drain_reason_info",
-			"Information about why a node is in drain or down state. "+
+			"Information about why a node is in a drain or down state, including "+
+				"the reasons slurmctld sets itself such as \"Not responding\". Nodes "+
+				"whose reason is empty, \"none\" or \"unknown\" produce no series. "+
 				"Always 1; the reason label carries the text and "+
 				"slurm_node_drain_since_timestamp_seconds carries the time it was set.",
 			[]string{"node", "reason"},

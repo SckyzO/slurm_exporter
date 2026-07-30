@@ -24,8 +24,12 @@ c5|not responding|2026-04-01T11:00:00|down
 	// c2 down with reason → included
 	// c3 reason="none" → excluded
 	// c4 empty reason → excluded
-	// c5 "not responding" → excluded (built-in Slurm reason, not admin-set)
-	require.Len(t, metrics, 2)
+	// c5 "not responding" → included since #198. v1.8 excluded it on the
+	// grounds that Slurm sets it rather than an admin, which turned out to be
+	// the wrong test: what matters is whether the reason carries information,
+	// not who wrote it. A node slurmctld downed for silence produced no series
+	// at all, so the metric was silent about the outage it exists to describe.
+	require.Len(t, metrics, 3)
 
 	nodes := make(map[string]DrainReasonMetrics)
 	for _, m := range metrics {
