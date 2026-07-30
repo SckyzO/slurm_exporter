@@ -373,6 +373,13 @@ and why:
   * on(node) group_left(reason) slurm_node_drain_reason_info
 ```
 
+A node is reported whenever Slurm gives it a reason, including the ones
+`slurmctld` writes itself rather than an operator. `Not responding`, set when the
+controller loses contact with a node, is the common one: it is the only place the
+difference between an unreachable node and an admin-drained one shows up. Only
+the empty reasons are skipped (`none`, `unknown`, or a blank field), since Slurm
+prints those for every healthy node.
+
 `slurm_node_drain_since_timestamp_seconds` is absent for a node whose reason
 carries no timestamp, rather than zero, so the subtraction above never reports a
 drain that started in 1970. The exporter pins `SLURM_TIME_FORMAT=standard` on
