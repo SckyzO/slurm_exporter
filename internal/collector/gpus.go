@@ -94,22 +94,99 @@ func ParseIdleGPUs(data []byte) float64 {
 // optional "(IDX:…)"/"(S:…)" suffix. Capture group 2 is the count. Compiled
 // once at package level rather than per Collect(), the convention the other
 // collectors follow (see nodes.go, scheduler.go).
-var gpuGresRe = regexp.MustCompile(`gpu:(\(null\)|[^:(]*):?([0-9]+)(\([^)]*\))?`)
+// gresTokenRe matches one comma-separated GRES token: a type, an optional
+// model, a count, and an optional socket or index suffix.
+//
+// It is anchored on purpose. An unanchored pattern latches onto whatever digits
+// it can find, so a truncated token invents data instead of rejecting it:
+// "shard:h10", the tail of "shard:h100:2" cut off by a fixed-width sinfo
+// column, yields a phantom model "h1" with a count of 0. Anchoring makes the
+// count have to be the last field, so a mangled token is skipped rather than
+// guessed at.
+var gresTokenRe = regexp.MustCompile(`^(\w+):(?:(\(null\)|[^:(]*):)?(\d+)(?:\([^)]*\))?$`)
+
+// splitGRESTokens splits a GRES specification on the commas that separate
+// resources, ignoring the ones inside an index or socket suffix.
+//
+// Splitting on every comma looks right until a node exposes non-contiguous GPU
+// indices: "gpu:NVlink_A100_40GB:2(IDX:0,3)" is one resource, and a naive split
+// turns it into two fragments that parse as nothing. That capture is real, it
+// sits in test_data/slurm-25.11.1-1/, and the version matrix is what caught it.
+func splitGRESTokens(spec string) []string {
+	var tokens []string
+	depth, start := 0, 0
+	for i, r := range spec {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				tokens = append(tokens, spec[start:i])
+				start = i + 1
+			}
+		}
+	}
+	return append(tokens, spec[start:])
+}
+
+// parseGRESByType breaks a comma-separated GRES specification into counts per
+// resource, keyed "type" or "type:model" ("gpu:A100:4,gpu:H100:2" → two
+// entries). Untyped resources collapse onto the bare type, and a "(null)" model
+// is treated as untyped, which is how Slurm reports a GPU with no model set.
+//
+// Real formats this has to survive, all captured under test_data/slurm-*/
+// across six Slurm releases: "gpu:2", "gpu:h100:4", "gpu:mi210:2(S:0)",
+// "gpu:nvidia_a100_1g.5gb:21(S:0-1)" (MIG profile, dots), "gpu:NVlink_A100_40GB:2"
+// (mixed case), "gpu:tesla_v100-sxm3-32gb:16(IDX:0-15)" (hyphens),
+// "gpu:(null):0(IDX:N/A)", and the "(null)" placeholder for a node with none.
+// A nil map is returned when there is nothing to report, and the map is only
+// allocated once a token actually parses. This matters on the per-node path:
+// sinfo -h -N emits one line per node and partition, and on a mostly-CPU
+// cluster the large majority carry "(null)". Allocating for those would mean
+// hundreds of throwaway maps per scrape on a real cluster, thousands on a large
+// one. Reading and ranging a nil map is legal in Go, so callers see no
+// difference.
+func parseGRESByType(spec string) map[string]uint64 {
+	if spec == "" || spec == "(null)" || spec == "N/A" {
+		return nil
+	}
+	var counts map[string]uint64
+	for _, token := range splitGRESTokens(spec) {
+		m := gresTokenRe.FindStringSubmatch(strings.TrimSpace(token))
+		if m == nil {
+			continue
+		}
+		count, err := strconv.ParseUint(m[3], 10, 64)
+		if err != nil {
+			continue
+		}
+		key := m[1]
+		if model := m[2]; model != "" && model != "(null)" {
+			key += ":" + model
+		}
+		if counts == nil {
+			counts = make(map[string]uint64, 2)
+		}
+		counts[key] += count
+	}
+	return counts
+}
 
 // parseGPUCount sums the GPU counts across every gpu: entry in a comma-separated
 // GRES specification. A node can expose several GPU types at once
-// ("gpu:A100:4,gpu:H100:2" → 6), and non-gpu GRES (e.g. "mig:…") is ignored.
-// Shared by the cluster-wide (gpus.go) and per-partition (partitions.go) paths.
+// ("gpu:A100:4,gpu:H100:2" → 6), and non-gpu GRES (e.g. "shard:…") is ignored.
+// Shared by the cluster-wide (gpus.go) and per-partition (partitions.go) paths,
+// and derived from parseGRESByType so the two views cannot disagree on what a
+// GRES string means.
 func parseGPUCount(gpuSpec string) float64 {
 	var count = 0.0
-	for _, spec := range strings.Split(gpuSpec, ",") {
-		if !strings.Contains(spec, "gpu:") {
-			continue
-		}
-		matches := gpuGresRe.FindStringSubmatch(spec)
-		if len(matches) > 2 {
-			gpuCount, _ := strconv.ParseFloat(matches[2], 64)
-			count += gpuCount
+	for key, n := range parseGRESByType(gpuSpec) {
+		if key == "gpu" || strings.HasPrefix(key, "gpu:") {
+			count += float64(n)
 		}
 	}
 	return count

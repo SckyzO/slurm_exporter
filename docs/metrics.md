@@ -112,6 +112,37 @@ Provides detailed, per-node metrics for CPU and memory usage.
 | `slurm_node_mem_alloc` | Allocated memory per node | `node`, `status`, `partition` |
 | `slurm_node_mem_total` | Total memory per node | `node`, `status`, `partition` |
 | `slurm_node_status` | Node Status with partition (1 if up) | `node`, `status`, `partition` |
+| `slurm_node_gres_total` | Generic resources configured on the node | `node`, `status`, `partition`, `gres_type` |
+| `slurm_node_gres_used` | Generic resources currently allocated | `node`, `status`, `partition`, `gres_type` |
+
+`gres_type` is the only place in the exporter where a GPU model appears. Slurm
+reports a resource as `gpu:4` when it is untyped and `gpu:A100:4` when a model is
+configured, and the label follows: `gpu` or `gpu:A100`. Non-GPU resources such as
+`shard` are reported the same way, so this is the per-node view of GRES in
+general, not of GPUs alone.
+
+Every other GPU metric is an aggregate: `slurm_gpus_*` covers the whole cluster
+with no labels at all, and `slurm_partition_gpus_*` stops at the partition. These
+two are what answer "which node has free GPUs" and "are the H100s saturated while
+the A100s idle", neither of which the aggregates can express.
+
+A node with no generic resources publishes no series here, so a CPU-only cluster
+pays nothing for these metrics being enabled.
+
+```promql
+# GPU utilisation per node, in percent
+100 * slurm_node_gres_used{gres_type=~"gpu.*"}
+    / clamp_min(slurm_node_gres_total{gres_type=~"gpu.*"}, 1)
+
+# Idle GPU capacity by model, cluster-wide
+sum by (gres_type) (
+  slurm_node_gres_total{gres_type=~"gpu.*"} - slurm_node_gres_used{gres_type=~"gpu.*"}
+)
+```
+
+The `gres_type` label multiplies the series count on a cluster exposing several
+GPU models or MIG profiles. `--no-collector.node.gres` turns both metrics off and
+leaves the rest of the `node` collector untouched.
 
 ### `nodes` Collector
 

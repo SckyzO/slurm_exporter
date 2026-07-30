@@ -56,6 +56,14 @@ var (
 			"Disable on homogeneous clusters to reduce cardinality.",
 	).Default("true").Bool()
 
+	// nodeGRES controls whether the per-node GRES metrics are exposed.
+	nodeGRES = kingpin.Flag(
+		"collector.node.gres",
+		"Expose slurm_node_gres_total and slurm_node_gres_used, broken down by "+
+			"gres_type. Disable on clusters with many GPU models or MIG profiles "+
+			"to reduce cardinality.",
+	).Default("true").Bool()
+
 	// queueUserLabel controls whether the user label is included in queue metrics.
 	queueUserLabel = kingpin.Flag(
 		"collector.queue.user-label",
@@ -114,7 +122,7 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"accounts":     func(l *logger.Logger) prometheus.Collector { return collector.NewAccountsCollector(l) },
 	"cpus":         func(l *logger.Logger) prometheus.Collector { return collector.NewCPUsCollector(l) },
 	"nodes":        func(l *logger.Logger) prometheus.Collector { return collector.NewNodesCollector(l, *nodesFeatureSet) },
-	"node":         func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l) },
+	"node":         func(l *logger.Logger) prometheus.Collector { return collector.NewNodeCollector(l, *nodeGRES) },
 	"drain_reason": func(l *logger.Logger) prometheus.Collector { return collector.NewDrainReasonCollector(l) },
 	"partitions":   func(l *logger.Logger) prometheus.Collector { return collector.NewPartitionsCollector(l) },
 	"queue": func(l *logger.Logger) prometheus.Collector {

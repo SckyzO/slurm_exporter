@@ -20,6 +20,11 @@ type NodeMetrics struct {
 	cpuTotal   uint64
 	nodeStatus string
 	partitions []string
+	// gresTotal and gresUsed are keyed "type" or "type:model", as parsed by
+	// parseGRESByType. nil when the node exposes no GRES, which is the common
+	// case on a CPU cluster and the reason nothing is allocated for it.
+	gresTotal map[string]uint64
+	gresUsed  map[string]uint64
 }
 
 func NodeGetMetrics(logger *logger.Logger) (map[string]*NodeMetrics, error) {
@@ -51,7 +56,7 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		partition := strings.TrimRight(node[5], "*")
 
 		if _, exists := nodes[nodeName]; !exists {
-			nodes[nodeName] = &NodeMetrics{0, 0, 0, 0, 0, 0, nodeStatus, []string{}}
+			nodes[nodeName] = &NodeMetrics{nodeStatus: nodeStatus, partitions: []string{}}
 		}
 
 		memAlloc, _ := strconv.ParseUint(node[1], 10, 64)
@@ -73,6 +78,14 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 		nodes[nodeName].cpuOther = cpuOther
 		nodes[nodeName].cpuTotal = cpuTotal
 
+		// GRES columns are optional: a Slurm build without GRES configured, or
+		// an older sinfo, simply returns fewer fields. Reading them defensively
+		// keeps the CPU metrics working rather than dropping the whole line.
+		if len(node) >= 8 {
+			nodes[nodeName].gresTotal = parseGRESByType(node[6])
+			nodes[nodeName].gresUsed = parseGRESByType(node[7])
+		}
+
 		nodes[nodeName].partitions = appendUnique(nodes[nodeName].partitions, partition)
 	}
 
@@ -90,7 +103,8 @@ with the next column and produce <6 whitespace-separated tokens — silently
 dropping those nodes. See https://github.com/SckyzO/slurm_exporter/issues/10.
 */
 func NodeData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-h", "-N", "-O", "NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition:"}
+	args := []string{"-h", "-N", "-O",
+		"NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition: ,Gres: ,GresUsed:"}
 	return Execute(logger, "sinfo", args)
 }
 
@@ -102,11 +116,19 @@ type NodeCollector struct {
 	memAlloc   *prometheus.Desc
 	memTotal   *prometheus.Desc
 	nodeStatus *prometheus.Desc
-	logger     *logger.Logger
+	gresTotal  *prometheus.Desc
+	gresUsed   *prometheus.Desc
+	// withGRES gates the two GRES metrics. They add a series per
+	// (node, status, partition, gres_type), which multiplies on a cluster
+	// exposing several GPU models or MIG profiles, so operators can turn them
+	// off the same way --collector.nodes.feature-set works.
+	withGRES bool
+	logger   *logger.Logger
 }
 
-func NewNodeCollector(logger *logger.Logger) *NodeCollector {
+func NewNodeCollector(logger *logger.Logger, withGRES bool) *NodeCollector {
 	labels := []string{"node", "status", "partition"}
+	gresLabels := []string{"node", "status", "partition", "gres_type"}
 	return &NodeCollector{
 		cpuAlloc:   prometheus.NewDesc("slurm_node_cpu_alloc", "Allocated CPUs per node", labels, nil),
 		cpuIdle:    prometheus.NewDesc("slurm_node_cpu_idle", "Idle CPUs per node", labels, nil),
@@ -115,7 +137,16 @@ func NewNodeCollector(logger *logger.Logger) *NodeCollector {
 		memAlloc:   prometheus.NewDesc("slurm_node_mem_alloc", "Allocated memory per node", labels, nil),
 		memTotal:   prometheus.NewDesc("slurm_node_mem_total", "Total memory per node", labels, nil),
 		nodeStatus: prometheus.NewDesc("slurm_node_status", "Node Status with partition", labels, nil),
-		logger:     logger,
+		gresTotal: prometheus.NewDesc("slurm_node_gres_total",
+			"Generic resources configured on the node, by resource type. "+
+				"gres_type is \"gpu\" for an untyped resource and \"gpu:<model>\" when Slurm reports a model.",
+			gresLabels, nil),
+		gresUsed: prometheus.NewDesc("slurm_node_gres_used",
+			"Generic resources currently allocated on the node, by resource type. "+
+				"Same gres_type values as slurm_node_gres_total.",
+			gresLabels, nil),
+		withGRES: withGRES,
+		logger:   logger,
 	}
 }
 
@@ -127,6 +158,10 @@ func (nc *NodeCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nc.memAlloc
 	ch <- nc.memTotal
 	ch <- nc.nodeStatus
+	if nc.withGRES {
+		ch <- nc.gresTotal
+		ch <- nc.gresUsed
+	}
 }
 
 func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) { _ = nc.tryCollect(ch) }
@@ -149,6 +184,18 @@ func (nc *NodeCollector) tryCollect(ch chan<- prometheus.Metric) error {
 			ch <- prometheus.MustNewConstMetric(nc.memAlloc, prometheus.GaugeValue, float64(metrics.memAlloc), node, metrics.nodeStatus, partition)
 			ch <- prometheus.MustNewConstMetric(nc.memTotal, prometheus.GaugeValue, float64(metrics.memTotal), node, metrics.nodeStatus, partition)
 			ch <- prometheus.MustNewConstMetric(nc.nodeStatus, prometheus.GaugeValue, 1, node, metrics.nodeStatus, partition)
+
+			if !nc.withGRES {
+				continue
+			}
+			// Ranging a nil map is a no-op, so a node with no GRES costs
+			// nothing here and publishes no series.
+			for gresType, count := range metrics.gresTotal {
+				ch <- prometheus.MustNewConstMetric(nc.gresTotal, prometheus.GaugeValue, float64(count), node, metrics.nodeStatus, partition, gresType)
+			}
+			for gresType, count := range metrics.gresUsed {
+				ch <- prometheus.MustNewConstMetric(nc.gresUsed, prometheus.GaugeValue, float64(count), node, metrics.nodeStatus, partition, gresType)
+			}
 		}
 	}
 
