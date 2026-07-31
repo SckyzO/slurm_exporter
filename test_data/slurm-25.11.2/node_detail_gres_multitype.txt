@@ -1,0 +1,1 @@
+g2 15867 15867 2/30/0/32 mixed gpu gpu:model_a:2,gpu:model_b:2 gpu:model_a:0(IDX:N/A),gpu:model_b:1(IDX:2)

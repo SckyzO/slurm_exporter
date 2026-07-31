@@ -34,7 +34,7 @@ are replaced with generic equivalents. See `CONTRIBUTING.md` § Test Data.
 | [`cpus`](#cpus) | `sinfo` | `cpus.go` | 1 |
 | [`fairshare`](#fairshare) | `sshare` | `fairshare.go` | 1 |
 | [`gpus_snapshot`](#gpus_snapshot) | `sinfo` | `gpus.go` | 2 |
-| [`node_detail`](#node_detail) | `sinfo` | `node.go` | 4 |
+| [`node_detail`](#node_detail) | `sinfo` | `node.go` | 5 |
 | [`nodes_global`](#nodes_global) | `sinfo` | `nodes.go` | none |
 | [`scontrol_nodes`](#scontrol_nodes) | `scontrol` | `reservation_nodes.go` | 1 |
 | [`partitions_cpu`](#partitions_cpu) | `sinfo` | `partitions.go` | 1 |
@@ -165,6 +165,7 @@ Owned by `node.go`.
 | `node_detail.txt` | unrecorded | The nominal six-column per-node layout. |
 | `node_detail_default_partition.txt` | unrecorded | A node in the default partition, whose name carries the * marker that has to be stripped before it becomes a label value. |
 | `slurm-25.05/node_detail_gres.txt` | 25.05.3 | The GRES columns on a real GPU cluster: five nodes across allocated, mixed, idle, maint and drained, each in four partitions, plus a CPU node whose columns read "(null)" and must publish nothing. Carries "gpu:model_a:2(IDX:0,3)", the non-contiguous index list whose comma breaks a naive split of the GRES string. |
+| `slurm-25.11.2/node_detail_gres_multitype.txt` | 25.11.2 | A node exposing two GPU models at once, with a job holding one of the second: "gpu:model_a:2,gpu:model_b:2" against "gpu:model_a:0(IDX:N/A),gpu:model_b:1(IDX:2)". Two resources separated by a comma, each with its own index list, which is the shape the per-node metrics exist to report and the one that breaks a naive parser. |
 | `node_detail_long_names.txt` | unrecorded | A 25-character node name alongside short ones, in the variable-width output the trailing colons produce. Under the old fixed-width format that name collided with the next column and the node vanished from the metrics map; the regression net for issue #10. |
 
 ### nodes_global
@@ -352,5 +353,6 @@ free regression protection rather than as peers of the supported ones.
 | `slurm-23.11.10/` | 23.11.10 | no (historical) | No idle fixture. The file was a two-column capture where IdleGPUsData emits three, so the idle and other counts derived from it were artefacts of the malformation; #177 deleted it. It cannot be recaptured — 23.11.10 is no longer published upstream — and the real three-column idle format is already covered by 23.11.10-2, so the gap is marked with idleUncovered in gpus_test.go rather than filled. |
 | `slurm-23.11.10-2/` | 23.11.10 patch 2 | no (historical) | — |
 | `slurm-25.05/` | 25.05.x | yes | nvidia_gb200 GPU type on a large machine: 1058 nodes on the total line, 1056 on the allocated one. Four-digit node counts are what overflow a fixed-width Nodes: column, so this is the capture that shows why the --Format fields end with colons. |
+| `slurm-25.11.2/` | 25.11.2 | yes | Captured on the scripts/testing cluster with a synthetic two-model GPU node. The GPUs are not real: a dynamic slurmd registers Gres=gpu:model_a:2,gpu:model_b:2 against device files created in the container. Slurm treats them as it treats any other GRES, so the output is a genuine capture of a shape no single-model cluster can produce. |
 | `slurm-25.11.1-1/` | 25.11.1-1 | yes | Also carries the per-partition CPU and GPU captures. |
 

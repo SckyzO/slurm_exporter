@@ -316,6 +316,15 @@ var CommandRegistry = []Command{
 				Slurm: "25.05.3",
 			},
 			{
+				File: "slurm-25.11.2/node_detail_gres_multitype.txt",
+				Why: "A node exposing two GPU models at once, with a job holding one of the " +
+					"second: \"gpu:model_a:2,gpu:model_b:2\" against " +
+					"\"gpu:model_a:0(IDX:N/A),gpu:model_b:1(IDX:2)\". Two resources separated " +
+					"by a comma, each with its own index list, which is the shape the per-node " +
+					"metrics exist to report and the one that breaks a naive parser.",
+				Slurm: "25.11.2",
+			},
+			{
 				File: "node_detail_long_names.txt",
 				Why: "A 25-character node name alongside short ones, in the variable-width " +
 					"output the trailing colons produce. Under the old fixed-width format that " +
@@ -604,6 +613,16 @@ var FixtureDirs = []FixtureDir{
 			"1056 on the allocated one. Four-digit node counts are what overflow a " +
 			"fixed-width Nodes: column, so this is the capture that shows why the " +
 			"--Format fields end with colons.",
+	},
+	{
+		Path:      "slurm-25.11.2",
+		Slurm:     "25.11.2",
+		Supported: true,
+		Notes: "Captured on the scripts/testing cluster with a synthetic two-model GPU node. " +
+			"The GPUs are not real: a dynamic slurmd registers Gres=gpu:model_a:2,gpu:model_b:2 " +
+			"against device files created in the container. Slurm treats them as it treats any " +
+			"other GRES, so the output is a genuine capture of a shape no single-model cluster " +
+			"can produce.",
 	},
 	{
 		Path:      "slurm-25.11.1-1",

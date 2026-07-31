@@ -87,3 +87,26 @@ func TestNodeMetricsWithoutGRESColumns(t *testing.T) {
 	require.NotEmpty(t, gatheredSeries(t, c, "slurm_node_cpu_total"))
 	require.Empty(t, gatheredSeries(t, c, "slurm_node_gres_total"))
 }
+
+// TestNodeGRESMultipleTypes covers a node exposing two GPU models at once, with
+// a job holding one of the second model.
+//
+// This is the case the per-node metrics exist for: "are the model_b cards
+// saturated while the model_a ones idle" cannot be asked of slurm_gpus_*, which
+// has no labels, nor of slurm_partition_gpus_*, which stops at the partition.
+// It is also the hardest string to parse — two resources separated by a comma,
+// each carrying its own index list, one of which is "(IDX:N/A)".
+func TestNodeGRESMultipleTypes(t *testing.T) {
+	data, err := os.ReadFile("../../test_data/slurm-25.11.2/node_detail_gres_multitype.txt")
+	require.NoError(t, err)
+	stubExecute(t, string(data))
+
+	c := NewNodeCollector(newTestLogger(), true)
+	total := gatheredSeries(t, c, "slurm_node_gres_total")
+	used := gatheredSeries(t, c, "slurm_node_gres_used")
+
+	require.Contains(t, total, `slurm_node_gres_total{gres_type="gpu:model_a",node="g2",partition="gpu",status="mixed"} 2`)
+	require.Contains(t, total, `slurm_node_gres_total{gres_type="gpu:model_b",node="g2",partition="gpu",status="mixed"} 2`)
+	require.Contains(t, used, `slurm_node_gres_used{gres_type="gpu:model_a",node="g2",partition="gpu",status="mixed"} 0`)
+	require.Contains(t, used, `slurm_node_gres_used{gres_type="gpu:model_b",node="g2",partition="gpu",status="mixed"} 1`)
+}
