@@ -124,6 +124,7 @@ var versionedBinaries = []string{
 // CommandRegistry lists every Slurm CLI invocation the exporter makes.
 //
 //go:generate go run ../../tools/gen-fixture-doc -out ../../test_data/readme.md
+//go:generate go run ../../tools/fixture-capture -out ../../scripts/capture.sh
 var CommandRegistry = []Command{
 	{
 		Name:   "squeue_jobs",

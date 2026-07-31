@@ -105,8 +105,8 @@ race: tools-image
 	@echo "Running tests with race detector (containerised)"
 	@$(IN_TOOLS) -c 'CGO_ENABLED=1 go test -race -count=1 ./...'
 
-# Regenerate the documentation derived from the command registry, currently
-# test_data/readme.md (in container). The registry in internal/collector is the
+# Regenerate everything derived from the command registry: test_data/readme.md
+# and scripts/capture.sh (in container). The registry in internal/collector is the
 # single source of truth for every Slurm CLI call the exporter makes; run this
 # after changing one.
 .PHONY: generate
@@ -121,7 +121,7 @@ generate: tools-image
 .PHONY: generate-check
 generate-check: tools-image
 	@echo "Checking derived docs are current (containerised)"
-	@$(IN_TOOLS) -c 'go run ./tools/gen-fixture-doc -check'
+	@$(IN_TOOLS) -c 'go run ./tools/gen-fixture-doc -check && go run ./tools/fixture-capture -check'
 
 # go vet (in container).
 .PHONY: vet

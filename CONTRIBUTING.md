@@ -193,6 +193,35 @@ All fixtures in `test_data/` must be anonymized:
 `make generate`, never the readme itself. `make check` and CI fail on a stale
 one, which is what stops the two from drifting apart again (issue #195).
 
+### Capturing fixtures from a cluster
+
+`scripts/capture.sh` collects every command in the registry and writes a tarball.
+It is generated from the same table, so it can only run commands the exporter
+runs, all of which are read-only.
+
+```sh
+scp scripts/capture.sh someone@login-node:
+ssh someone@login-node './capture.sh'            # add --with-sacct if you can spare SlurmDBD
+```
+
+**It anonymises on the cluster, before writing anything.** Node, user, account,
+reservation and GRES-model names are replaced there, and the mapping that would
+undo it stays behind — it is never in the tarball. That is what makes it safe to
+run on a production cluster and to ask a third party to run on theirs.
+
+The tarball carries a `provenance.txt` with the Slurm version, the date, and the
+exit status of every command, so a partial capture is visible rather than
+silent.
+
+Two rules when adding what comes back:
+
+- **Never re-anonymise an existing fixture.** Expected values in the tests are
+  tied to the current names; a fresh mapping would invalidate them everywhere at
+  once. New captures go into new files or new version directories.
+- **Record the Slurm version** in the registry entry's `Fixture.Slurm`. GRES and
+  timestamp formats have drifted between majors, and a fixture whose origin is
+  unknown cannot be reasoned about when one of them changes again.
+
 ---
 
 ## Performance Considerations
