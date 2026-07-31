@@ -476,6 +476,11 @@ cmd_logs() {
 }
 
 # ── Dispatch ──────────────────────────────────────────────────────────────────
+# Fake GPU workers live in their own file: the recipe is long and its four
+# gotchas need explaining, and none of it is needed by any other target.
+# shellcheck source=fake-gpu-workers.sh
+source "$SCRIPT_DIR/fake-gpu-workers.sh"
+
 CMD="${1:-help}"
 case "$CMD" in
     check-deps)         cmd_check_deps ;;
@@ -505,6 +510,8 @@ case "$CMD" in
     node-fail)          cmd_node_fail ;;
     node-restore)       cmd_node_restore ;;
     workload-gpu)       cmd_workload_gpu ;;
+    gpu-workers)        cmd_gpu_workers_up "${2:-10}" ;;
+    gpu-workers-down)   cmd_gpu_workers_down ;;
     stop)               cmd_stop ;;
     clean)              cmd_clean ;;
     start)              cmd_start ;;
