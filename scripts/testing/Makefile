@@ -117,6 +117,24 @@ workload:
 workload-gpu:
 	@$(LIB) workload-gpu
 
+# Fake GPU nodes: no NVIDIA hardware required. A dynamic slurmd declares its own
+# GRES against device nodes created in the container, so the cluster can produce
+# GPU output — including several GPU models at once, which no single-model
+# production cluster can.
+#   make gpu-workers            10 nodes: 4 model_a, 4 model_b, 2 carrying both
+#   make gpu-workers GPU_N=4    fewer
+#
+# Deliberately not N: that one already means "how many jobs" for the workload
+# target (N ?= 30 above), and reusing it made `make gpu-workers` quietly start
+# thirty nodes.
+GPU_N ?= 10
+.PHONY: gpu-workers gpu-workers-down
+gpu-workers:
+	@$(LIB) gpu-workers $(GPU_N)
+
+gpu-workers-down:
+	@$(LIB) gpu-workers-down
+
 
 # scancel --state takes one value: passing it twice cancelled RUNNING only and
 # left the pending jobs in place, silently (#167).

@@ -29,7 +29,14 @@ services:
       # not file provisioning; the landing page is set with /api/org/preferences.
       # A provisioned home-dashboard path reintroduces the stale-copy race (#156).
     volumes:
-      - grafana_data:/var/lib/grafana
+      # No named volume on purpose. Grafana stays on :latest so dashboards are
+      # authored against the current release, and a floating tag over a
+      # persistent database is how a major bump corrupts it — the trap #187 hit
+      # with MariaDB. Nothing here is worth keeping: dashboards are imported
+      # through the API on every setup, not provisioned, so a fresh container
+      # starts clean and a stale dashboard from a previous run cannot linger
+      # (#156). Grafana's own filesystem holds the state for the container's
+      # lifetime, which is all a test run needs.
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
       - "3000:3000"
@@ -40,8 +47,10 @@ services:
     restart: unless-stopped
 
 volumes:
+  # prometheus_data is kept: the TSDB is worth having across a stop/start within
+  # a session, and Prometheus on :latest carries no dashboard-authoring reason to
+  # float, so a future break there is a pin away rather than a redesign.
   prometheus_data:
-  grafana_data:
 
 networks:
   slurm-network:

@@ -80,6 +80,8 @@ make screenshots          Take Grafana dashboard screenshots
 make node-fail            Set 1-2 random nodes to down/drain
 make node-restore         Restore all degraded nodes
 make workload-gpu         Submit GPU jobs (requires GRES)
+make gpu-workers          Add 10 fake GPU nodes, two models, no hardware
+make gpu-workers-down     Remove them, node records included
 make cancel-all           Cancel all running/pending jobs
 make redeploy             Rebuild exporter + reimport dashboards
 make redeploy-dashboards  Reimport dashboards only
@@ -183,22 +185,53 @@ not through file provisioning — so they always reflect the latest JSON files.
 
 ---
 
-## GPU Support
-
-To test GPU metrics without real hardware, configure fake GRES resources
-in the running cluster:
+## GPU nodes, without a GPU
 
 ```bash
-docker exec slurmctld bash -c "
-grep -q GresTypes /etc/slurm/slurm.conf || echo 'GresTypes=gpu' >> /etc/slurm/slurm.conf
-cat > /etc/slurm/gres.conf << 'GRES'
-NodeName=c[1-2] Name=gpu Type=a100 File=/dev/null Count=2
-NodeName=c[3-4] Name=gpu Type=v100 File=/dev/null Count=4
-GRES
-scontrol reconfigure
-"
-make workload-gpu
+make gpu-workers            # 10 nodes: 4 model_a, 4 model_b, 2 carrying both
+make gpu-workers GPU_N=4    # fewer
+make gpu-workers-down       # remove them
+make workload-gpu           # submit jobs that request GPUs
 ```
+
+No NVIDIA hardware, no `nvidia-container-toolkit`, no change to the cluster
+clone. A dynamic `slurmd` (`-Z`) declares its own resources when it registers,
+and Slurm treats a GRES backed by an ordinary device node exactly like one
+backed by a real card.
+
+The layout is deliberate. Homogeneous nodes are what a site actually buys, so
+eight of the ten carry a single model; mixed-model nodes produce the GRES string
+that breaks naive parsers (`gpu:model_a:2,gpu:model_b:2` with a separate index
+list per model), so two of them carry both. One cluster covers the common case
+and the awkward one, and gives per-model aggregates that mean something:
+
+```
+gpu:model_a   total=20  used=8
+gpu:model_b   total=20  used=2
+```
+
+That is the question `slurm_node_gres_*` exists to answer — one model saturated
+while the other idles — and neither `slurm_gpus_*` (no labels) nor
+`slurm_partition_gpus_*` (stops at the partition) can express it.
+
+Four details are load-bearing, each of them a failure that was hit while
+building this:
+
+- **`--privileged --cgroupns private`**, or slurmd exits on `Unable to
+  initialize cgroup plugin` before it ever registers.
+- **`File=` is mandatory for a gpu-typed GRES**, one device per card. Without it
+  slurmd logs `Ignoring file-less GPU ... from final GRES list`, the resource
+  never reaches the usable list, and the node lands in `inval`.
+- **`/etc/slurm` is shared with the whole cluster.** Each fake node writes its
+  own `gres.conf` under a private `SLURM_CONF`; editing the shared volume would
+  reconfigure every other node and outlive the run.
+- **slurmctld remembers dynamic nodes.** `make gpu-workers-down` deletes the
+  node records as well as the containers, discovering them from `sinfo` rather
+  than assuming a range, so shrinking the cluster does not leave ghost nodes
+  still advertising GPUs.
+
+Captures taken this way live under `test_data/slurm-<version>/` like any other
+fixture, and are real `sinfo` output rather than hand-written lines.
 
 ---
 
