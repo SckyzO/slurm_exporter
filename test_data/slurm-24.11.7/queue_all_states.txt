@@ -1,0 +1,15 @@
+cpu|RUNNING|2|None|user2
+cpu|RUNNING|2|None|user4
+cpu|RUNNING|2|None|user4
+cpu|RUNNING|2|None|user4
+cpu|RUNNING|8|None|user1
+cpu|RUNNING|2|None|user1
+cpu|RUNNING|2|None|user2
+cpu|RUNNING|2|None|user1
+debug|PENDING|4|Priority|user3
+debug|PENDING|1|Priority|user2
+debug|PENDING|8|Priority|user1
+debug|PENDING|8|Resources|user4
+high|RUNNING|4|None|user2
+high|RUNNING|2|None|user3
+high|RUNNING|4|None|user2

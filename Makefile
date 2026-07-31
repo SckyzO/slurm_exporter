@@ -123,6 +123,29 @@ generate-check: tools-image
 	@echo "Checking derived docs are current (containerised)"
 	@$(IN_TOOLS) -c 'go run ./tools/gen-fixture-doc -check && go run ./tools/fixture-capture -check'
 
+# Report how Slurm's output format differs between the two ends of the support
+# window (in container). The version matrix proves the parsers still return the
+# right numbers; this says what Slurm started or stopped emitting, which is what
+# tells you a parser is about to stop being right.
+#
+# Exit 3 means a shape changed. That is news, not a failure — but the parsers
+# reading those files need a look before the release goes out, which is why the
+# release checklist runs it.
+#
+#   make fixture-diff                       both ends, auto-detected
+#   make fixture-diff OLD=... NEW=...       any two fixture directories
+# Only full captures qualify. provenance.txt is written by capture.sh and by
+# nothing else, so it marks a directory holding every command rather than a
+# handful of GPU fixtures — comparing those would report a hundred missing files
+# and say nothing about format.
+FIXTURE_DIRS := $(sort $(patsubst %/provenance.txt,%,$(wildcard test_data/slurm-*/provenance.txt)))
+OLD ?= $(firstword $(FIXTURE_DIRS))
+NEW ?= $(lastword $(FIXTURE_DIRS))
+.PHONY: fixture-diff
+fixture-diff: tools-image
+	@echo "Comparing $(OLD) → $(NEW) (containerised)"
+	@$(IN_TOOLS) -c 'go run ./tools/fixture-diff $(OLD) $(NEW)'
+
 # go vet (in container).
 .PHONY: vet
 vet: tools-image

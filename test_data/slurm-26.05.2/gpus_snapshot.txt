@@ -1,0 +1,5 @@
+5 mixed (null) (null)
+5 idle (null) (null)
+4 idle gpu:model_a:4 gpu:model_a:0(IDX:N/A)
+4 idle gpu:model_b:4 gpu:model_b:0(IDX:N/A)
+2 idle gpu:model_a:2,gpu:model_b:2 gpu:model_a:0(IDX:N/A),gpu:model_b:0(IDX:N/A)

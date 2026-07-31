@@ -616,6 +616,22 @@ var FixtureDirs = []FixtureDir{
 			"--Format fields end with colons.",
 	},
 	{
+		Path:      "slurm-24.11.7",
+		Slurm:     "24.11.7",
+		Supported: true,
+		Notes: "Oldest end of the support window, captured by scripts/capture.sh on the " +
+			"scripts/testing cluster built from source (#189), with fake GPU nodes so the " +
+			"GRES columns are populated. Holds every command in the registry, which is " +
+			"what make fixture-diff compares against the newest end.",
+	},
+	{
+		Path:      "slurm-26.05.2",
+		Slurm:     "26.05.2",
+		Supported: true,
+		Notes: "Newest end of the support window, same capture procedure. Comparing it " +
+			"with 24.11.7 is what surfaced SuspendTime appearing in scontrol show nodes.",
+	},
+	{
 		Path:      "slurm-25.11.2",
 		Slurm:     "25.11.2",
 		Supported: true,

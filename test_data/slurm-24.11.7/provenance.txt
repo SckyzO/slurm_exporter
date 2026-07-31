@@ -1,0 +1,22 @@
+slurm_exporter fixture capture
+date:    2026-07-31T04:00:28Z
+slurm:   slurm 24.11.7
+host:    1897959645  (hashed)
+sacct:   skipped
+
+command                status   invocation
+squeue_jobs            ok       squeue -a -r -h -O JobID:|,Account:|,UserName:|,Partition:|,State:|,NumNodes:|,NumCPUs:|,tres-alloc:
+queue_all_states       ok       squeue -h -o %P|%T|%C|%r|%u --states=all
+queue_default_states   ok       squeue -h -o %P|%T|%C|%r|%u
+cpus                   ok       sinfo -h -o %C
+fairshare              ok       sshare -a -P -n -o Account,User,RawShares,NormShares,RawUsage,NormUsage,FairShare
+gpus_snapshot          ok       sinfo -a -h --Format=Nodes: ,StateLong: ,Gres: ,GresUsed:
+node_detail            ok       sinfo -h -N -O NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition: ,Gres: ,GresUsed:
+nodes_global           ok       sinfo -h -o %R|%D|%T|%b
+scontrol_nodes         ok       scontrol show nodes -o
+partitions_cpu         ok       sinfo -h -o %R,%C
+partitions_gpu         ok       sinfo -h --Format=Nodes: ,Partition: ,Gres: ,GresUsed: --state=idle,allocated
+drain_reason           ok       sinfo -h -N -o %N|%E|%H|%T
+reservations           ok       scontrol show reservation
+licenses               ok       scontrol show licenses -o
+scheduler              ok       sdiag
