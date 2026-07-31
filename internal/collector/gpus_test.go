@@ -57,16 +57,23 @@ var gpuFixtureExpect = map[string]gpuExpect{
 func gpuFixtureVersions(t *testing.T) map[string]string {
 	t.Helper()
 
-	paths, err := filepath.Glob("../../test_data/slurm-*")
+	// Glob the matrix files rather than the directories. A versioned directory
+	// may legitimately hold other captures — slurm-25.11.1-1 carries the
+	// per-partition ones, slurm-25.11.2 a per-node GRES row — and those are not
+	// part of this matrix. Keying on sinfo_gpus_total.txt keeps the symmetry
+	// below meaningful: a matrix directory with no expected counts still fails,
+	// and expected counts with no directory still fail (#177).
+	paths, err := filepath.Glob("../../test_data/slurm-*/sinfo_gpus_total.txt")
 	require.NoError(t, err)
 	require.NotEmpty(t, paths, "no per-version GPU fixtures found under ../../test_data/slurm-*")
 
 	versions := make(map[string]string, len(paths))
 	for _, p := range paths {
-		v := strings.TrimPrefix(filepath.Base(p), "slurm-")
+		dir := filepath.Dir(p)
+		v := strings.TrimPrefix(filepath.Base(dir), "slurm-")
 		require.Contains(t, gpuFixtureExpect, v,
 			"fixture %s has no entry in gpuFixtureExpect; add its expected GPU counts", v)
-		versions[v] = p
+		versions[v] = dir
 	}
 	for v := range gpuFixtureExpect {
 		require.Contains(t, versions, v,
