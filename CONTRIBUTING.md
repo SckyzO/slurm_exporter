@@ -293,7 +293,15 @@ The quick summary:
 8. Open the release PR with the v1.8.2 template structure.
 9. After merge: close integrated community PRs with a thank-you and respond
    to acknowledged-but-deferred issues.
-10. **Test the binary on a real cluster before the final tag, against two
+10. **Diff the fixture formats across the support window.** `make fixture-diff`
+    compares the two ends and reports what Slurm started or stopped emitting
+    between them. A shape change is not a failure by itself, but every parser
+    reading those files needs a look before the tag. Recapture the ends with
+    `scripts/capture.sh` when the window moves: `scripts/testing` builds any
+    supported major from source, and `make gpu-workers` gives it GPU nodes
+    without hardware.
+
+11. **Test the binary on a real cluster before the final tag, against two
     major Slurm releases.** The exporter parses `squeue` / `sinfo` /
     `scontrol` / `sacct` output, which drifts between Slurm majors — one green
     version proves nothing about the others. A validated release supports the
@@ -307,5 +315,5 @@ The quick summary:
     releases; approach B (local `make build` → scp to staging) for trivial
     patches. Decision matrix in the playbook. Harness support for a second
     major (the upstream test image only publishes one) is tracked in #189.
-11. Tag the final `vX.Y.Z`; CI (`.github/workflows/release.yml`) runs
+12. Tag the final `vX.Y.Z`; CI (`.github/workflows/release.yml`) runs
     `lint → test → goreleaser release` and publishes automatically.

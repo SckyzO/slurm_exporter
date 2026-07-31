@@ -1,0 +1,80 @@
+*******************************************************
+sdiag output at Fri Jul 31 03:53:19 2026 (1785469999)
+Data since      Fri Jul 31 03:51:42 2026 (1785469902)
+*******************************************************
+Server thread count:  1
+RPC queue enabled:    0
+Agent queue size:     0
+Agent count:          0
+Agent thread count:   0
+DBD Agent queue size: 0
+
+Jobs submitted: 14
+Jobs started:   8
+Jobs completed: 0
+Jobs canceled:  0
+Jobs failed:    0
+
+Job states ts:  Fri Jul 31 03:53:12 2026 (1785469992)
+Jobs pending:   6
+Jobs running:   8
+
+Main schedule statistics (microseconds):
+	Last cycle:   3634
+	Max cycle:    3634
+	Total cycles: 5
+	Mean cycle:   796
+	Mean depth cycle:  2
+	Cycles per minute: 5
+	Last queue length: 14
+
+Main scheduler exit:
+	End of job queue: 5
+	Hit default_queue_depth: 0
+	Hit sched_max_job_start: 0
+	Blocked on licenses: 0
+	Hit max_rpc_cnt: 0
+	Timeout (max_sched_time): 0
+
+Backfilling stats
+	Total backfilled jobs (since last slurm start): 0
+	Total backfilled jobs (since last stats cycle start): 0
+	Total backfilled heterogeneous job components: 0
+	Total cycles: 0
+	Last cycle when: N/A
+	Last cycle: 0
+	Max cycle:  0
+	Last depth cycle: 0
+	Last depth cycle (try sched): 0
+	Last queue length: 0
+	Last table size: 0
+
+Backfill exit
+	End of job queue: 0
+	Hit bf_max_job_start: 0
+	Hit bf_max_job_test: 0
+	System state changed: 0
+	Hit table size limit (bf_node_space_size): 0
+	Timeout (bf_max_time): 0
+
+Latency for 1000 calls to gettimeofday(): 14 microseconds
+
+Remote Procedure Call statistics by message type
+	REQUEST_PARTITION_INFO                  ( 2009) count:62     ave_time:101    total_time:6279
+	REQUEST_NODE_INFO                       ( 2007) count:44     ave_time:203    total_time:8960
+	MESSAGE_NODE_REGISTRATION_STATUS        ( 1002) count:20     ave_time:4084   total_time:81681
+	REQUEST_SUBMIT_BATCH_JOB                ( 4003) count:14     ave_time:914    total_time:12796
+	REQUEST_PING                            ( 1008) count:12     ave_time:117    total_time:1415
+	REQUEST_JOB_INFO                        ( 2003) count:11     ave_time:114    total_time:1257
+	REQUEST_UPDATE_NODE                     ( 3002) count:10     ave_time:146    total_time:1463
+	REQUEST_SHARE_INFO                      ( 2022) count:6      ave_time:136    total_time:816
+	REQUEST_RESERVATION_INFO                ( 2024) count:5      ave_time:86     total_time:430
+	REQUEST_LICENSE_INFO                    ( 1021) count:4      ave_time:83     total_time:334
+	REQUEST_STATS_INFO                      ( 2035) count:3      ave_time:109    total_time:327
+	REQUEST_CREATE_PARTITION                ( 3003) count:2      ave_time:179    total_time:358
+
+Remote Procedure Call statistics by user
+	user6            (       0) count:193    ave_time:601    total_time:116116
+
+Pending RPC statistics
+	No pending RPCs

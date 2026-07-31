@@ -1,0 +1,14 @@
+6|ml_group|user4|cpu|RUNNING|1|4|cpu=4,mem=8G,node=1,billing=4
+10|physics|user5|cpu|RUNNING|1|2|cpu=2,mem=2G,node=1,billing=2
+13|physics|user5|cpu|RUNNING|1|4|cpu=4,mem=8G,node=1,billing=4
+14|bio|user4|debug|PENDING|1|1|cpu=1,mem=2G,node=1,billing=1
+11|hpc_team|user2|debug|PENDING|1|4|cpu=4,mem=8G,node=1,billing=4
+9|hpc_team|user1|debug|PENDING|1|8|cpu=8,mem=15867M,node=1,billing=8
+8|ml_group|user5|debug|PENDING|1|4|cpu=4,mem=8G,node=1,billing=4
+7|ml_group|user5|debug|PENDING|1|2|cpu=2,mem=4G,node=1,billing=2
+5|ml_group|user5|debug|PENDING|1|8|cpu=8,mem=15867M,node=1,billing=8
+1|hpc_team|user2|debug|RUNNING|1|2|cpu=2,mem=2G,node=1,billing=2
+2|ml_group|user3|high|RUNNING|1|4|cpu=4,mem=8G,node=1,billing=4
+3|hpc_team|user3|high|RUNNING|1|4|cpu=4,mem=8G,node=1,billing=4
+4|bio|user1|high|RUNNING|1|2|cpu=2,mem=4G,node=1,billing=2
+12|physics|user4|high|RUNNING|1|4|cpu=4,mem=8G,node=1,billing=4

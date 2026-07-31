@@ -1,0 +1,15 @@
+1|bio|user2|cpu|RUNNING|1|2|cpu=2,mem=4G,node=1,billing=2
+2|ml_group|user4|cpu|RUNNING|1|2|cpu=2,mem=2G,node=1,billing=2
+6|bio|user4|cpu|RUNNING|1|2|cpu=2,mem=2G,node=1,billing=2
+7|bio|user4|cpu|RUNNING|1|2|cpu=2,mem=4G,node=1,billing=2
+10|ml_group|user1|cpu|RUNNING|1|8|cpu=8,mem=15867M,node=1,billing=8
+11|ml_group|user1|cpu|RUNNING|1|2|cpu=2,mem=2G,node=1,billing=2
+12|bio|user2|cpu|RUNNING|1|2|cpu=2,mem=4G,node=1,billing=2
+14|hpc_team|user1|cpu|RUNNING|1|2|cpu=2,mem=4G,node=1,billing=2
+15|ml_group|user3|debug|PENDING|1|4|cpu=4,mem=8G,node=1,billing=4
+13|physics|user2|debug|PENDING|1|1|cpu=1,mem=2G,node=1,billing=1
+9|hpc_team|user1|debug|PENDING|1|8|cpu=8,mem=15867M,node=1,billing=8
+3|hpc_team|user4|debug|PENDING|1|8|cpu=8,mem=15867M,node=1,billing=8
+4|hpc_team|user2|high|RUNNING|1|4|cpu=4,mem=8G,node=1,billing=4
+5|physics|user3|high|RUNNING|1|2|cpu=2,mem=2G,node=1,billing=2
+8|ml_group|user2|high|RUNNING|1|4|cpu=4,mem=8G,node=1,billing=4

@@ -1,0 +1,6 @@
+10 cpu* (null) (null)
+4 gpu gpu:model_a:4 gpu:model_a:0(IDX:N/A)
+4 gpu gpu:model_b:4 gpu:model_b:0(IDX:N/A)
+2 gpu gpu:model_a:2,gpu:model_b:2 gpu:model_a:0(IDX:N/A),gpu:model_b:0(IDX:N/A)
+2 debug (null) (null)
+3 high (null) (null)

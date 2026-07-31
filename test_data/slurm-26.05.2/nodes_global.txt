@@ -1,0 +1,5 @@
+cpu|5|mixed|cpu
+cpu|5|idle|cpu
+gpu|10|idle|gpu
+debug|2|mixed|cpu
+high|3|mixed|cpu
