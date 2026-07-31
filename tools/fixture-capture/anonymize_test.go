@@ -24,7 +24,7 @@ func runAnonymize(t *testing.T, mapping, input string) string {
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command("awk", "-v", "mapfile="+mapPath, "-f", "anonymize.awk")
+	cmd := exec.CommandContext(t.Context(), "awk", "-v", "mapfile="+mapPath, "-f", "anonymize.awk")
 	cmd.Stdin = strings.NewReader(input)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
