@@ -47,6 +47,37 @@ For details on the `web-config.yml` format, see the [Exporter Toolkit documentat
 | `--slurm.bin-path` | Directory containing Slurm binaries. Defaults to `$PATH`. Required when running in containers with host-mounted binaries. | (empty) |
 | `--web.disable-exporter-metrics` | Exclude Go runtime and process metrics from `/metrics` | `false` |
 
+### What the two sacct flags cost SlurmDBD
+
+`sacct` never runs on the scrape path. A background goroutine refreshes every
+`--collector.sacct.interval` and `/metrics` serves the last result, so scraping
+every 5 seconds and every 60 seconds put exactly the same load on SlurmDBD.
+
+What governs that load is the **ratio between the two flags**, which is easy to
+miss when reading them one at a time. Each refresh queries the whole
+`--collector.sacct.lookback` window, not just what is new since the last one, so
+at the defaults every job is read again about twelve times before it falls out
+of the window (`1h / 5m`). That is deliberate: the metrics are averages over the
+window rather than counters, so the window has to be recomputed whole, and the
+overlap is what makes a missed refresh harmless.
+
+The row count is also larger than the job count. The query omits `-X` because
+`MaxRSS` only exists on step lines, so a job contributes two or three rows
+rather than one.
+
+On a cluster finishing 10 000 jobs an hour, the defaults mean roughly 25 000
+rows read from SlurmDBD every five minutes. Raising the interval is the lever:
+
+```
+--collector.sacct.interval=15m    # a third of the load, still 4x overlap
+```
+
+Setting the interval equal to the lookback removes the overlap entirely and
+starts losing jobs on any scheduling jitter. Leave some.
+
+This is why the collector is off by default. On a small cluster none of it
+matters; on a large one it is a real query.
+
 **Available collectors:**
 
 | Collector | Default | Description |
