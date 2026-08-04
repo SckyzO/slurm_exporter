@@ -5,6 +5,282 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Targeting **2.0.0**.
+
+A dozen metrics in the 1.8 line published a number that was wrong rather than
+absent. `slurm_jobs_failed` said no job had ever failed on a cluster that had
+just failed nineteen. `slurm_reservation_start_time_seconds` published January
+of year 1 as a date. `slurm_exporter_collector_success` stayed at 1 through the
+outage it exists to signal. A node the controller had downed for silence
+produced no drain series at all. None of those look like a fault from the
+outside, which is why they lasted as long as they did.
+
+This release fixes them. Three of the fixes change what an existing series
+does, which is what makes it a major. The section below says exactly what moves
+and how to keep the old behaviour where one exists.
+
+The rest is the machinery that stops the same class of bug coming back: the
+commands the exporter runs are now declared in code and verified against the
+collectors by CI, the fixtures behind them are captured by a generated script
+rather than by hand, and each release is validated against both ends of the
+supported Slurm window.
+
+### ⚠️ Breaking changes
+
+- **`slurm_jobs_*` terminal counters stop being constant zeros (#161):**
+  `squeue` reports pending and running jobs when it is not told which states
+  to view, so nine of the eleven states the queue parser understands never
+  reached it. `slurm_jobs_failed`, `_timeout`, `_cancelled`, `_preempted`,
+  `_node_fail` and `_completed` held a flat zero, and the "Terminal Job States
+  Over Time" panel drew a line along the bottom of the chart. `QueueData` now
+  passes `--states=all`.
+
+  **Operator-visible impact:** those six counters, and their per-user and
+  per-partition twins in `slurm_queue_*` and `slurm_cores_*` that existed for
+  no label combination at all until now, start carrying values. The window is
+  a sliding one governed by `MinJobAge` in `slurm.conf` (300 s by default), so
+  a burst of failures appears in full and falls back to zero once slurmctld
+  forgets the jobs. An alert written as `slurm_jobs_failed > 0` against the old
+  behaviour will fire continuously and has to move to a rate or a ratio. No
+  shipped rule is affected: `SlurmJobFailureRateHigh` reads
+  `cluster:slurm_job_failure_rate:ratio15m`, which `rules.yml` computes from
+  the sdiag counters. Pass `--no-collector.queue.terminal-states` to restore
+  the previous query.
+
+- **`slurm_node_drain_reason_info` loses its `since` label (#157):** the label
+  carried the drain timestamp, so draining the same node twice produced two
+  label sets. Prometheus saw a new series and orphaned the old one, so the
+  series count grew with how often operators drain nodes over the life of the
+  TSDB rather than with how many nodes are drained. A site that drains
+  routinely for maintenance paid for it continuously.
+
+  **Operator-visible impact:** the timestamp moves to its own gauge, keyed by
+  node:
+
+  ```
+  slurm_node_drain_reason_info{node="c1",reason="disk failure"} 1
+  slurm_node_drain_since_timestamp_seconds{node="c1"} 1.7847e+09
+  ```
+
+  Queries that select or display `since` must read the new gauge and join on
+  `node`. The metric name, its value of 1, and its `node` and `reason` labels
+  are unchanged, so queries that ignored `since` keep working.
+
+- **Nodes downed for not responding now produce a drain series (#198):**
+  `slurm_node_drain_reason_info` dropped any row whose reason was
+  `not responding`, alongside the genuinely empty `none` and `unknown`. But
+  slurmctld writes that reason itself when it loses contact with a node, so a
+  node the controller had downed produced no series at all. The metric stayed
+  silent about exactly the outage it exists to describe. v1.8 excluded the
+  reason on the grounds that Slurm sets it rather than an admin; the right test
+  is whether the reason carries information, and this one is the only place the
+  difference between an unreachable node and an admin-drained one shows up.
+
+  **Operator-visible impact:** those nodes start producing a series where they
+  produced none, and anything counting the metric will see them. Empty reasons
+  stay filtered, so cardinality is still bounded by the node count.
+
+### ✨ Features
+
+- **Per-node GRES totals and usage (#29):** every GPU metric in the exporter
+  was an aggregate. `slurm_gpus_*` covers the whole cluster with no labels at
+  all, `slurm_partition_gpus_*` stops at the partition, and nothing anywhere
+  carried a model. "Which of my forty nodes has a free GPU" and "are the H100s
+  saturated while the A100s idle" had no answer, on the one class of cluster
+  where both are the daily question. `slurm_node_gres_total` and
+  `slurm_node_gres_used` report what Slurm configures and allocates per node,
+  keyed by a `gres_type` label that is `gpu` for an untyped resource and
+  `gpu:A100` when a model is set. Non-GPU resources such as `shard` come
+  through the same path. It reads columns of the `sinfo` call the node
+  collector already makes, so no extra RPC reaches slurmctld. Behind
+  `--collector.node.gres`, default on; a node with no GRES publishes nothing,
+  so a CPU-only cluster pays nothing for the default. Contributed by
+  @ncreddine.
+
+- **The code is the single source of truth for Slurm commands (#195):** the
+  list of commands the exporter runs lived in three places with nothing
+  checking them against each other: the `*Data()` functions, the prose in
+  `test_data/readme.md`, and the memory of whoever last captured a fixture.
+  They drifted: the readme documented a `sinfo` format `node.go` had already
+  abandoned, pointed at a fixture deleted two releases earlier, and omitted the
+  `--endtime` that `sacct` requires. A contributor followed it and had to redo
+  the work. `CommandRegistry` declares each invocation once, and a contract test
+  invokes every entry through its real `*Data()` path behind a stubbed
+  `Execute`, so the table is a verified mirror rather than a fourth copy.
+  Changing a command without updating the entry fails CI, as does a declared
+  fixture that is not on disk, or a file under `test_data/` that no entry
+  claims. That last check is what six live regression fixtures were missing.
+
+- **`test_data/readme.md` and `scripts/capture.sh` are generated from the
+  registry (#195):** capturing a fixture by hand meant knowing which commands
+  to run, remembering to anonymise, and getting the anonymisation right, which
+  is three chances to produce a capture that looks fine and encodes something
+  wrong. The capture script now runs exactly the commands the exporter runs and
+  cannot drift from them; every one is read-only, because no write command
+  exists in the registry to generate. Both artefacts are checked for staleness
+  in CI.
+
+- **Format-drift reporting across the support window (#195):**
+  `tools/fixture-diff` compares two versioned fixture directories by shape
+  rather than by value, so a cluster having more nodes than another is not
+  reported as a format change while a new column or a changed separator is.
+  Running it across the window found one real drift: `SuspendTime` is new in
+  `scontrol show nodes -o` on 26.05.
+
+- **The test cluster builds unpublished Slurm majors from source (#189):** the
+  release gate asks for validation against both ends of the supported window,
+  and upstream does not tag every major the window covers. The harness now
+  resolves its image cheapest-first (reuse local, pull published tag, build
+  from source), so both ends can be exercised locally. Validated live on 26.05.2
+  and 25.05.8: 9/9 setup, 15/15 collectors at `success=1`, correct
+  `slurm_info` version, workload metrics populated, no ERROR or WARN.
+
+- **Fake GPU workers for the test cluster:** dynamic `slurmd -Z` registration
+  with fabricated device files lets the CPU-only test cluster advertise two
+  distinct GPU models, which is what the per-node GRES work needed to be tested
+  against something other than a hand-written fixture. `make gpu-workers`,
+  sized by `GPU_N`.
+
+### 🐛 Bug Fixes
+
+- **`slurm_exporter_collector_success` reported 1 during an outage (#138):**
+  `StatusTracker` only lowered the gauge inside its `recover()` block, and no
+  collector panics when a Slurm command fails: every one logs and returns. So
+  with slurmctld unreachable, or `sinfo` exceeding `--command.timeout`, the
+  collector's series vanished from `/metrics` while the health gauge kept
+  saying everything was fine.
+
+- **Jobs submitted to several partitions were counted nowhere (#153) or under
+  a partition that does not exist (#175):** `sbatch -p debug,high` is reported
+  by `squeue` as `debug,high`. The partitions collector looked that raw string
+  up against normalised map keys and matched nothing, dropping the job; the
+  queue collector passed it through as a label, so
+  `sum by(partition) (slurm_queue_pending)` gained a row for a partition no
+  cluster has while undercounting the two real ones. Both now split the field
+  and count the job in each partition it is queued in.
+
+- **Reservation timestamps published year 1 (#159):** the `scontrol` parse
+  error was discarded, leaving the zero `time.Time`, and the collector
+  published it unconditionally as `-62135596800`. Nothing about that value
+  looks like an error: no threshold rejects it, no subtraction fails on it, and
+  nothing was logged. It is now omitted, which makes the metric absent rather
+  than wrong.
+
+- **`SLURM_TIME_FORMAT` in the exporter's environment broke every timestamp
+  (#160):** Slurm renders dates according to that variable and the parsers read
+  one layout. `Execute` never set `cmd.Env`, so a value inherited from the
+  service environment reached `sinfo`, `squeue`, `scontrol`, `sdiag`, `sshare`
+  and `sacct` alike. It is now pinned to `standard` on every call. This is the
+  root cause the collector-side fixes in #153 and #159 were treating.
+
+- **Drained nodes inside a reservation were counted healthy (#178):**
+  `scontrol` emits compound states as `BASE+FLAG`, and the parser only read the
+  segment before the first `+`, so `slurm_reservation_nodes_drain` stayed at 0
+  no matter how many nodes in a maintenance reservation were drained. `DRAIN`
+  and `PLANNED` are now counted orthogonally on top of the base bucket.
+
+- **Memory efficiency was a constant 0 (#180):** four independent defects in
+  `sacct_efficiency`, among them jobs with no recorded `MaxRSS` entering the
+  average at 0% instead of being left out, and `T`/`P` unit suffixes going
+  unhandled with the `strconv` error discarded, so `1.50T` became 0.
+
+- **SIGTERM and SIGINT were ignored (#179):** the signal context added for #18
+  was wired only into the `sacct_efficiency` collector. `web.ListenAndServe`
+  blocked for the life of the process, nothing called `server.Shutdown()`, and
+  the graceful-shutdown block sat after the listen call where it could never be
+  reached. The listener now runs in a goroutine while `runServer` selects over
+  its result and `ctx.Done()`.
+
+- **Release image build (#109):** the refresh binary is now staged at both the
+  `dockers_v2` `$TARGETPLATFORM` path and the older flat one, so either
+  `Dockerfile` COPY layout finds it.
+
+- **`make` invoked the host `go` on every target (#134),** which broke the
+  containerised "no host toolchain needed" contract the Makefile advertises.
+
+### ⚡ Performance
+
+- **One `squeue` snapshot shared across three collectors (#144):** the
+  accounts, users and partitions collectors each dumped the full job queue from
+  slurmctld on every scrape, up to five separate calls run serially. They now
+  read one per-scrape cached snapshot and project the exact column layout each
+  parser already consumes, so no metric value changes.
+
+- **Binary versions resolved once instead of on every scrape (#149):** Slurm
+  binary versions cannot change while the process runs, yet the info collector
+  re-forked `<binary> --version` every time: six required forks plus up to
+  three optional, with `sinfo` forked twice. Now probed once behind a
+  `sync.Once`.
+
+- **All GPU metrics derived from one `sinfo` snapshot (#181):** three
+  per-scrape calls (total, allocated, idle) replaced by a single consolidated
+  query, projected into the three layouts the separate calls returned so the
+  per-version fixture matrix keeps protecting GRES parsing unchanged.
+
+- **GRES parsing unified into one helper and one regexp (#150):** the
+  cluster-wide and per-node views can no longer disagree about what a GRES
+  string means. Two bugs the shared parser had to get right, both found against
+  real captures rather than reasoned about: splitting on every comma breaks
+  `gpu:NVlink_A100_40GB:2(IDX:0,3)` into fragments that parse as nothing and
+  silently drop that node's GPUs, so the split now tracks parenthesis depth;
+  and an unanchored token pattern latched onto `shard:h10`, the tail of
+  `shard:h100:2` cut off by a fixed-width column, and published a phantom
+  model with a count of 0. The `(null)` path no longer allocates.
+
+### 🧪 Tests & Quality
+
+- **Fixtures renamed after the registry entry they back (#195)** and the
+  per-version discovery made honest (#177), so a directory that exists but
+  covers nothing can no longer read as coverage.
+- Real `squeue` (#174) and multi-model GPU captures from the test cluster, a
+  per-version GPU matrix asserting exact counts (#176), and the hand-written
+  `State=DRAIN+RESERVED` fixture (a shape Slurm never emits) replaced with a
+  real one.
+- **The `unused` linter was never enabled (#151):** golangci-lint v2 merged
+  gosimple and stylecheck into staticcheck, but not `unused`, and with
+  `default: none` it had no gate at all. The `deadcode` target in `make check`
+  reports unreachable functions, not unreferenced package-level variables or
+  write-only struct fields, so that whole class went unchecked.
+- Nine fixes to the integration harness in `scripts/testing/`, each of which
+  had been quietly making a Definition-of-Done step unprovable: exporter output
+  not captured so the log check read nothing (#163), unbounded health checks
+  that hung on a mute port (#165), generated jobs exceeding the partition
+  `MaxTime` (#169) or the smallest node's memory (#173), pending jobs surviving
+  cleanup (#170), job output blocking job start (#172), a stale provisioned
+  dashboard masking the real ones (#156), a floating MariaDB tag aborting
+  slurmdbd (#187), and orphan recipe fragments in the Makefile (#166).
+
+### 📋 Documentation
+
+- **P0 to P3 issue triage scale documented (#152)** and a registry entry now
+  required for every new collector (#195).
+- **The release Slurm-version window follows Slurm's own policy (#189):**
+  newest major plus the previous three, re-derived at each release, with each
+  release validated on both ends of it.
+- **What the two `sacct` flags cost SlurmDBD:** `sacct` never runs on the
+  scrape path, so scrape frequency is irrelevant to the load. What governs it
+  is the ratio of `--collector.sacct.lookback` to `--collector.sacct.interval`.
+  Each refresh queries the whole window, so at the defaults every job is read
+  about twelve times before ageing out.
+- Four comments contradicted by the code corrected (#135), restatement noise
+  dropped (#136), and the "not maintained for 25.11+" stance removed: this
+  project is maintained, and the native OpenMetrics endpoint in Slurm 25.11+
+  exposes far fewer metrics than it does.
+
+### 🔧 Maintenance
+
+- Go toolchain 1.26.4 → 1.26.5 (#124); `govulncheck` pinned to v1.6.0 (#125).
+- `golang.org/x/text` 0.37.0 → 0.39.0 for CVE-2026-56852, which was gating
+  every image-building PR; `golang.org/x/crypto` 0.51.0 → 0.53.0, starting with
+  #110.
+- `prometheus/common` 0.68.1 → 0.70.0, `prometheus/exporter-toolkit` 0.16.0 →
+  0.17.1, plus the transitive set.
+- Five unused compatibility shims removed from the logger (#137); the Makefile
+  Go-version fallback derived from `go.mod` (#114).
+- The usual run of pinned action and base-image digest bumps.
+
 ## [1.8.4] - 2026-06-19
 
 A supply-chain and CI-hardening release. One operator-visible label fix
