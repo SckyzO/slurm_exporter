@@ -469,6 +469,84 @@ The PRs #29 / issue #27 responses from the v1.8.2 cycle are good templates.
 
 ---
 
+## 11. Security backport onto `release-1.8`
+
+Everything above describes cutting a release from `master`. A security
+backport is a different, much shorter flow, and it is the only reason to
+touch `release-1.8`.
+
+`release-1.8` was cut from the `v1.8.4` tag. It carries none of the 2.x work
+and is not a development branch: nothing lands on it that is not a security
+fix. What it is eligible for, and until when, is in
+[`SECURITY.md`](../SECURITY.md#supported-versions).
+
+```bash
+git fetch origin
+git checkout -b backport/CVE-XXXX release-1.8
+```
+
+Take the fix from `master` where one exists, so the two lines cannot diverge
+on what the fix actually is:
+
+```bash
+git cherry-pick -x <sha>          # -x records the master commit it came from
+```
+
+A dependency bump usually will not cherry-pick cleanly, because the 2.x
+`go.mod` has moved. Redo it on the branch instead of forcing the pick:
+
+```bash
+go get golang.org/x/<mod>@vX.Y.Z && go mod tidy
+```
+
+Then the parts that are not optional:
+
+1. `make check` on the branch. The 1.8 test suite is not the 2.x one, and a
+   fix written against 2.x code can compile and still be wrong here.
+2. Confirm the vulnerability is actually gone rather than merely bumped:
+   `govulncheck ./...` for reachability, `trivy` for the image gate. They
+   disagree on purpose, and the release is gated on Trivy.
+3. Add a `CHANGELOG.md` entry **on the branch**. It does not come back to
+   `master`, where the same fix already appears in the 2.x history.
+4. Open a PR against `release-1.8`, never against `master`.
+
+Tag from the branch once merged:
+
+```bash
+git checkout release-1.8 && git pull
+git tag -a v1.8.5 -m "v1.8.5"
+git push origin v1.8.5
+```
+
+GoReleaser publishes it as a normal release. That is the problem: **once 2.0.0
+exists, a 1.8.z backport will claim `latest` in two places unless it is
+stopped.** Neither is semver-aware.
+
+- The Docker tag is `'{{ if eq .Prerelease "" }}latest{{ end }}'`, so any
+  stable tag pushes `latest`, including an older one. Users pulling
+  `slurm_exporter:latest` would silently drop from 2.x back to 1.8.
+- `release.make_latest` defaults to `true` and is not set in our config, so
+  GitHub moves the "Latest release" badge to whatever was published most
+  recently, not to the highest version. It is also what
+  `/releases/latest` returns to any automation.
+
+Before the first backport that follows a 2.x tag, guard both. GoReleaser
+allows templates in `make_latest`, so a major-version condition works for the
+GitHub side, and the Docker tag needs the same condition added to the one it
+already has for pre-releases. Test the templates against a throwaway tag
+first: they are evaluated at release time, and a mistake there is only visible
+once the release is already public.
+
+Until then, the reverse case is safe. A backport tagged while 2.0.0 does not
+yet exist is genuinely the newest release, and `latest` pointing at it is
+correct.
+
+When the support window in `SECURITY.md` closes, say so in the release notes
+of the final 1.8.z, then leave the branch in place. Deleting it breaks the
+permalinks in old advisories for nothing.
+
+---
+
 ## Reference: what v1.8.2 looked like
 
 For context, v1.8.2 (the release that codified this process) was made of:
