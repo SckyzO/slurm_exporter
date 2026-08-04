@@ -15,12 +15,24 @@ best-effort basis.
 
 ## Supported versions
 
-| Version | Supported |
-|---|---|
-| Latest release | ✅ |
-| Older releases | ❌ |
+| Version | Security fixes | Until |
+|---|---|---|
+| Latest release | all | while it is the latest |
+| 1.8.x | all until 2.0.0 ships, then critical only | six months after 2.0.0 |
+| Anything older | none | — |
 
-Only the latest release receives security fixes.
+The latest release always receives every security fix. Nothing else does, with
+one exception, described below.
+
+1.8 is the last of the v1 line. Because 2.0.0 carries breaking changes that a
+site cannot always absorb on short notice, 1.8.x keeps receiving security fixes
+from the `release-1.8` branch: every fix until 2.0.0 ships, then critical
+severity only, for six months from the 2.0.0 release date. After that the
+branch is archived and 2.x is the only supported line.
+
+If you are on 1.8.x, treat those six months as the window to migrate rather
+than as a support tier. The upgrade notes for the three breaking changes are in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## Security practices
 
