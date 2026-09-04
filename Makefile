@@ -121,7 +121,7 @@ generate: tools-image
 .PHONY: generate-check
 generate-check: tools-image
 	@echo "Checking derived docs are current (containerised)"
-	@$(IN_TOOLS) -c 'go run ./tools/gen-fixture-doc -check && go run ./tools/fixture-capture -check'
+	@$(IN_TOOLS) -c 'go run ./tools/gen-fixture-doc -check && go run ./tools/fixture-capture -check && go run ./tools/gen-metric-surface -check'
 
 # Report how Slurm's output format differs between the two ends of the support
 # window (in container). The version matrix proves the parsers still return the
