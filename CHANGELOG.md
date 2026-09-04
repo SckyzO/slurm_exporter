@@ -214,6 +214,17 @@ supported Slurm window.
   reached. The listener now runs in a goroutine while `runServer` selects over
   its result and `ctx.Done()`.
 
+- **Every path that was not a route answered 200 (#233):** the landing page was
+  registered with `http.HandleFunc("/")`, and `/` in an `http.ServeMux` claims
+  everything no other pattern does. A Prometheus server pointed at `/metric`,
+  or at any typo, was answered 200 with an HTML page: the target scraped as
+  `up`, and the mistake surfaced hours later as a parse error in Prometheus
+  rather than immediately as a 404 from the exporter. The page now uses
+  `exporter-toolkit`'s `web.NewLandingPage`, which also sets the `Content-Type`
+  the hand-written page never sent and links `/healthz` alongside `/metrics`.
+  Profiling links are disabled, since the exporter does not import
+  `net/http/pprof` and advertising them would point at a 404.
+
 - **Release image build (#109):** the refresh binary is now staged at both the
   `dockers_v2` `$TARGETPLATFORM` path and the older flat one, so either
   `Dockerfile` COPY layout finds it.
@@ -252,6 +263,19 @@ supported Slurm window.
 
 ### 🧪 Tests & Quality
 
+- **The metric surface is now a generated golden, checked in CI (#236):** the
+  release checklist asked for a scrape diffed against `docs/metrics.md`, a
+  comparison that cannot see a metric the cluster had no reason to emit — and
+  it never did. Eight `slurm_queue_*` and eight `slurm_cores_*` terminal-state
+  metrics sat behind a single `...` row in the document, invisible to a reader
+  searching for `slurm_queue_failed` and invisible to the diff, because a test
+  cluster with no failed jobs publishes none of them. `docs/metric-surface.md`
+  is generated from every collector's `Describe()` output — 209 declarations
+  across 24 builds, including both settings of each cardinality flag — so a
+  deleted metric and a metric with no data are no longer the same observation.
+  A companion test compares `docs/metrics.md` against that surface in both
+  directions, so a metric can no longer be documented without existing, or
+  exist without being documented.
 - **Fixtures renamed after the registry entry they back (#195)** and the
   per-version discovery made honest (#177), so a directory that exists but
   covers nothing can no longer read as coverage.
@@ -275,6 +299,18 @@ supported Slurm window.
 
 ### 📋 Documentation
 
+- **Non-regression is a release step, not an intention (#235):** the process
+  asked for it in prose and never said what would satisfy it, so it was
+  discharged by whatever had been run. It is now step 4 of the Definition of
+  Done and its own section in the release process, with a table mapping each
+  kind of change to the net that catches it, and a ranked list of acceptable
+  measurements for the changes no test can express — a documented version
+  number among them.
+- **The 1.8 support window is stated in `SECURITY.md` (#215):** 1.8 is the last
+  release of the v1 line and lives on `release-1.8`. It receives every security
+  fix until 2.0.0 ships, then critical severity only, for six months from the
+  2.0.0 release date. The backport route onto that branch is documented in the
+  release process.
 - **P0 to P3 issue triage scale documented (#152)** and a registry entry now
   required for every new collector (#195).
 - **The release Slurm-version window follows Slurm's own policy (#189):**
@@ -298,6 +334,11 @@ supported Slurm window.
   #110.
 - `prometheus/common` 0.68.1 → 0.70.0, `prometheus/exporter-toolkit` 0.16.0 →
   0.17.1, plus the transitive set.
+- **CI runs on release branches (#237):** the workflow triggered on `master`
+  only, so `release-1.8` — the branch the support window commits to
+  backporting onto — had no lint or test gate at all. The same PR stopped a
+  Go Report Card badge refresh from failing a tag: the POST is a cosmetic
+  side-effect and now tolerates a non-2xx.
 - Five unused compatibility shims removed from the logger (#137); the Makefile
   Go-version fallback derived from `go.mod` (#114).
 - The usual run of pinned action and base-image digest bumps.
