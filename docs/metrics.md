@@ -210,7 +210,22 @@ Provides detailed metrics on job states and resource usage.
 | `slurm_cores_pending` | Pending cores | `user`, `partition`, `reason` |
 | `slurm_cores_running` | Running cores | `user`, `partition` |
 | `slurm_cores_suspended` | Suspended cores | `user`, `partition` |
-| `...` | (cancelled, completing, completed, configuring, failed, timeout, preempted, node_fail) | `user`, `partition` |
+| `slurm_queue_completing` | Completing jobs | `user`, `partition` |
+| `slurm_queue_completed` | Completed jobs | `user`, `partition` |
+| `slurm_queue_configuring` | Configuring jobs | `user`, `partition` |
+| `slurm_queue_cancelled` | Cancelled jobs | `user`, `partition` |
+| `slurm_queue_failed` | Failed jobs | `user`, `partition` |
+| `slurm_queue_timeout` | Timed-out jobs | `user`, `partition` |
+| `slurm_queue_preempted` | Preempted jobs | `user`, `partition` |
+| `slurm_queue_node_fail` | Jobs stopped by node failure | `user`, `partition` |
+| `slurm_cores_completing` | Cores of completing jobs | `user`, `partition` |
+| `slurm_cores_completed` | Cores of completed jobs | `user`, `partition` |
+| `slurm_cores_configuring` | Cores of configuring jobs | `user`, `partition` |
+| `slurm_cores_cancelled` | Cores of cancelled jobs | `user`, `partition` |
+| `slurm_cores_failed` | Cores of failed jobs | `user`, `partition` |
+| `slurm_cores_timeout` | Cores of timed-out jobs | `user`, `partition` |
+| `slurm_cores_preempted` | Cores of preempted jobs | `user`, `partition` |
+| `slurm_cores_node_fail` | Cores of jobs stopped by node failure | `user`, `partition` |
 
 **Global totals** — always emitted even at 0, useful for alerting on empty cluster:
 
