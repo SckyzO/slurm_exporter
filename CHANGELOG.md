@@ -328,12 +328,26 @@ supported Slurm window.
 
 ### 🔧 Maintenance
 
-- Go toolchain 1.26.4 → 1.26.5 (#124); `govulncheck` pinned to v1.6.0 (#125).
-- `golang.org/x/text` 0.37.0 → 0.39.0 for CVE-2026-56852, which was gating
-  every image-building PR; `golang.org/x/crypto` 0.51.0 → 0.53.0, starting with
-  #110.
-- `prometheus/common` 0.68.1 → 0.70.0, `prometheus/exporter-toolkit` 0.16.0 →
-  0.17.1, plus the transitive set.
+- **Go toolchain 1.26.4 → 1.26.8**, in the twelve places that pin it — the
+  `setup-go` steps, the tools image, and the `golang:` tag Trivy compiles the
+  scanned binary inside, which is the one that decides the stdlib it sees.
+  1.26.6 carries GO-2026-6089 (`net/http`), GO-2026-6090 (`crypto/tls`),
+  GO-2026-6091 (`html/template`) and GO-2026-5972 (`encoding/asn1`) — see the
+  1.8.5 section below for the reachability measured against a shipped binary.
+  `govulncheck` itself pinned to v1.6.0 (#125).
+- **`golang.org/x/crypto` 0.51.0 → 0.56.0**, the last step for CVE-2026-56854.
+  It is not reachable from this code — the module is present because
+  `exporter-toolkit`'s basic-auth hashing links `bcrypt`/`blowfish` — but
+  Trivy gates image publishing at module-version granularity, so it moves
+  regardless of reachability. `golang.org/x/text` 0.37.0 → 0.41.0, the first
+  step of which cleared CVE-2026-56852 that was blocking every image-building
+  PR; `x/sys` 0.45.0 → 0.47.0 carried along by `go mod tidy`.
+- `prometheus/common` 0.68.1 → 0.70.1, `prometheus/exporter-toolkit` 0.16.0 →
+  0.19.0, `stretchr/testify` → 1.12.1, plus the transitive set.
+- **Dependabot no longer drifts the tools image off the CI toolchain (#231):**
+  it bumped the `golang` base image in `scripts/docker/tools` independently, so
+  the container running `make check` could sit on a different Go patch than the
+  one CI pins. That image now follows the pinned toolchain.
 - **CI runs on release branches (#237):** the workflow triggered on `master`
   only, so `release-1.8` — the branch the support window commits to
   backporting onto — had no lint or test gate at all. The same PR stopped a
