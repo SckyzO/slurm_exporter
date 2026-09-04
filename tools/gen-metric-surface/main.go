@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sckyzo/slurm_exporter/internal/collector"
+	"github.com/sckyzo/slurm_exporter/v2/internal/collector"
 )
 
 func main() {

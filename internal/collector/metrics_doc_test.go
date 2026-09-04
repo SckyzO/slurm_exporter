@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/sckyzo/slurm_exporter/v2/internal/logger"
 )
 
 // docMetricPattern pulls metric names out of docs/metrics.md.

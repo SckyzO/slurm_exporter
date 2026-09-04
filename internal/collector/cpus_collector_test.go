@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/sckyzo/slurm_exporter/v2/internal/logger"
 )
 
 func TestCPUsCollector_Collect(t *testing.T) {

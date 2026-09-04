@@ -6,7 +6,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/sckyzo/slurm_exporter/v2/internal/logger"
 )
 
 /*

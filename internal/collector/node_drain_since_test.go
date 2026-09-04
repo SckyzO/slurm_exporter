@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/sckyzo/slurm_exporter/v2/internal/logger"
 )
 
 // TestDrainReasonSeriesIdentityIsStableAcrossRedrains is the non-regression test

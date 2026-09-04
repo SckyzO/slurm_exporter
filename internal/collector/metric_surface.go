@@ -10,7 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/sckyzo/slurm_exporter/v2/internal/logger"
 )
 
 // The metric surface is the set of series this exporter can publish: every
