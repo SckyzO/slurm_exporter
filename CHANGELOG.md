@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-09-04
+
+A security-only release. No collector, parser, metric, label or dashboard
+changes: the exporter behaves exactly as v1.8.4 did. The binary is what moves.
+
+### 🛡️ Security
+
+- **Go toolchain 1.26.4 → 1.26.8:** `govulncheck` run against v1.8.4 as shipped
+  reported five standard-library vulnerabilities reachable by symbol, three of
+  them on the listener the exporter exists to run:
+
+  | Advisory | Package | Fixed in |
+  |---|---|---|
+  | GO-2026-6091 | `html/template` | 1.26.6 |
+  | GO-2026-6090 | `crypto/tls` | 1.26.6 |
+  | GO-2026-6089 | `net/http` | 1.26.6 |
+  | GO-2026-5972 | `encoding/asn1` | 1.26.6 |
+  | GO-2026-5856 | `crypto/tls` | 1.26.5 |
+
+  Trivy independently reported 8 HIGH against `stdlib v1.26.4`. Both gates are
+  clear on 1.26.8, which is the current patch of the line v1.8 already used, so
+  nothing changes but the standard library.
+
+- **`golang.org/x/crypto` v0.51.0 → v0.56.0** for CVE-2026-56854, which Trivy
+  rates CRITICAL. It is not reachable from this code — the module is pinned
+  because `exporter-toolkit`'s basic-auth password hashing links
+  `bcrypt`/`blowfish` — but Trivy gates image publishing at module-version
+  granularity, so the dependency moves anyway. `go mod tidy` carried
+  `x/sys` 0.45.0 → 0.47.0 and `x/text` 0.37.0 → 0.41.0 with it.
+
+### 📋 Documentation
+
+- **`SECURITY.md` now states the 1.8 support window.** It previously said the
+  project was not actively maintained for Slurm 25.11+ and pointed readers at a
+  different repository. That stance has been reversed: `slurm_exporter` is
+  maintained. 1.8 is the last of the v1 line and keeps receiving every security
+  fix until 2.0.0 ships, then critical severity only, for six months from the
+  2.0.0 release date.
+
+- The v1.8.4 section of this changelog, written after that release was tagged,
+  is included here so the v1 history is complete on this branch.
+
+### ✅ Validation
+
+Validated on the Slurm 25.11.2 integration cluster with the v1.8.5 binary
+deployed: 16/16 collectors at `success=1`, 507 series under workload, zero
+`ERROR` or `WARN` across the run, and every documented metric either exposed or
+absent for a reason confirmed on the cluster (no licenses, no reservations, no
+drained nodes, no GPUs, no suspended jobs).
+
+Because three of the five advisories are on the TLS and HTTP paths, which the
+standard checklist never exercised, this release was additionally validated
+with `--web.config.file`: TLS handshake with HTTP/2, a scrape returning 200
+over HTTPS, bcrypt basic auth accepting the right password and answering 401 to
+a wrong one and to none, and a plaintext request to the TLS port rejected.
+
 ## [1.8.4] - 2026-06-19
 
 A supply-chain and CI-hardening release. One operator-visible label fix
