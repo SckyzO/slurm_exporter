@@ -1,15 +1,26 @@
-# CI — lint + test on every pull request and on push to master.
+# CI — lint + test on every pull request and on push to master or a release
+# branch.
 #
 # This is the gate that the CONTRIBUTING.md "Definition of Done" (steps 1-3)
 # expects on every change. The release workflow only runs on tags, so without
 # this nothing ran the test suite or the linter on PRs. Integration tests
 # (the Slurm test cluster in scripts/testing/) remain a manual step.
+#
+# release-* is listed because a maintenance branch is where a security backport
+# lands, and merging one used to run nothing at all: the pull request was gated,
+# the branch it merged into was not, and the state that actually gets tagged had
+# no automated check behind it. Found tagging v1.8.5, whose branch had to be
+# validated by hand.
+#
+# GitHub runs the copy of this file that lives on the branch being pushed, so
+# adding release-* here covers release branches cut from master in future. An
+# existing maintenance branch needs the same change applied to its own copy.
 
 name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'release-*']
   pull_request:
 
 permissions:
