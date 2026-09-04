@@ -201,8 +201,15 @@ func SurfaceOf(c prometheus.Collector) ([]Metric, error) {
 			descs = append(descs, d)
 		}
 	}()
-	c.Describe(ch)
-	close(ch)
+	// close(ch) is deferred rather than called after Describe returns, so it
+	// still runs if Describe panics. SurfaceOf takes any prometheus.Collector,
+	// and a Describe that panics on a plain close would leave the collecting
+	// goroutine blocked on a receive nobody will ever satisfy: a leak riding
+	// out on a panic, which is the least likely thing anyone is looking at.
+	func() {
+		defer close(ch)
+		c.Describe(ch)
+	}()
 	<-done // also the happens-before edge that publishes descs to this goroutine
 
 	metrics := make([]Metric, 0, len(descs))
