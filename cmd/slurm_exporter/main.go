@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -145,14 +146,57 @@ var collectorConstructors = map[string]func(logger *logger.Logger) prometheus.Co
 	"sacct_efficiency": nil,
 }
 
-// indexHTML is the HTML content displayed on the root page
-const indexHTML = `<html>
-	<head><title>Slurm Exporter</title></head>
-	<body>
-		<h1>Slurm Exporter</h1>
-		<p>Welcome to the Slurm Exporter. Click <a href='/metrics'>here</a> to see the metrics.</p>
-	</body>
-</html>`
+// newMux builds the exporter's HTTP routes.
+//
+// The routes live on a mux of their own rather than on http.DefaultServeMux so
+// that the exposed surface is exactly what this function registers. Any package
+// that imports net/http/pprof, directly or several dependencies down, registers
+// /debug/pprof/* on the default mux from an init function, which would publish
+// goroutine dumps and a CPU profiler on the scrape port without that decision
+// ever being made here. Nothing does so today; the mux is what keeps it that
+// way.
+//
+// Returning the mux instead of serving from it keeps the route table testable
+// without binding a port.
+func newMux(reg *prometheus.Registry) (*http.ServeMux, error) {
+	// NewLandingPage answers 404 on every path but its route prefix. The
+	// hand-written page this replaces was registered on "/", which in
+	// http.ServeMux matches everything unclaimed: a Prometheus server pointed at
+	// a mistyped /metric was answered 200 with HTML, so the target scraped as up
+	// and the mistake surfaced as a parse error in Prometheus rather than as a
+	// 404 here.
+	landing, err := web.NewLandingPage(web.LandingConfig{
+		Name:        "Slurm Exporter",
+		Description: "Prometheus exporter for the Slurm workload manager",
+		Version:     version.Info(),
+		Links: []web.LandingLinks{
+			{Address: "/metrics", Text: "Metrics", Description: "Slurm metrics in Prometheus/OpenMetrics format"},
+			{Address: "/healthz", Text: "Health", Description: "Liveness of the exporter process itself"},
+		},
+		// The toolkit defaults this to "true" and renders links to
+		// /debug/pprof/heap and /debug/pprof/profile. The exporter does not
+		// import net/http/pprof, so those links would 404: advertising a
+		// profiler we do not serve is worse than not offering one.
+		Profiling: "false",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("building landing page: %w", err)
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/", landing)
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+		EnableOpenMetrics: true,
+	}))
+	// /healthz returns 200 OK as long as the HTTP server is up.
+	// This allows orchestrators (Kubernetes, systemd watchdog) to distinguish
+	// "exporter process alive" from "Slurm commands reachable".
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	return mux, nil
+}
 
 // registerCollectors registers enabled collectors with the Prometheus registry.
 // All enabled collectors are wrapped by a single StatusTracker that emits
@@ -258,26 +302,18 @@ func main() {
 	log.Info("Starting Slurm Exporter server...")
 	log.Info("Command timeout configured", "timeout", *commandTimeout)
 
-	// Configure HTTP routes
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(indexHTML))
-	})
-	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{
-		EnableOpenMetrics: true,
-	}))
-	// /healthz returns 200 OK as long as the HTTP server is up.
-	// This allows orchestrators (Kubernetes, systemd watchdog) to distinguish
-	// "exporter process alive" from "Slurm commands reachable".
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+	mux, err := newMux(reg)
+	if err != nil {
+		log.Error("Failed to configure HTTP routes", "err", err)
+		stop()     // release signal handler explicitly before bypassing defer via os.Exit
+		os.Exit(1) //nolint:gocritic // stop() called explicitly above
+	}
 
 	// Start HTTP server with exporter toolkit (supports TLS, Basic Auth, etc.).
 	// serve is the blocking listen call; injecting it keeps runServer testable
 	// without binding the test to the exporter-toolkit listener.
 	server := &http.Server{
+		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second, // Mitigate Slowloris attack (G112)
 	}
 	serve := func() error { return web.ListenAndServe(server, toolkitFlags, log.Logger) }
