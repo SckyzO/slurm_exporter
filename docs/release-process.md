@@ -480,7 +480,25 @@ shorter window (~30 min) before tagging.
 
 ### Tag the final release
 
-Once you're confident on a real cluster:
+**The version must be documented in `CHANGELOG.md` on the commit you tag.**
+Rename the `[Unreleased]` heading to `[X.Y.Z]` with today's date before tagging
+— a release with no changelog entry is invisible to everyone who did not write
+it, and the omission is only noticed once the next release closes the section
+above it.
+
+This is enforced: the `changelog` job in `.github/workflows/release.yml` runs
+on every `v*` tag and `release` depends on it, so a tag with no matching
+section fails before GoReleaser publishes anything. A pre-release tag
+(`vX.Y.Z-rc1`) is allowed to ship under `[Unreleased]`, since the section is
+usually still being written at that point; a final tag is not.
+
+To check before pushing:
+
+```bash
+grep -n "^## \[X.Y.Z\]" CHANGELOG.md
+```
+
+Then:
 
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z — <short headline>"
@@ -556,8 +574,13 @@ Then the parts that are not optional:
 2. Confirm the vulnerability is actually gone rather than merely bumped:
    `govulncheck ./...` for reachability, `trivy` for the image gate. They
    disagree on purpose, and the release is gated on Trivy.
-3. Add a `CHANGELOG.md` entry **on the branch**. It does not come back to
-   `master`, where the same fix already appears in the 2.x history.
+3. Add a `CHANGELOG.md` entry **on the branch**. The *fix* does not come back
+   to `master` — it already appears there in the 2.x history — but the
+   **released version section does**. Once the tag is cut, port the whole
+   `## [1.8.z]` section onto `master` in a separate commit, so `master`'s
+   changelog does not skip a release that shipped. This is how the 1.8.5
+   section came to be missing from `master`: it was written on the branch and
+   nothing said to carry it back.
 4. Open a PR against `release-1.8`, never against `master`.
 
 Tag from the branch once merged:

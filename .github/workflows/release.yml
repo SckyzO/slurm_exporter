@@ -9,6 +9,41 @@ permissions:
   contents: read
 
 jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The tagged version must have a CHANGELOG section
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          base="${version%%-*}"          # v2.0.0-rc1 -> 2.0.0
+          # Dots are wildcards in a regex, so 1.8.5 would also match [1x8x5].
+          esc=$(printf '%s' "$base" | sed 's/\./\\./g')
+          if [ "$version" != "$base" ]; then
+            # Pre-release: the section may still be [Unreleased] at this point.
+            if grep -qE "^## \[($esc|Unreleased)\]" CHANGELOG.md; then
+              echo "ok: pre-release $TAG has a section to ship under"
+              exit 0
+            fi
+            echo "::error::CHANGELOG.md has neither a [$base] nor an [Unreleased] section for $TAG."
+            exit 1
+          fi
+          if grep -qE "^## \[$esc\]" CHANGELOG.md; then
+            echo "ok: CHANGELOG.md documents $base"
+            exit 0
+          fi
+          echo "::error::CHANGELOG.md has no '## [$base]' section on the commit being tagged."
+          echo "A release with no changelog entry is invisible to everyone who did not"
+          echo "write it. Rename the [Unreleased] heading to [$base] with today's date,"
+          echo "and if this tag is cut from a maintenance branch, carry the section back"
+          echo "to master as well."
+          exit 1
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -39,6 +74,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs:
+      - changelog
       - lint
       - test
     permissions:
