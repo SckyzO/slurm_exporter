@@ -49,5 +49,6 @@ jobs:
         run: |
           go run ./tools/gen-fixture-doc -check
           go run ./tools/fixture-capture -check
+          go run ./tools/gen-metric-surface -check
       - name: Test (race + coverage)
         run: go test -race -count=1 -coverprofile=coverage.out ./...

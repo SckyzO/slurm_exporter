@@ -123,8 +123,13 @@ var versionedBinaries = []string{
 
 // CommandRegistry lists every Slurm CLI invocation the exporter makes.
 //
+// The third directive generates the metric surface, which is derived from the
+// collectors' Describe() rather than from this table. It is anchored here so a
+// single `make generate` keeps every derived artefact in step.
+//
 //go:generate go run ../../tools/gen-fixture-doc -out ../../test_data/readme.md
 //go:generate go run ../../tools/fixture-capture -out ../../scripts/capture.sh
+//go:generate go run ../../tools/gen-metric-surface -out ../../docs/metric-surface.md
 var CommandRegistry = []Command{
 	{
 		Name:   "squeue_jobs",

@@ -6,12 +6,14 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 
+	"github.com/sckyzo/slurm_exporter/internal/collector"
 	"github.com/sckyzo/slurm_exporter/internal/logger"
 )
 
@@ -128,4 +130,55 @@ func TestNewMux_HealthzBody(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "ok", rec.Body.String())
+}
+
+// TestSurfaceVariantsMatchConstructors ties the metric-surface baseline to the
+// exporter's actual collector set.
+//
+// collector.MetricSurfaceVariants() is a second list of collectors, and a
+// second list drifts: add a collector to collectorConstructors below and forget
+// the variants table, and docs/metric-surface.md keeps regenerating cleanly
+// while covering one collector fewer. The regression net would report all-clear
+// on exactly the metrics nobody is watching.
+//
+// This is the only place both lists are visible — collectorConstructors lives
+// in package main and cannot be imported — so the check belongs here.
+func TestSurfaceVariantsMatchConstructors(t *testing.T) {
+	registered := make([]string, 0, len(collectorConstructors))
+	for name := range collectorConstructors {
+		registered = append(registered, name)
+	}
+
+	seen := map[string]bool{}
+	covered := make([]string, 0, len(registered))
+	for _, v := range collector.MetricSurfaceVariants() {
+		if !seen[v.Collector] {
+			seen[v.Collector] = true
+			covered = append(covered, v.Collector)
+		}
+	}
+
+	sort.Strings(registered)
+	sort.Strings(covered)
+	require.Equal(t, registered, covered,
+		"every collector main.go registers needs an entry in collector.MetricSurfaceVariants(), "+
+			"and nothing else may appear there; otherwise docs/metric-surface.md silently stops "+
+			"covering part of the exporter")
+}
+
+// TestSurfaceVariantsCoverTheCardinalityFlags asserts the variants table records
+// both settings of every flag that changes what a collector declares.
+//
+// Recording only the default build would leave the other half of each knob
+// unchecked — and the non-default half is the one large sites run, since that
+// is what the knobs exist for.
+func TestSurfaceVariantsCoverTheCardinalityFlags(t *testing.T) {
+	builds := map[string]int{}
+	for _, v := range collector.MetricSurfaceVariants() {
+		builds[v.Collector]++
+	}
+	for _, name := range []string{"node", "nodes", "queue", "fairshare"} {
+		require.Equal(t, 2, builds[name],
+			"%s changes its declared metrics or labels with a flag, so both settings belong in the table", name)
+	}
 }
