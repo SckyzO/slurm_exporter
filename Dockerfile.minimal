@@ -40,7 +40,7 @@
 # Extract libmunge from a Debian 13 stage. The shell `cp` consolidates the
 # arch-specific Debian multi-arch path (x86_64-linux-gnu vs aarch64-linux-gnu)
 # into a fixed /libs/ directory — the next COPY then doesn't need TARGETARCH.
-FROM debian:13-slim@sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258 AS munge-extractor
+FROM debian:13-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS munge-extractor
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         libmunge2 \
