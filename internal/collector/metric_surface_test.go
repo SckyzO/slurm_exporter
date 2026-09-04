@@ -3,6 +3,7 @@ package collector
 import (
 	"os"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -239,4 +240,41 @@ func TestInternalMetricsAreAllInTheSurface(t *testing.T) {
 	require.Empty(t, missing,
 		"these internal metrics exist in the code but are absent from "+
 			"MetricSurfaceInternals(), so docs/metric-surface.md does not cover them")
+}
+
+// panickingCollector has a Describe that sends one Desc and then panics. It
+// stands in for a collector with a bug in Describe — a nil map, an index out of
+// range — which SurfaceOf has no control over, since it accepts any
+// prometheus.Collector.
+type panickingCollector struct{}
+
+func (panickingCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- prometheus.NewDesc("slurm_probe", "probe", nil, nil)
+	panic("Describe exploded")
+}
+
+func (panickingCollector) Collect(chan<- prometheus.Metric) {}
+
+// TestSurfaceOfDoesNotLeakOnPanic is the regression test for closing the Desc
+// channel with defer rather than with a plain statement after Describe returns.
+//
+// A plain close never runs when Describe panics, and the goroutine collecting
+// from that channel then blocks forever on a receive nobody will satisfy: a
+// leaked goroutine riding out on a panic, which is the least likely moment for
+// anyone to be watching goroutine counts. Removing the defer makes this test
+// fail, counting one goroutine more after the panic than before it.
+func TestSurfaceOfDoesNotLeakOnPanic(t *testing.T) {
+	before := runtime.NumGoroutine()
+	require.Panics(t, func() { _, _ = SurfaceOf(panickingCollector{}) })
+
+	// The collecting goroutine exits once the channel closes, but "once" is not
+	// instant: yield until the count comes back down rather than reading it
+	// straight away and flaking.
+	for range 200 {
+		if runtime.NumGoroutine() <= before {
+			return
+		}
+		runtime.Gosched()
+	}
+	t.Fatalf("goroutine leaked: %d before the panic, %d after", before, runtime.NumGoroutine())
 }
