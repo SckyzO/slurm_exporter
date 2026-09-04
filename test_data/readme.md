@@ -79,7 +79,7 @@ Job states, cores, reason and user, pipe-delimited so commas inside the reason f
 Owned by `queue.go`.
 
 - The window is bounded by MinJobAge (slurm.conf, 300s by default): slurmctld forgets a terminated job once it is older than that.
-- Dropped by --no-collector.queue.terminal-states, which restores the pre-1.9 query, the queue_default_states entry below.
+- Dropped by --no-collector.queue.terminal-states, which restores the pre-2.0 query, the queue_default_states entry below.
 
 | Fixture | Slurm | What it protects |
 |---|---|---|
@@ -91,7 +91,7 @@ Owned by `queue.go`.
 squeue -h -o '%P|%T|%C|%r|%u'
 ```
 
-The same query without --states=all, restoring the pre-1.9 behaviour for sites that would rather not ask slurmctld for the terminal states.
+The same query without --states=all, restoring the pre-2.0 behaviour for sites that would rather not ask slurmctld for the terminal states.
 
 Owned by `queue.go`. Runs only with `--no-collector.queue.terminal-states`.
 

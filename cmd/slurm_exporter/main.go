@@ -78,7 +78,7 @@ var (
 	queueTerminalStates = kingpin.Flag(
 		"collector.queue.terminal-states",
 		"Ask squeue for terminal job states (FAILED, TIMEOUT, CANCELLED, COMPLETED, ...) "+
-			"in addition to pending and running ones. Disable to restore the pre-1.9 query "+
+			"in addition to pending and running ones. Disable to restore the pre-2.0 query "+
 			"if the extra slurmctld work is measurable on your cluster.",
 	).Default("true").Bool()
 
