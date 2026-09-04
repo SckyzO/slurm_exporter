@@ -2,6 +2,8 @@ package collector
 
 import (
 	"os"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -184,4 +186,57 @@ func TestMetricSurfaceDocIsCurrent(t *testing.T) {
 	require.Equal(t, string(want), string(got),
 		"docs/metric-surface.md is stale: the declared metrics or labels changed.\n"+
 			"Run `make generate` and commit the result, so the change is visible in review.")
+}
+
+// TestInternalMetricsAreAllInTheSurface closes the same hole for the exporter's
+// own instrumentation that TestSurfaceVariantsMatchConstructors closes for the
+// Slurm collectors.
+//
+// MetricSurfaceVariants is tied to main.go's constructor table, so a new
+// collector cannot escape the surface. MetricSurfaceInternals is tied to
+// nothing: it is a hand-written list, and a new slurm_exporter_* metric added
+// next to the existing ones would simply not appear, taking its regression
+// coverage with it and saying nothing about it.
+//
+// The source is scanned rather than a registry consulted, because these metrics
+// are package-level vars registered from three different places
+// (RegisterExecMetrics, RegisterCacheMetrics, the StatusTracker constructor);
+// their names as written in the code are the one thing they have in common.
+func TestInternalMetricsAreAllInTheSurface(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	require.NoError(t, err)
+
+	namePattern := regexp.MustCompile(`"(slurm_exporter_[a-z0-9_]+)"`)
+	inSource := map[string]string{} // metric name -> file it was found in
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		body, readErr := os.ReadFile(e.Name())
+		require.NoError(t, readErr)
+		for _, m := range namePattern.FindAllStringSubmatch(string(body), -1) {
+			inSource[m[1]] = e.Name()
+		}
+	}
+	require.NotEmpty(t, inSource, "no slurm_exporter_* metric names found in the package; has the naming changed?")
+
+	inSurface := map[string]bool{}
+	for _, v := range MetricSurfaceInternals() {
+		metrics, surfErr := SurfaceOf(v.New(logger.NewTextLogger("error")))
+		require.NoError(t, surfErr)
+		for _, m := range metrics {
+			inSurface[m.Name] = true
+		}
+	}
+
+	var missing []string
+	for name, file := range inSource {
+		if !inSurface[name] {
+			missing = append(missing, name+" (declared in "+file+")")
+		}
+	}
+	sort.Strings(missing)
+	require.Empty(t, missing,
+		"these internal metrics exist in the code but are absent from "+
+			"MetricSurfaceInternals(), so docs/metric-surface.md does not cover them")
 }
