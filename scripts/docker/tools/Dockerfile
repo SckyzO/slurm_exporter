@@ -6,6 +6,13 @@
 #
 # Built locally on first use via `make tools-image`; rebuilds are
 # incremental thanks to the layer cache.
+#
+# The Go version below is not free to move on its own. `make check` lints and
+# tests inside this image while CI does it with setup-go, so if the two drift
+# a contributor can be told their branch is clean by a Go that is not the one
+# gating the merge. It tracks the `go-version` pinned in .github/workflows/
+# and the `toolchain` directive in go.mod; all three change together or none
+# do. Dependabot is told to leave this image alone in .github/dependabot.yml.
 
 FROM golang:1.26.8-alpine@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628
 
