@@ -11,13 +11,17 @@ in PR/issue comments, and internal observations during recent releases.
 
 ---
 
-## v1.9
+## 2.0
 
 > Tracked in [#61](https://github.com/SckyzO/slurm_exporter/issues/61) — the
 > authoritative scope and per-PR breakdown for this milestone. Each item below
-> maps to one atomic PR against `master`. v1.9 is cut once the public-feature
+> maps to one atomic PR against `master`. 2.0 is cut once the public-feature
 > checklist there is complete; internal-hygiene items are welcome but slide to
-> v1.9.1 if they are not ready in time.
+> a later release if they are not ready in time.
+>
+> There is no 1.9. 1.8 is the last of the v1 line — it lives on `release-1.8`
+> under the support window in [SECURITY.md](../SECURITY.md) — and everything
+> since is 2.0, whose Go module path is `github.com/sckyzo/slurm_exporter/v2`.
 
 ### Commitments made publicly
 
@@ -28,13 +32,9 @@ in PR/issue comments, and internal observations during recent releases.
   `--collector.sacct.lookback` window. Reuses the single `sacct` call
   already made for efficiency stats — no extra load on Slurm.
 
-- **Per-node GRES metrics** *(adapts [PR #29](https://github.com/SckyzO/slurm_exporter/pull/29) from @ncreddine)*
-  Land `slurm_node_gres_total{node, partition, status, gres_type}` and
-  `slurm_node_gres_used{...}`. Adapt to the variable-width `sinfo -O`
-  format introduced in v1.8.2 (the original PR uses fixed widths and
-  would regress issue #10). Add a `--collector.node.gres` flag and a
-  `--collector.node.gres-types` filter for cardinality control on
-  multi-type / MIG clusters. Includes a new dashboard panel.
+  `--collector.queue.terminal-states` already answers the *"my failure
+  counters read zero"* half of #27 from `squeue`, but only within `MinJobAge`.
+  This item is what makes the same question answerable over hours.
 
 - **Dashboard uniformity — `$instance`** *(prerequisite for multi-cluster, tracked in [#61](https://github.com/SckyzO/slurm_exporter/issues/61))*
   Only `04-slurm-usage.json` currently carries an `$instance` template
@@ -51,39 +51,28 @@ in PR/issue comments, and internal observations during recent releases.
 
 ### Internal hygiene (welcome but not promised)
 
-- Convert `tmp/issue_collector_constructor_context.md` into a GitHub
-  issue and ship the refactor (constructor signature gets `context.Context`
-  as first parameter, eliminating the `nil`+override pattern in `main.go`).
-- Convert `tmp/issue_gpus_single_sinfo.md` into a GitHub issue and
-  consolidate the three `sinfo` calls in `internal/collector/gpus.go`
-  into a single atomic snapshot. The v1.8.2 clamp on `slurm_gpus_other`
-  becomes redundant once this lands.
-- **`Makefile` container-first cleanup** *([#114](https://github.com/SckyzO/slurm_exporter/issues/114))*
-  The "Docker-only, no host Go toolchain" contract only half-holds — `build`,
-  `setup`, `run`, `clean` still use the host `go`. Also a stale `GO_VERSION`
-  fallback (`1.22.2` at `Makefile:6`, vs `go 1.26.0` in `go.mod`) and a stale
-  slurm-client comment (`23.11` at `Makefile:186`, vs the `25.11` the
-  Dockerfile actually ships). Either containerise `build` or soften the claim,
-  and derive the Go version from a single source. Splittable: the
-  comment/version fixes can land ahead of the larger containerise-`build`
-  change.
+- **Constructor refactor — `context.Context` first** *(tracked in [#61](https://github.com/SckyzO/slurm_exporter/issues/61))*
+  All 17 constructors still take `*logger.Logger` first, so the one collector
+  that needs a context gets it through the `nil`-then-override pattern
+  `main.go` still carries a comment about. Non-blocking by #61's own criteria:
+  it changes no metric and no flag.
 
 ---
 
-## v2.0 (uncommitted, open-ended)
+## After 2.0 (uncommitted, open-ended)
 
-- **Refondre le panel "Terminal Job States Over Time"** on
+- **Rework the "Terminal Job States Over Time" panel** on
   `monitoring/grafana/dashboards/04-slurm-usage.json` once
-  `sacct_efficiency` exposes the per-state counts (see v1.9). Today
-  the panel uses queue-collector metrics that stay at zero because
-  `squeue` doesn't surface terminal states.
+  `sacct_efficiency` exposes the per-state counts (see 2.0 above). Today
+  the panel uses queue-collector metrics that only carry values inside
+  `MinJobAge`, so anything older than a few minutes reads as zero.
 
 ---
 
 ## Requested, not yet scheduled
 
 Open feature requests that are not committed to a milestone yet — surfaced here
-so they are visible during v1.9 planning.
+so they are visible during 2.0 planning.
 
 - **Job wait-time metrics** *([#118](https://github.com/SckyzO/slurm_exporter/issues/118))*
   Median / histogram wait times (submit → start) broken down by cluster,
@@ -116,7 +105,7 @@ A new item is added to this roadmap when **any** of the following is
 true:
 
 1. A maintainer publicly commits to it in a PR or issue comment
-   (e.g. *"I'll ship X in v1.9"*).
+   (e.g. *"I'll ship X in v2.1"*).
 2. A draft issue exists in `tmp/` (gitignored scratch) that captures the
    problem and the proposed direction, waiting for a GitHub issue.
 3. A change came up during a release validation pass and is too large to
