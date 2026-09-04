@@ -6,7 +6,11 @@ name: Refresh Go Report Card
 # https://goreportcard.com/report/github.com/sckyzo/slurm_exporter
 #
 # Kept as a dedicated workflow (rather than a step inside release.yml) so a
-# goreportcard.com outage cannot fail the GoReleaser pipeline.
+# goreportcard.com outage cannot fail the GoReleaser pipeline, and marked
+# continue-on-error so it cannot fail this workflow either. The two together are
+# what that intent actually requires: on the v1.8.5 tag the endpoint answered
+# 404, GoReleaser was untouched as designed, and the tag still carried a red
+# cross that read like a failed release.
 
 on:
   push:
@@ -21,6 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: POST to goreportcard.com
+        # A badge refresh is not a quality gate. Whether goreportcard.com is
+        # reachable says nothing about the release, and the score itself is
+        # already enforced offline by `make report` as a release blocker.
+        continue-on-error: true
         # REPO is sourced from the GitHub context; passing it via env keeps
         # the run: block free of templated values, which is the recommended
         # pattern for workflow injection protection.
