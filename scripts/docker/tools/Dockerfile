@@ -7,7 +7,7 @@
 # Built locally on first use via `make tools-image`; rebuilds are
 # incremental thanks to the layer cache.
 
-FROM golang:1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
+FROM golang:1.26.8-alpine@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628
 
 # shellcheck  → used by actionlint to lint `run:` shell blocks
 # zizmor      → static analysis (security) for GitHub Actions workflows
