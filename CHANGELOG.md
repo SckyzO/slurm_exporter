@@ -18,8 +18,9 @@ produced no drain series at all. None of those look like a fault from the
 outside, which is why they lasted as long as they did.
 
 This release fixes them. Three of the fixes change what an existing series
-does, which is what makes it a major. The section below says exactly what moves
-and how to keep the old behaviour where one exists.
+does, which is what makes it a major, and the major in turn moves the Go module
+path to `/v2`. The section below says exactly what moves and how to keep the old
+behaviour where one exists.
 
 The rest is the machinery that stops the same class of bug coming back: the
 commands the exporter runs are now declared in code and verified against the
@@ -28,6 +29,26 @@ rather than by hand, and each release is validated against both ends of the
 supported Slurm window.
 
 ### ⚠️ Breaking changes
+
+- **The Go module path is now `github.com/sckyzo/slurm_exporter/v2` (#238):**
+  Go requires the major version in the import path from v2 onward, and this
+  module has a `go.mod` at every tag, so the `+incompatible` escape hatch that
+  lets some older projects tag a v2 without it does not apply here.
+
+  **Operator-visible impact:** the suffix is not optional and its absence is
+  silent. `go install github.com/sckyzo/slurm_exporter/cmd/slurm_exporter@latest`
+  keeps resolving to **v1.8.5** — the module proxy already serves this path and
+  will not offer a v2 tag under it, so the command succeeds and installs the
+  previous major. Install 2.0 with the suffix:
+
+  ```
+  go install github.com/sckyzo/slurm_exporter/v2/cmd/slurm_exporter@latest
+  ```
+
+  Anyone importing the packages updates their import lines the same way. Nobody
+  installing a binary from the release archives, a Docker image, or a distro
+  package is affected: the artefact names and the image tags do not carry the
+  suffix.
 
 - **`slurm_jobs_*` terminal counters stop being constant zeros (#161):**
   `squeue` reports pending and running jobs when it is not told which states
