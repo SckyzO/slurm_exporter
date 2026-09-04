@@ -178,7 +178,9 @@ func TestSurfaceVariantsCoverTheCardinalityFlags(t *testing.T) {
 		builds[v.Collector]++
 	}
 	for _, name := range []string{"node", "nodes", "queue", "fairshare"} {
-		require.Equal(t, 2, builds[name],
-			"%s changes its declared metrics or labels with a flag, so both settings belong in the table", name)
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, 2, builds[name],
+				"%s changes its declared metrics or labels with a flag, so both settings belong in the table", name)
+		})
 	}
 }
