@@ -89,7 +89,7 @@ docker_signs:
 # entries (per-arch builds + manifest combinations × variants × registries)
 # into 2 entries. GoReleaser handles multi-arch + multi-registry transparently.
 #
-# Floating tags (latest, vX.Y, vX) are skipped on pre-release tags (v1.9.0-rc1)
+# Floating tags (latest, vX.Y, vX) are skipped on pre-release tags (v2.0.0-rc1)
 # so they always point at a stable release.
 dockers_v2:
   - id: standard

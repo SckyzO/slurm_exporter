@@ -277,7 +277,7 @@ default), so `slurm_jobs_failed` answers "how many jobs failed in the last
 
 Set `--no-collector.queue.terminal-states` to go back to the pending-and-running
 query if the extra work is measurable on your `slurmctld`. The six totals then
-stay at zero, which is the pre-1.9 behaviour.
+stay at zero, which is the pre-2.0 behaviour.
 
 ### `reservations` Collector
 

@@ -421,7 +421,7 @@ minutes and fall back to zero by themselves. Alert on a rate, never on
 
 ### With `--no-collector.queue.terminal-states`
 
-The pre-1.9 query comes back and the same six totals sit at zero, as do the
+The pre-2.0 query comes back and the same six totals sit at zero, as do the
 `slurm_queue_*` and `slurm_cores_*` series behind them. Only pending and running
 jobs are reported.
 

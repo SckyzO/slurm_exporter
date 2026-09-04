@@ -192,7 +192,7 @@ var CommandRegistry = []Command{
 			"The window is bounded by MinJobAge (slurm.conf, 300s by default): slurmctld " +
 				"forgets a terminated job once it is older than that.",
 			"Dropped by --no-collector.queue.terminal-states, which restores the " +
-				"pre-1.9 query, the queue_default_states entry below.",
+				"pre-2.0 query, the queue_default_states entry below.",
 		},
 		Fixtures: []Fixture{
 			{
@@ -213,7 +213,7 @@ var CommandRegistry = []Command{
 		Args:   []string{"-h", "-o", "%P|%T|%C|%r|%u"},
 		Source: "queue.go",
 		OptIn:  "--no-collector.queue.terminal-states",
-		Doc: "The same query without --states=all, restoring the pre-1.9 behaviour for " +
+		Doc: "The same query without --states=all, restoring the pre-2.0 behaviour for " +
 			"sites that would rather not ask slurmctld for the terminal states.",
 		NoFixtureReason: "Deliberate: the output is a subset of queue_all_states.txt and the parser is the " +
 			"same one, so a second capture would protect nothing. What the flag changes is " +
