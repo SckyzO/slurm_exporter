@@ -51,7 +51,7 @@ For each item, decide:
 
 - **In scope** for this release — note the PR/issue number in your scratchpad.
 - **Out of scope** but actionable — comment on the issue/PR with the planned
-  release (e.g. "tracked for v1.9").
+  release (e.g. "tracked for v2.1").
 - **Stale** — close with a polite explanation.
 
 Aim for a release that ships **one theme** (e.g. v1.8.2 was "silent metric
@@ -506,7 +506,7 @@ Comment on the PR with:
    opinions).
 3. **What the plan is** — which release you'll integrate it in, what you'll
    adapt or add (tests, flags, dashboard panel).
-4. **A concrete signal of intent** — e.g. "I'll adapt and ship in v1.9 this
+4. **A concrete signal of intent** — e.g. "I'll adapt and ship in v2.1 this
    month. You'll be credited via Co-authored-by."
 5. **Concrete preview** — when relevant, show an example of the metrics
    that would be exposed, or a snippet of dashboard PromQL.
@@ -607,7 +607,7 @@ For context, v1.8.2 (the release that codified this process) was made of:
 - 8 integrated community PRs (#12/#13, #14/#15, #16/#17, #18/#19, #20/#21,
   #22/#23 — breaking —, #24/#25, and PR #28).
 - 1 issue-driven bug fix (#26, reservation phantom row).
-- 2 follow-up responses on issues planned for v1.9 (#27, PR #29).
+- 2 follow-up responses on issues deferred to a later release (#27, PR #29).
 - 4 docs updates (metrics, metrics-examples, CHANGELOG, this file).
 - 25 commits, all conventional, all atomic.
 
