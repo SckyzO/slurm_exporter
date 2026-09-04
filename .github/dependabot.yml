@@ -77,6 +77,12 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/scripts/docker/tools"
+    # The Go image in this directory is slaved to the toolchain CI pins, so a
+    # weekly bump here would silently make `make check` disagree with the
+    # merge gate. It moves by hand alongside .github/workflows/ and go.mod.
+    # The block itself stays so any other image added here is still watched.
+    ignore:
+      - dependency-name: "golang"
     schedule:
       interval: "weekly"
       day: "monday"
