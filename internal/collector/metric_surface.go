@@ -182,20 +182,33 @@ func parseDescString(s string) (Metric, error) {
 // generated document does not churn when a Describe() implementation reorders
 // its sends.
 func SurfaceOf(c prometheus.Collector) ([]Metric, error) {
+	// Describe runs on this goroutine and the collecting one drains until the
+	// channel closes, so every send completes and nothing is left running when
+	// SurfaceOf returns.
+	//
+	// The obvious arrangement is the other way round — Describe in a goroutine,
+	// parse each Desc as it arrives — and it leaks that goroutine on any early
+	// return, blocked forever on a send nobody will receive. The only early
+	// return here is a parse failure, which is precisely the moment nobody is
+	// watching for a leaked goroutine. Collecting first and parsing after costs
+	// one slice and removes the failure mode.
 	ch := make(chan *prometheus.Desc)
+	var descs []*prometheus.Desc
+	done := make(chan struct{})
 	go func() {
-		defer close(ch)
-		c.Describe(ch)
+		defer close(done)
+		for d := range ch {
+			descs = append(descs, d)
+		}
 	}()
+	c.Describe(ch)
+	close(ch)
+	<-done // also the happens-before edge that publishes descs to this goroutine
 
-	var metrics []Metric
-	for d := range ch {
+	metrics := make([]Metric, 0, len(descs))
+	for _, d := range descs {
 		m, err := parseDesc(d)
 		if err != nil {
-			// Drain the channel so Describe cannot block forever on an
-			// unbuffered send, then report.
-			for range ch { //nolint:revive // draining, the values are not needed
-			}
 			return nil, err
 		}
 		metrics = append(metrics, m)
