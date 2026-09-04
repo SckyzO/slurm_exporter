@@ -18,8 +18,9 @@ produced no drain series at all. None of those look like a fault from the
 outside, which is why they lasted as long as they did.
 
 This release fixes them. Three of the fixes change what an existing series
-does, which is what makes it a major. The section below says exactly what moves
-and how to keep the old behaviour where one exists.
+does, which is what makes it a major, and the major in turn moves the Go module
+path to `/v2`. The section below says exactly what moves and how to keep the old
+behaviour where one exists.
 
 The rest is the machinery that stops the same class of bug coming back: the
 commands the exporter runs are now declared in code and verified against the
@@ -28,6 +29,26 @@ rather than by hand, and each release is validated against both ends of the
 supported Slurm window.
 
 ### ⚠️ Breaking changes
+
+- **The Go module path is now `github.com/sckyzo/slurm_exporter/v2` (#238):**
+  Go requires the major version in the import path from v2 onward, and this
+  module has a `go.mod` at every tag, so the `+incompatible` escape hatch that
+  lets some older projects tag a v2 without it does not apply here.
+
+  **Operator-visible impact:** the suffix is not optional and its absence is
+  silent. `go install github.com/sckyzo/slurm_exporter/cmd/slurm_exporter@latest`
+  keeps resolving to **v1.8.5** — the module proxy already serves this path and
+  will not offer a v2 tag under it, so the command succeeds and installs the
+  previous major. Install 2.0 with the suffix:
+
+  ```
+  go install github.com/sckyzo/slurm_exporter/v2/cmd/slurm_exporter@latest
+  ```
+
+  Anyone importing the packages updates their import lines the same way. Nobody
+  installing a binary from the release archives, a Docker image, or a distro
+  package is affected: the artefact names and the image tags do not carry the
+  suffix.
 
 - **`slurm_jobs_*` terminal counters stop being constant zeros (#161):**
   `squeue` reports pending and running jobs when it is not told which states
@@ -193,6 +214,17 @@ supported Slurm window.
   reached. The listener now runs in a goroutine while `runServer` selects over
   its result and `ctx.Done()`.
 
+- **Every path that was not a route answered 200 (#233):** the landing page was
+  registered with `http.HandleFunc("/")`, and `/` in an `http.ServeMux` claims
+  everything no other pattern does. A Prometheus server pointed at `/metric`,
+  or at any typo, was answered 200 with an HTML page: the target scraped as
+  `up`, and the mistake surfaced hours later as a parse error in Prometheus
+  rather than immediately as a 404 from the exporter. The page now uses
+  `exporter-toolkit`'s `web.NewLandingPage`, which also sets the `Content-Type`
+  the hand-written page never sent and links `/healthz` alongside `/metrics`.
+  Profiling links are disabled, since the exporter does not import
+  `net/http/pprof` and advertising them would point at a 404.
+
 - **Release image build (#109):** the refresh binary is now staged at both the
   `dockers_v2` `$TARGETPLATFORM` path and the older flat one, so either
   `Dockerfile` COPY layout finds it.
@@ -231,6 +263,19 @@ supported Slurm window.
 
 ### 🧪 Tests & Quality
 
+- **The metric surface is now a generated golden, checked in CI (#236):** the
+  release checklist asked for a scrape diffed against `docs/metrics.md`, a
+  comparison that cannot see a metric the cluster had no reason to emit — and
+  it never did. Eight `slurm_queue_*` and eight `slurm_cores_*` terminal-state
+  metrics sat behind a single `...` row in the document, invisible to a reader
+  searching for `slurm_queue_failed` and invisible to the diff, because a test
+  cluster with no failed jobs publishes none of them. `docs/metric-surface.md`
+  is generated from every collector's `Describe()` output — 209 declarations
+  across 24 builds, including both settings of each cardinality flag — so a
+  deleted metric and a metric with no data are no longer the same observation.
+  A companion test compares `docs/metrics.md` against that surface in both
+  directions, so a metric can no longer be documented without existing, or
+  exist without being documented.
 - **Fixtures renamed after the registry entry they back (#195)** and the
   per-version discovery made honest (#177), so a directory that exists but
   covers nothing can no longer read as coverage.
@@ -254,6 +299,18 @@ supported Slurm window.
 
 ### 📋 Documentation
 
+- **Non-regression is a release step, not an intention (#235):** the process
+  asked for it in prose and never said what would satisfy it, so it was
+  discharged by whatever had been run. It is now step 4 of the Definition of
+  Done and its own section in the release process, with a table mapping each
+  kind of change to the net that catches it, and a ranked list of acceptable
+  measurements for the changes no test can express — a documented version
+  number among them.
+- **The 1.8 support window is stated in `SECURITY.md` (#215):** 1.8 is the last
+  release of the v1 line and lives on `release-1.8`. It receives every security
+  fix until 2.0.0 ships, then critical severity only, for six months from the
+  2.0.0 release date. The backport route onto that branch is documented in the
+  release process.
 - **P0 to P3 issue triage scale documented (#152)** and a registry entry now
   required for every new collector (#195).
 - **The release Slurm-version window follows Slurm's own policy (#189):**
@@ -271,15 +328,88 @@ supported Slurm window.
 
 ### 🔧 Maintenance
 
-- Go toolchain 1.26.4 → 1.26.5 (#124); `govulncheck` pinned to v1.6.0 (#125).
-- `golang.org/x/text` 0.37.0 → 0.39.0 for CVE-2026-56852, which was gating
-  every image-building PR; `golang.org/x/crypto` 0.51.0 → 0.53.0, starting with
-  #110.
-- `prometheus/common` 0.68.1 → 0.70.0, `prometheus/exporter-toolkit` 0.16.0 →
-  0.17.1, plus the transitive set.
+- **Go toolchain 1.26.4 → 1.26.8**, in the twelve places that pin it — the
+  `setup-go` steps, the tools image, and the `golang:` tag Trivy compiles the
+  scanned binary inside, which is the one that decides the stdlib it sees.
+  1.26.6 carries GO-2026-6089 (`net/http`), GO-2026-6090 (`crypto/tls`),
+  GO-2026-6091 (`html/template`) and GO-2026-5972 (`encoding/asn1`) — see the
+  1.8.5 section below for the reachability measured against a shipped binary.
+  `govulncheck` itself pinned to v1.6.0 (#125).
+- **`golang.org/x/crypto` 0.51.0 → 0.56.0**, the last step for CVE-2026-56854.
+  It is not reachable from this code — the module is present because
+  `exporter-toolkit`'s basic-auth hashing links `bcrypt`/`blowfish` — but
+  Trivy gates image publishing at module-version granularity, so it moves
+  regardless of reachability. `golang.org/x/text` 0.37.0 → 0.41.0, the first
+  step of which cleared CVE-2026-56852 that was blocking every image-building
+  PR; `x/sys` 0.45.0 → 0.47.0 carried along by `go mod tidy`.
+- `prometheus/common` 0.68.1 → 0.70.1, `prometheus/exporter-toolkit` 0.16.0 →
+  0.19.0, `stretchr/testify` → 1.12.1, plus the transitive set.
+- **Dependabot no longer drifts the tools image off the CI toolchain (#231):**
+  it bumped the `golang` base image in `scripts/docker/tools` independently, so
+  the container running `make check` could sit on a different Go patch than the
+  one CI pins. That image now follows the pinned toolchain.
+- **CI runs on release branches (#237):** the workflow triggered on `master`
+  only, so `release-1.8` — the branch the support window commits to
+  backporting onto — had no lint or test gate at all. The same PR stopped a
+  Go Report Card badge refresh from failing a tag: the POST is a cosmetic
+  side-effect and now tolerates a non-2xx.
 - Five unused compatibility shims removed from the logger (#137); the Makefile
   Go-version fallback derived from `go.mod` (#114).
 - The usual run of pinned action and base-image digest bumps.
+
+## [1.8.5] - 2026-09-04
+
+A security-only release. No collector, parser, metric, label or dashboard
+changes: the exporter behaves exactly as v1.8.4 did. The binary is what moves.
+
+### 🛡️ Security
+
+- **Go toolchain 1.26.4 → 1.26.8:** `govulncheck` run against v1.8.4 as shipped
+  reported five standard-library vulnerabilities reachable by symbol, three of
+  them on the listener the exporter exists to run:
+
+  | Advisory | Package | Fixed in |
+  |---|---|---|
+  | GO-2026-6091 | `html/template` | 1.26.6 |
+  | GO-2026-6090 | `crypto/tls` | 1.26.6 |
+  | GO-2026-6089 | `net/http` | 1.26.6 |
+  | GO-2026-5972 | `encoding/asn1` | 1.26.6 |
+  | GO-2026-5856 | `crypto/tls` | 1.26.5 |
+
+  Trivy independently reported 8 HIGH against `stdlib v1.26.4`. Both gates are
+  clear on 1.26.8, which is the current patch of the line v1.8 already used, so
+  nothing changes but the standard library.
+
+- **`golang.org/x/crypto` v0.51.0 → v0.56.0** for CVE-2026-56854, which Trivy
+  rates CRITICAL. It is not reachable from this code — the module is pinned
+  because `exporter-toolkit`'s basic-auth password hashing links
+  `bcrypt`/`blowfish` — but Trivy gates image publishing at module-version
+  granularity, so the dependency moves anyway. `go mod tidy` carried
+  `x/sys` 0.45.0 → 0.47.0 and `x/text` 0.37.0 → 0.41.0 with it.
+
+### 📋 Documentation
+
+- **`SECURITY.md` now states the 1.8 support window.** It previously said the
+  project was not actively maintained for Slurm 25.11+ and pointed readers at a
+  different repository. That stance has been reversed: `slurm_exporter` is
+  maintained. 1.8 is the last of the v1 line and keeps receiving every security
+  fix until 2.0.0 ships, then critical severity only, for six months from the
+  2.0.0 release date.
+
+
+### ✅ Validation
+
+Validated on the Slurm 25.11.2 integration cluster with the v1.8.5 binary
+deployed: 16/16 collectors at `success=1`, 507 series under workload, zero
+`ERROR` or `WARN` across the run, and every documented metric either exposed or
+absent for a reason confirmed on the cluster (no licenses, no reservations, no
+drained nodes, no GPUs, no suspended jobs).
+
+Because three of the five advisories are on the TLS and HTTP paths, which the
+standard checklist never exercised, this release was additionally validated
+with `--web.config.file`: TLS handshake with HTTP/2, a scrape returning 200
+over HTTPS, bcrypt basic auth accepting the right password and answering 401 to
+a wrong one and to none, and a plaintext request to the TLS port rejected.
 
 ## [1.8.4] - 2026-06-19
 
