@@ -45,21 +45,33 @@ This applies equally to PRs from contributors and to internal development.
 3. golangci-lint run ./...
    → 0 issues
 
-4. make -C scripts/testing setup
+4. Proof of non-regression
+   → A test that fails before the change and passes after. Run it against
+     the unfixed code first: a test that was green all along protects
+     nothing.
+   → When the change cannot be expressed that way — a toolchain or
+     dependency bump, a rewiring that replaces code which did not exist
+     before — the proof is a measurement compared against the previous
+     release, written into the pull request. What counts as one is listed
+     in docs/release-process.md, "Prove non-regression".
+   → Steps 1-3 passing is not a proof. They say the new code is
+     self-consistent, not that it behaves like the old one.
+
+5. make -C scripts/testing setup
    → Test cluster starts cleanly (10 nodes by default)
    → All 10 Grafana dashboards imported successfully
    → slurm_exporter running on slurmctld:9341
 
-5. make -C scripts/testing workload N=20
+6. make -C scripts/testing workload N=20
    → Jobs submitted across alice/bob/carol/dave/eve/frank
    → Running jobs visible in: docker exec slurmctld squeue --state=RUNNING
 
-6. Prometheus validation (wait one scrape cycle ~35s)
+7. Prometheus validation (wait one scrape cycle ~35s)
    → For each new metric, verify it exists and has a sensible value:
      curl -s http://localhost:9090/api/v1/query?query=<new_metric> | python3 -m json.tool
    → Must return at least one series with a non-NaN value
 
-7. Log check
+8. Log check
    → Scrape once so every collector runs, then read the exporter's own log:
      docker exec slurmctld curl -s http://localhost:9341/metrics > /dev/null
      make -C scripts/testing exporter-logs | grep -E 'level=(ERROR|WARN)'
@@ -68,15 +80,15 @@ This applies equally to PRs from contributors and to internal development.
    → slurmctld must not show increased error rate:
      docker exec slurmctld cat /var/log/slurm/slurmctld.log | grep -c ERROR
 
-8. Dashboard validation (if dashboards were modified)
+9. Dashboard validation (if dashboards were modified)
    → make -C scripts/testing screenshots OUTPUT=/tmp/pr-screenshots
    → All panels show data, no "No data" on panels that should have values
    → No PromQL errors visible
 
-9. make -C scripts/testing stop
+10. make -C scripts/testing stop
    → Cluster stops cleanly, no dangling containers
 
-10. act push (CI simulation)
+11. act push (CI simulation)
     → act push --workflows .github/workflows/release.yml --job test \
         --platform ubuntu-latest=catthehacker/ubuntu:act-latest --no-cache-server
     → All CI jobs pass
@@ -90,7 +102,7 @@ For small changes (docs, comments, minor fixes):
 make build && make test && golangci-lint run ./...
 ```
 
-Integration tests (steps 4-9) are required for any change to:
+Integration tests (steps 5-10) are required for any change to:
 - Collector code (`internal/collector/`)
 - Main entrypoint (`cmd/slurm_exporter/`)
 - Grafana dashboards (`monitoring/grafana/dashboards/`)
@@ -282,18 +294,21 @@ The quick summary:
 1. Branch off `master` as `fix/vX.Y.Z` (patch) or `feat/vX.Y` (minor).
 2. Triage open PRs/issues; pick a coherent release theme.
 3. Integrate community PRs as local commits with `Co-authored-by:` — one
-   commit per logical change, each with a non-regression test.
-4. Run the defensive audit (same bug class elsewhere?).
-5. `make check` (containerised) + `make report` (offline goreportcard
+   commit per logical change.
+4. Prove non-regression for every change in the release, whoever wrote it:
+   a red-then-green test, or a measurement against the previous release when
+   a test cannot express the change.
+5. Run the defensive audit (same bug class elsewhere?).
+6. `make check` (containerised) + `make report` (offline goreportcard
    grade, must stay ≥ B) + `make race` continuously; full end-to-end via
    `scripts/testing`.
-6. Diff the exporter's `/metrics` output against `docs/metrics.md`.
-7. Update `CHANGELOG.md`, `docs/metrics.md`, `docs/metrics-examples.md`,
+7. Diff the exporter's `/metrics` output against `docs/metrics.md`.
+8. Update `CHANGELOG.md`, `docs/metrics.md`, `docs/metrics-examples.md`,
    dashboards, and the companion alerting rules if applicable.
-8. Open the release PR with the v1.8.2 template structure.
-9. After merge: close integrated community PRs with a thank-you and respond
+9. Open the release PR with the v1.8.2 template structure.
+10. After merge: close integrated community PRs with a thank-you and respond
    to acknowledged-but-deferred issues.
-10. **Diff the fixture formats across the support window.** `make fixture-diff`
+11. **Diff the fixture formats across the support window.** `make fixture-diff`
     compares the two ends and reports what Slurm started or stopped emitting
     between them. A shape change is not a failure by itself, but every parser
     reading those files needs a look before the tag. Recapture the ends with
