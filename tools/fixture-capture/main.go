@@ -25,7 +25,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sckyzo/slurm_exporter/internal/collector"
+	"github.com/sckyzo/slurm_exporter/v2/internal/collector"
 )
 
 // anonymizeAWK is embedded so the generated script is self-contained. A capture

@@ -3,7 +3,7 @@ package collector
 import (
 	"strings"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/sckyzo/slurm_exporter/v2/internal/logger"
 )
 
 // squeueJobsColumns is the consolidated squeue layout that feeds the accounts,

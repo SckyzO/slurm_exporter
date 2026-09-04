@@ -651,7 +651,7 @@ All `go_*` and `process_*` metrics are absent from `/metrics`. Only `build_info`
 ```
 # HELP go_build_info Build information about the main Go module.
 # TYPE go_build_info gauge
-go_build_info{checksum="",path="github.com/sckyzo/slurm_exporter",version="(devel)"} 1
+go_build_info{checksum="",path="github.com/sckyzo/slurm_exporter/v2",version="(devel)"} 1
 
 # HELP slurm_cpus_alloc Allocated CPUs
 ...

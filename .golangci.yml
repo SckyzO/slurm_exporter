@@ -89,7 +89,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/sckyzo/slurm_exporter
+        - github.com/sckyzo/slurm_exporter/v2
 
 issues:
   max-issues-per-linter: 0

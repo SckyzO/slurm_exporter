@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/sckyzo/slurm_exporter/internal/logger"
+	"github.com/sckyzo/slurm_exporter/v2/internal/logger"
 )
 
 // ── The command contract ─────────────────────────────────────────────────────
