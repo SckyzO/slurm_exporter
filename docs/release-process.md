@@ -106,25 +106,75 @@ If a PR fixes two distinct bugs (e.g. PR #28 fixed both a regex hyphen issue
 *and* a GRES separator issue), split it into two commits. Each commit must:
 
 - Compile and pass `go test` on its own (so `git bisect` works).
-- Have its own non-regression test if applicable.
+- Carry its own proof of non-regression — see step 4.
 - Carry the `Co-authored-by:` trailer.
-
-### 3.4 Test of non-regression
-
-Every code change must come with a test that:
-
-- Fails before the fix (you should briefly verify this — write the test
-  first, run it, see it fail).
-- Passes after the fix.
-- Uses the project's existing test fixtures in `test_data/` when possible.
-
-If the PR doesn't come with a test, write one. If a fix is purely defensive
-(e.g. log on empty parse), a unit test that exercises the empty path is
-enough.
 
 ---
 
-## 4. Defensive audit
+## 4. Prove non-regression
+
+This step used to live under "Integrate community PRs", which meant it only
+applied to changes that arrived as a contributor's PR. A maintainer-authored
+fix, a toolchain bump or a security backport walked past it, and the release
+shipped on the reviewer's judgement rather than on evidence.
+
+**Every change in a release carries a proof of non-regression.** The default
+proof is a test:
+
+- It fails before the fix. Write it first, run it, watch it fail — a test
+  that was green all along protects nothing.
+- It passes after.
+- It uses the fixtures in `test_data/` when it can, so it keeps testing
+  against output Slurm actually produced.
+
+A purely defensive fix (log on empty parse, say) is covered by a unit test
+that exercises the path being defended.
+
+### Which net covers what
+
+Most of the work is already automated. Reach for the one that matches the
+change instead of writing a new kind of test:
+
+| What changed | Proof |
+|---|---|
+| A parser or a collector's arithmetic | Unit test against a `test_data/` fixture |
+| The arguments of a Slurm command | `TestRegistryMatchesCollectors` — it invokes the real `*Data()` behind a stubbed `Execute` and fails when the table and the code disagree |
+| A fixture | `TestRegistryFixturesExist` and `TestEveryFixtureIsClaimed` |
+| Behaviour across Slurm majors | `make fixture-diff` over the versioned fixture directories |
+| An HTTP route or handler | `httptest` against the mux, asserting status and content type |
+
+### When a test cannot express it
+
+Some changes are real and cannot be written as a red-then-green test: a Go
+toolchain bump, a dependency bump, a rewiring that replaces a function that
+did not exist before. Declaring those untestable and moving on is how a
+regression ships.
+
+For those, **the proof is a measurement compared against the previous
+release, written into the pull request.** Name what you measured, on what,
+and what the previous release produced. A `make check` that passes is not a
+measurement: it says the new code is self-consistent, not that it behaves
+like the old one.
+
+What counts as a measurement, in descending order of preference:
+
+1. The exposed metric surface is unchanged — same names, same labels, same
+   types.
+2. The integration cluster produces the same observable result: every
+   collector at `success=1`, the same set of Slurm commands issued, no
+   `ERROR` or `WARN` across the run.
+3. The specific subsystem the change touches is exercised end to end. A
+   change to the TLS or HTTP stack means running the exporter with
+   `--web.config.file` and scraping over HTTPS, which the validation
+   checklist does not do on its own.
+
+If none of the three is possible, say so in the PR and say why. An
+unmeasurable change is a decision to accept risk, and it should be visible
+as one.
+
+---
+
+## 5. Defensive audit
 
 For each bug you fix, ask: **is the same class of bug present anywhere
 else in the codebase?**
@@ -153,7 +203,7 @@ summary, no `Co-authored-by:`.
 
 ---
 
-## 5. Validate continuously
+## 6. Validate continuously
 
 **Every command below runs inside a containerised toolchain** — Docker is
 the only requirement on the developer machine, the result is identical on
@@ -196,7 +246,7 @@ with `//nolint:gocyclo` and a rationale comment.
 
 ---
 
-## 6. End-to-end test on a live cluster
+## 7. End-to-end test on a live cluster
 
 Spin up the test cluster and validate the actual `/metrics` output, with
 every collector enabled, debug logs captured, and release-specific
@@ -270,7 +320,7 @@ declaring the doc clean.
 
 ---
 
-## 7. Update documentation
+## 8. Update documentation
 
 For every change that affects user-visible behavior:
 
@@ -294,7 +344,7 @@ For breaking changes, include a **migration table** in CHANGELOG:
 
 ---
 
-## 8. Push and open the PR
+## 9. Push and open the PR
 
 ```bash
 git push -u origin fix/vX.Y.Z
@@ -331,7 +381,7 @@ Self-review the diff on GitHub before requesting outside review.
 
 ---
 
-## 9. Post-merge cleanup
+## 10. Post-merge cleanup
 
 Once the PR is merged to `master`:
 
@@ -443,7 +493,7 @@ GitHub release page.
 
 ---
 
-## 10. Handle PRs that don't ship in this release
+## 11. Handle PRs that don't ship in this release
 
 When you receive a PR that has the right idea but doesn't fit the current
 release (wrong scope, missing tests, conflicts with in-flight work), the
@@ -469,7 +519,7 @@ The PRs #29 / issue #27 responses from the v1.8.2 cycle are good templates.
 
 ---
 
-## 11. Security backport onto `release-1.8`
+## 12. Security backport onto `release-1.8`
 
 Everything above describes cutting a release from `master`. A security
 backport is a different, much shorter flow, and it is the only reason to
