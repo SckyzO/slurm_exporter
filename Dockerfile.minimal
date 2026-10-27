@@ -7,7 +7,7 @@
 #     GoReleaser or the Makefile's docker-build target)
 #   - libmunge.so.2 (extracted from a Debian 13 builder stage so the host's
 #     Slurm binaries find their munge dependency at runtime)
-#   - the distroless cc-debian12 runtime (glibc + libstdc++ + ld-linux)
+#   - the distroless cc-debian13 runtime (glibc + libstdc++ + ld-linux)
 #
 # The munged daemon is NOT shipped — the compose mounts the host's munge
 # socket, so a second munged in the container would be dead weight.
@@ -83,7 +83,7 @@ LABEL org.opencontainers.image.source="https://github.com/SckyzO/slurm_exporter"
       org.opencontainers.image.revision="${COMMIT}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
-# distroless cc-debian12:nonroot already runs as uid 65532. No USER directive
+# distroless cc-debian13:nonroot already runs as uid 65532. No USER directive
 # needed; the image enforces it.
 
 ENTRYPOINT ["/usr/local/bin/slurm_exporter"]

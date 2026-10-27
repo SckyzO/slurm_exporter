@@ -357,6 +357,202 @@ supported Slurm window.
   Go-version fallback derived from `go.mod` (#114).
 - The usual run of pinned action and base-image digest bumps.
 
+## [1.8.6] - 2026-10-27
+
+A performance, correctness and security release. Every Slurm-derived metric
+keeps the same name, labels and values as v1.8.5 — proven on the integration
+cluster by a full-surface comparison, 251 series byte for byte, and by an
+equivalence test that captures the old and the new commands at the same
+instant.
+
+The one surface change is internal: `slurm_exporter_cache_age_seconds` gains
+two label values, `cache="sinfo_node_state"` and `cache="squeue_jobs"`, for the
+two caches introduced below. Nothing is removed.
+
+Measured as root on a cluster of about 6,000 nodes, two of whose partitions are
+hidden from unprivileged users, 23,001 (node, partition) pairs throughout.
+
+| | v1.8.3, as deployed | this release |
+|---|---|---|
+| `node` collector | 103.4 s | **0.13–0.48 s** |
+| `drain_reason` collector | 4.1 s for its command | **0.012–0.022 s** |
+| `info` collector | 2.28 s every scrape | 2.0 s once, then ~5 µs |
+| whole `/metrics` scrape, quiet controller | — | **~5 s** |
+| whole `/metrics` scrape, controller under load | 119.7 s cold, 71.9 s as recorded by Prometheus | 6.4–17.6 s warm, 38 s cold |
+| `slurm_node_*` series | 162,068 | unchanged, to the series |
+| `slurm_exporter_collector_success` | 1 while commands timed out | 15/15, and 0 on real failure |
+
+**One number would misrepresent this.** Scrape time on this cluster swings by a
+factor of five within two minutes, and the swing is in `slurmctld`, not here:
+across five scrapes taken thirty seconds apart, `fairshare` — the only
+collector that asks nothing about nodes — held 0.48–0.52 s while `cpus`,
+`partitions` and `gpus` rose together by a factor of five and fell back. The
+two collectors this release fixes sat at 0.14 s and 0.016 s throughout,
+indifferent to it.
+
+What remains of the scrape is the collectors that still walk the node table
+through `sinfo`: `nodes` (grouped by partition × state × feature set, measured
+between 1.5 s and 11.9 s in the same two minutes), `partitions` (two calls,
+#263), and `gpus` (three calls, #145 and #264). On this cluster those calls
+cost roughly six times as much as root than as an unprivileged user for twice
+the rows — the superlinear behaviour #254 documents — so the structural work
+left is to stop walking that table, not to tune timeouts.
+
+### Upgrade notes
+
+- **`--command.timeout`** should be at least 30 s on a cluster of this size.
+  With the 5 s default, a command that takes longer is killed and that
+  collector now reports `collector_success=0` rather than silently reporting
+  success with no data.
+- A Prometheus scrape timeout of 60 s and an interval of 2 min leave ample
+  margin against the worst scrape measured here. Tighten only against your own
+  `scrape_duration_seconds`.
+- Nothing requires a dashboard or alert change: every Slurm-derived metric
+  keeps its name, labels and values.
+
+### 🛡️ Security
+
+- **Go toolchain 1.26.8 → 1.26.10 and `golang.org/x/net` v0.57.0 → v0.60.0.**
+  `govulncheck` against the branch as it stood reported **ten standard-library
+  advisories reachable by symbol**, six of them on the listener this exporter
+  exists to run:
+
+  | Advisory | Package | Fixed in |
+  |---|---|---|
+  | GO-2026-6809 | `crypto/x509` | go1.26.10 |
+  | GO-2026-6617 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6613 | `net/http` | go1.26.9 |
+  | GO-2026-6612 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6611 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6608 | `net/textproto` | go1.26.9 |
+  | GO-2026-6607 | `crypto/tls` | go1.26.9 |
+  | GO-2026-6603 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6600 | `html/template` | go1.26.9 |
+  | GO-2026-6599 | `html/template` | go1.26.9 |
+
+  All ten are gone: `govulncheck` reports zero reachable vulnerabilities on
+  this release, where it reported ten. `go mod tidy` carried `x/crypto`
+  0.56.0 → 0.57.0, `x/sync` 0.22.0 → 0.23.0, `x/sys` 0.47.0 → 0.48.0 and
+  `x/text` 0.41.0 → 0.42.0 with it. Nothing changes but the standard library
+  and those five modules; no collector, parser, metric or label is touched by
+  this bump.
+
+- **The minimal image moves to distroless `cc-debian13`.** The Trivy gate,
+  which decides whether images are published, failed on the minimal image for
+  `libssl3` CVE-2026-84782 (HIGH, 3.0.20-1~deb12u2, fixed in 3.0.22-1~deb12u2).
+  Nothing in this release caused it — the vulnerability database moved, and the
+  pinned `cc-debian12` digest was already the current one, so there was no
+  newer debian12 distroless to bump to. The runtime base therefore moves to
+  `cc-debian13`, which carries the fixed openssl. `libmunge` was already
+  extracted from `debian:13-slim` here, so the image is now internally
+  consistent as well. The standard image was unaffected.
+
+### ⚡ Performance
+
+- **`node` and `drain_reason` no longer run `sinfo -N` (#254).** Both collectors
+  asked `sinfo` for one line per (node, partition) pair, and `node` additionally
+  requested the `Partition:` field, which makes `sinfo` re-walk its node table
+  per partition. On a cluster of about 6,000 nodes, two of whose partitions are
+  hidden from unprivileged users, that single command took 84–119 s — longer
+  than the whole scrape budget, so the per-node series were simply missing most
+  of the time.
+
+  The per-node values now come from `scontrol show nodes -o` (0.4 s on the same
+  cluster) and the state text from `sinfo -h -o "%N|%T"` (1.1 s), whose host
+  lists are expanded in Go rather than by forking `scontrol show hostnames`. A
+  25 s `sinfo_node_state` cache entry joins the existing `scontrol_nodes` one,
+  so two collectors in the same scrape share a single pair of commands.
+
+  The `node` collector went from 103.4 s to 0.14 s on that cluster, emitting the
+  same 162,068 `slurm_node_*` series; see the table above for the whole scrape.
+
+  The defect this fixes is availability, not latency: with a 2 min scrape
+  interval and a 1 m 50 s timeout — both already stretched to accommodate the
+  old command — only 35 of 719 daily scrapes carried the complete set, so a
+  `slurm_node_status` series received 8 samples a day instead of 719.
+
+- **The `info` collector resolves binary versions once instead of forking
+  `--version` every scrape (#149).** Six required forks plus up to three
+  optional ones, with `sinfo` probed twice, ran on each scrape to read values
+  that cannot change while the process lives. They are now probed on the first
+  scrape through a `sync.Once` and served from memory.
+
+  **Operational note:** a Slurm upgrade performed in place under a running
+  exporter is no longer reflected in `slurm_info` until the process is
+  restarted. Whatever performs the upgrade restarts the exporter in every
+  supported deployment, but the behaviour did change.
+
+- **One `squeue` snapshot is shared by `accounts`, `users` and `partitions`
+  (#144).** The three collectors each dumped the whole job queue from
+  `slurmctld` on every scrape — five separate `squeue` calls, run serially. They
+  now read one per-scrape cached snapshot and project the exact column layout
+  each parser already consumed, so their fixtures and values are untouched.
+  `queue` is deliberately left out: it omits `-a`/`-r` and toggles
+  `--states=all`, and sharing it would change how job arrays and
+  hidden-partition jobs are counted. Backported from `master` (`ebc1655`).
+
+- **Each `scontrol show nodes -o` line is read in a single pass.** The first
+  implementation ran eight anchored regexes per ~700-byte line, costing 344 ms
+  at 5,884 nodes; the single-pass scanner does the same work in 10.2 ms, below
+  the 13.8 ms the `sinfo` parser it replaces needed. Benchmarks live in
+  `node_scontrol_bench_test.go`.
+
+### 🐛 Bug Fixes
+
+- **`slurm_exporter_collector_success` now reports Slurm command failures
+  (#138).** Every collector reported `success=1` even when its command failed,
+  exited non-zero or timed out, because the error was logged and swallowed
+  before the status tracker saw it. The thirteen collectors concerned now
+  propagate the failure, so `success=0` means what it says. Backported from
+  `master` (`725664e`).
+
+- **`SIGTERM` and `SIGINT` now stop the exporter (#139).** The signal context
+  existed but was only wired into the `sacct_efficiency` collector:
+  `web.ListenAndServe` blocked for the life of the process, nothing called
+  `server.Shutdown()`, and the graceful-shutdown block sat after the listen call
+  where it could never run. Ctrl-C did nothing and a container or pod could only
+  be stopped by the `SIGKILL` at the end of its grace period. `runServer` now
+  selects over the listener result and `ctx.Done()`, shuts the server down with
+  a 10 s bound and waits for the background goroutine. Verified both ways on the
+  integration cluster: the previous build ignores `SIGINT` and needs `SIGKILL`,
+  this one exits in about a second. Backported from `master` (`c8d9007`).
+
+- **`FAIL` and `NOT_RESPONDING` no longer move a node's CPUs to `other`.** The
+  field correspondence published in #254 listed five state flags as degraded;
+  driven against a live cluster, only `DRAIN` and `DOWN` behave that way.
+  `sinfo` reports `0/10/0/10` for an `IDLE+FAIL` node, `4/6/0/10` for
+  `MIXED+FAIL` and `0/10/0/10` for `IDLE+NOT_RESPONDING` — `other` stays at
+  zero in all three. `INVALID_REG` was dropped for the same reason. The fixture
+  carries those three nodes, so the equivalence test fails if the five-flag list
+  ever comes back.
+
+### 🧪 Tests & Quality
+
+- **The GPU fixture tests are honest about version directories (#148, #177).**
+  `TestGPUsMetrics` globbed `../test_data/slurm-*` — one directory level short
+  of the fixtures — so it had never run against a single capture. The path is
+  fixed and it now reads six GPU captures. `TestGPUsGetMetrics` skips the
+  version directories that carry no `sinfo_gpus_total.txt` instead of failing on
+  them, and both tests fail if no directory carries GPU fixtures at all.
+
+- A `node_state`/`scontrol_nodes` fixture pair captured on Slurm 25.11.2 pins
+  the two parsing traps the field correspondence does not mention: `OS=` values
+  contain spaces and `#`, and `State=` is a suffix of `NextState=`.
+
+- Degenerate-line coverage for the single-pass scanner (runs of spaces, a bare
+  `=`, empty lines) guards against a non-advancing scan.
+
+### ⚙️ CI/CD
+
+- **The tools image pins every tool it installs.** `make tools-image` had nine
+  `@latest` installs; `osv-scanner` resolved to a version requiring a newer Go
+  than the image provides, which broke the image build and with it `vet`,
+  `lint`, `test`, `race`, `vuln`, `actionlint`, `zizmor` and `deadcode` — the
+  whole verification chain, on a branch that could not then be checked at all.
+  The nine are pinned, and `govulncheck` is pinned in
+  `.github/workflows/govulncheck.yml`, which was the last `@latest` left in a
+  workflow.
+
 ## [1.8.5] - 2026-09-04
 
 A security-only release. No collector, parser, metric, label or dashboard
