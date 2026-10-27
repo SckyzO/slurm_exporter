@@ -16,8 +16,36 @@ The one surface change is internal: `slurm_exporter_cache_age_seconds` gains
 two label values, `cache="sinfo_node_state"` and `cache="squeue_jobs"`, for the
 two caches introduced below. Nothing is removed.
 
-Measured per scrape on the integration cluster: `sinfo` calls 7 → 5, `squeue`
-calls 5 → 2 (one shared snapshot plus `queue`, which stays separate).
+Measured on a cluster of about 6,000 nodes, two of whose partitions are hidden
+from unprivileged users, as root, with the same collectors enabled and the same
+23,001 (node, partition) pairs throughout. The middle column is this branch
+with #254 and #149 fixed but before the three backports below, which is what
+isolates what each half of the work bought:
+
+| | v1.8.3, as deployed | after #254 and #149 | this release |
+|---|---|---|---|
+| full `/metrics` scrape | 119.7 s (one sample) | median 11.6 s, worst 47.3 s | **median 4.4 s, worst 10.5 s** |
+| `node` collector | 103.4 s | 0.11–0.51 s | 0.13–0.15 s |
+| `info` collector | not measured | 2.28 s every scrape | 0.000005 s after the first |
+| `slurm_node_*` series | 162,068 | 163,6xx | 162,594 |
+
+The v1.8.3 figure is a single sample taken on a cluster whose scrape times
+swing by a factor of seven, so treat it as an order of magnitude, not a
+measurement. The two eight-scrape distributions are comparable with each other.
+
+The middle column is the interesting one: fixing #254 removed the collector
+that took 103 s, and the scrape still spent 47.3 s on its worst run. Those
+peaks were never the same collector twice — 20.2 s in `gpus`, 15.7 s in
+`users`, 12.6 s in `queue` — while every other collector held its quiet value.
+Cutting the per-scrape command count removed them: on the integration cluster,
+sixteen `sinfo` and `squeue` calls per scrape become ten, and on the production
+cluster a steady-state scrape now issues five `sinfo`, one `squeue`, two
+`scontrol`, one `sdiag` and one `sshare`. That is consistent with the exporter
+having contended with itself on a single `slurmctld`, which I have not proven —
+only the effect is measured.
+
+`slurm_exporter_collector_success` reads 15/15 on every scrape of both
+distributions, and now reports 0 when a command actually fails (#138).
 
 ### ⚡ Performance
 
@@ -35,19 +63,8 @@ calls 5 → 2 (one shared snapshot plus `queue`, which stays separate).
   25 s `sinfo_node_state` cache entry joins the existing `scontrol_nodes` one,
   so two collectors in the same scrape share a single pair of commands.
 
-  Measured end to end on that cluster, with the same collectors enabled and the
-  same ~23,000 (node, partition) pairs on both sides:
-
-  | | before | this branch |
-  |---|---|---|
-  | full `/metrics` scrape | 119.7 s | 10.4 s |
-  | `node` collector | 103.4 s | 0.12 s |
-  | `slurm_node_*` series | 162,068 | 162,068 |
-
-  The baseline was taken with the v1.8.3 binary that cluster runs. The only
-  change these two collectors saw in v1.8.4 and v1.8.5 is the #69 label fix
-  (`partition="cpu*"` → `"cpu"`), which leaves the command and its cost
-  untouched.
+  The `node` collector went from 103.4 s to 0.14 s on that cluster, emitting the
+  same 162,068 `slurm_node_*` series; see the table above for the whole scrape.
 
   The defect this fixes is availability, not latency: with a 2 min scrape
   interval and a 1 m 50 s timeout — both already stretched to accommodate the
