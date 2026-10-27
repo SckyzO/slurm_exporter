@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,6 +49,39 @@ func TestParseScontrolNodesDoesNotConfuseStateWithNextState(t *testing.T) {
 	nodes := ParseScontrolNodes([]byte(line))
 	require.Contains(t, nodes, "c1")
 	assert.Equal(t, "IDLE+DRAIN", nodes["c1"].state)
+}
+
+// The line scanner advances through the line itself, so a token that does not
+// advance it would spin forever. These are the shapes that could do it.
+func TestParseScontrolNodesSurvivesDegenerateLines(t *testing.T) {
+	tests := []struct {
+		name string
+		line string
+	}{
+		{name: "trailing spaces", line: "NodeName=c1 State=IDLE Partitions=cpu    "},
+		{name: "leading spaces", line: "   NodeName=c1 State=IDLE Partitions=cpu"},
+		{name: "runs of spaces", line: "NodeName=c1     State=IDLE      Partitions=cpu"},
+		{name: "bare equals signs", line: "NodeName=c1 = == = State=IDLE Partitions=cpu"},
+		{name: "equals at end of line", line: "NodeName=c1 State=IDLE Partitions=cpu Trailing="},
+		{name: "tokens with no equals", line: "NodeName=c1 SMP PREEMPT_DYNAMIC 2026 State=IDLE Partitions=cpu"},
+		{name: "only spaces", line: "    "},
+		{name: "single equals", line: "="},
+		{name: "empty", line: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// A hang here is the failure; the assertions only confirm the
+			// fields still came through where a node was named.
+			nodes := ParseScontrolNodes([]byte(tt.line))
+			if strings.Contains(tt.line, "NodeName=") {
+				require.Contains(t, nodes, "c1")
+				assert.Equal(t, "IDLE", nodes["c1"].state)
+				assert.Equal(t, []string{"cpu"}, nodes["c1"].partitions)
+			} else {
+				assert.Empty(t, nodes)
+			}
+		})
+	}
 }
 
 func TestParseScontrolNodesPartitions(t *testing.T) {
