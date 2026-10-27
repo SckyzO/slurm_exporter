@@ -22,16 +22,77 @@ type NodeMetrics struct {
 	partitions []string
 }
 
-func NodeGetMetrics(logger *logger.Logger) (map[string]*NodeMetrics, error) {
-	data, err := NodeData(logger)
+func NodeGetMetrics(logger *logger.Logger) (map[string]*NodeMetrics, int, error) {
+	scontrolOut, err := ScontrolNodesData(logger)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return ParseNodeMetrics(data), nil
+	stateOut, err := NodeStateData(logger)
+	if err != nil {
+		return nil, 0, err
+	}
+	nodes, derived := BuildNodeMetrics(scontrolOut, stateOut)
+	return nodes, derived, nil
 }
 
-// ParseNodeMetrics takes the output of sinfo with node data
-// It returns a map of metrics per node, including partitions
+/*
+BuildNodeMetrics assembles the per-node metrics from the two cheap commands
+that replaced `sinfo -N` (#254): `scontrol show nodes -o` for the values and
+`sinfo -h -o "%N|%T"` for the state string.
+
+Every label and every value is the same as the old path produced. The mapping
+was checked field by field against paired captures of both commands taken at
+the same moment, which is what node_scontrol_equivalence_test.go asserts.
+
+derivedStates counts the nodes whose state string had to be derived from
+scontrol because the grouped sinfo call did not list them. It should always be
+zero; the caller logs it when it is not, because the alternative to a visible
+count is a status label that quietly stops matching the dashboards.
+*/
+func BuildNodeMetrics(scontrolOut, stateOut []byte) (nodes map[string]*NodeMetrics, derivedStates int) {
+	states := ParseNodeStates(stateOut)
+	nodes = make(map[string]*NodeMetrics)
+
+	for name, n := range ParseScontrolNodes(scontrolOut) {
+		// A node in no partition produced no row under `sinfo -N` and
+		// produces no series here either: every slurm_node_* metric carries
+		// a partition label.
+		if len(n.partitions) == 0 {
+			continue
+		}
+		state, fromSinfo := nodeStateFor(n, states)
+		if !fromSinfo {
+			derivedStates++
+		}
+		cpuIdle, cpuOther := n.cpuIdleOther()
+		nodes[name] = &NodeMetrics{
+			memAlloc:   n.memAlloc,
+			memTotal:   n.memTotal,
+			cpuAlloc:   n.cpuAlloc,
+			cpuIdle:    cpuIdle,
+			cpuOther:   cpuOther,
+			cpuTotal:   n.cpuTotal,
+			nodeStatus: state,
+			partitions: n.partitions,
+		}
+	}
+	return nodes, derivedStates
+}
+
+/*
+ParseNodeMetrics parses the old `sinfo -N` node output into the same metrics
+map BuildNodeMetrics now produces.
+
+Nothing in the exporter calls this any more: the command it parses is the one
+#254 removed, because asking sinfo for the partition column of every node took
+one to two minutes on a large cluster and the collector never completed.
+
+It is kept as the reference implementation the equivalence test compares the
+new path against. Asserting hand-written expectations instead would only prove
+the new parser matches a transcription of the old one; running both over the
+same capture proves it matches the code that shipped. Delete it and that proof
+goes with it.
+*/
 func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 	nodes := make(map[string]*NodeMetrics)
 	lines := strings.Split(string(input), "\n")
@@ -81,21 +142,6 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 	return nodes
 }
 
-/*
-NodeData executes the sinfo command to get detailed data for each node.
-Expected sinfo output format: space-separated columns
-"NodeList AllocMem Memory CPUsState StateLong Partition".
-
-The trailing ":" on each field forces sinfo to use variable column widths;
-without it, long node names (>20 chars, the default NodeList width) collide
-with the next column and produce <6 whitespace-separated tokens — silently
-dropping those nodes. See https://github.com/SckyzO/slurm_exporter/issues/10.
-*/
-func NodeData(logger *logger.Logger) ([]byte, error) {
-	args := []string{"-h", "-N", "-O", "NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition:"}
-	return Execute(logger, "sinfo", args)
-}
-
 type NodeCollector struct {
 	cpuAlloc   *prometheus.Desc
 	cpuIdle    *prometheus.Desc
@@ -134,13 +180,16 @@ func (nc *NodeCollector) Describe(ch chan<- *prometheus.Desc) {
 func (nc *NodeCollector) Collect(ch chan<- prometheus.Metric) { _ = nc.tryCollect(ch) }
 
 func (nc *NodeCollector) tryCollect(ch chan<- prometheus.Metric) error {
-	nodes, err := NodeGetMetrics(nc.logger)
+	nodes, derivedStates, err := NodeGetMetrics(nc.logger)
 	if err != nil {
 		nc.logger.Error("Failed to get node metrics", "err", err)
 		return err
 	}
 	if len(nodes) == 0 {
-		nc.logger.Warn("node collector parsed zero nodes — sinfo returned no data or output format unexpected; no slurm_node_* series will be exposed this scrape")
+		nc.logger.Warn("node collector parsed zero nodes — scontrol returned no data or output format unexpected; no slurm_node_* series will be exposed this scrape")
+	}
+	if derivedStates > 0 {
+		nc.logger.Warn("nodes absent from the grouped sinfo state output; their status label was derived from scontrol and may not match sinfo's wording", "nodes", derivedStates)
 	}
 	for node, metrics := range nodes {
 		for _, partition := range metrics.partitions {
