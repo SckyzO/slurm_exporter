@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.6] - 2026-10-27
 
-A performance and correctness release. Every Slurm-derived metric keeps the
-same name, labels and values as v1.8.5 — proven on the integration cluster by a
-full-surface comparison, 251 series byte for byte, and by an equivalence test
-that captures the old and the new commands at the same instant.
+A performance, correctness and security release. Every Slurm-derived metric
+keeps the same name, labels and values as v1.8.5 — proven on the integration
+cluster by a full-surface comparison, 251 series byte for byte, and by an
+equivalence test that captures the old and the new commands at the same
+instant.
 
 The one surface change is internal: `slurm_exporter_cache_age_seconds` gains
 two label values, `cache="sinfo_node_state"` and `cache="squeue_jobs"`, for the
@@ -56,6 +57,33 @@ left is to stop walking that table, not to tune timeouts.
   `scrape_duration_seconds`.
 - Nothing requires a dashboard or alert change: every Slurm-derived metric
   keeps its name, labels and values.
+
+### 🛡️ Security
+
+- **Go toolchain 1.26.8 → 1.26.10 and `golang.org/x/net` v0.57.0 → v0.60.0.**
+  `govulncheck` against the branch as it stood reported **ten standard-library
+  advisories reachable by symbol**, six of them on the listener this exporter
+  exists to run:
+
+  | Advisory | Package | Fixed in |
+  |---|---|---|
+  | GO-2026-6809 | `crypto/x509` | go1.26.10 |
+  | GO-2026-6617 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6613 | `net/http` | go1.26.9 |
+  | GO-2026-6612 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6611 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6608 | `net/textproto` | go1.26.9 |
+  | GO-2026-6607 | `crypto/tls` | go1.26.9 |
+  | GO-2026-6603 | `net/http`, `x/net` | go1.26.9, x/net v0.60.0 |
+  | GO-2026-6600 | `html/template` | go1.26.9 |
+  | GO-2026-6599 | `html/template` | go1.26.9 |
+
+  All ten are gone: `govulncheck` reports zero reachable vulnerabilities on
+  this release, where it reported ten. `go mod tidy` carried `x/crypto`
+  0.56.0 → 0.57.0, `x/sync` 0.22.0 → 0.23.0, `x/sys` 0.47.0 → 0.48.0 and
+  `x/text` 0.41.0 → 0.42.0 with it. Nothing changes but the standard library
+  and those five modules; no collector, parser, metric or label is touched by
+  this bump.
 
 ### ⚡ Performance
 
