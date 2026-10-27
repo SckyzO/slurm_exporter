@@ -25,15 +25,32 @@ RUN apk add --no-cache git bash curl ca-certificates findutils \
 # Static-analysis tools used by `make report` (the same set goreportcard.com
 # runs server-side), by `make check` (lint + vet + test + vuln + actionlint),
 # and by `make vuln` / `make actionlint`.
-RUN go install github.com/fzipp/gocyclo/cmd/gocyclo@latest \
- && go install github.com/client9/misspell/cmd/misspell@latest \
- && go install github.com/gordonklaus/ineffassign@latest \
- && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest \
- && go install golang.org/x/vuln/cmd/govulncheck@latest \
- && go install github.com/rhysd/actionlint/cmd/actionlint@latest \
- && go install github.com/zricethezav/gitleaks/v8@latest \
- && go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest \
- && go install golang.org/x/tools/cmd/deadcode@latest \
+#
+# Every version is pinned, and that is not tidiness. `@latest` resolves at
+# build time against the Go above, which is itself pinned to match CI, so any
+# tool that raises its own `go` directive past that line stops installing and
+# takes the whole image — and therefore `make check`, `make test` and
+# `make lint` — down with it, on every branch at once. osv-scanner v2.7.0 did
+# exactly that: it requires go >= 1.27.0, past the line pinned above, and because
+# CI runs these tools through setup-go rather than this image, nothing went
+# red to say so.
+#
+# govulncheck tracks the version pinned in .github/workflows/govulncheck.yml,
+# for the same reason the Go version tracks setup-go: `make vuln` must not
+# report a different set of findings than the job that gates the merge.
+#
+# Dependabot does not read `go install` lines, so these are bumped by hand.
+# To re-resolve a ceiling, read the tool's `go` directive before bumping:
+#     curl -s https://proxy.golang.org/<module>/@v/<version>.mod | grep '^go '
+RUN go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 \
+ && go install github.com/client9/misspell/cmd/misspell@v0.3.4 \
+ && go install github.com/gordonklaus/ineffassign@v0.2.0 \
+ && go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 \
+ && go install golang.org/x/vuln/cmd/govulncheck@v1.6.0 \
+ && go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 \
+ && go install github.com/zricethezav/gitleaks/v8@v8.30.1 \
+ && go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.5.1 \
+ && go install golang.org/x/tools/cmd/deadcode@v0.52.0 \
  && go clean -cache -modcache -testcache
 
 # All tools land in /go/bin which is already on $PATH.
