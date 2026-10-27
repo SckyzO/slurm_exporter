@@ -85,6 +85,16 @@ left is to stop walking that table, not to tune timeouts.
   and those five modules; no collector, parser, metric or label is touched by
   this bump.
 
+- **The minimal image moves to distroless `cc-debian13`.** The Trivy gate,
+  which decides whether images are published, failed on the minimal image for
+  `libssl3` CVE-2026-84782 (HIGH, 3.0.20-1~deb12u2, fixed in 3.0.22-1~deb12u2).
+  Nothing in this release caused it — the vulnerability database moved, and the
+  pinned `cc-debian12` digest was already the current one, so there was no
+  newer debian12 distroless to bump to. The runtime base therefore moves to
+  `cc-debian13`, which carries the fixed openssl. `libmunge` was already
+  extracted from `debian:13-slim` here, so the image is now internally
+  consistent as well. The standard image was unaffected.
+
 ### ⚡ Performance
 
 - **`node` and `drain_reason` no longer run `sinfo -N` (#254).** Both collectors
