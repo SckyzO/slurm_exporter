@@ -1,0 +1,6 @@
+c7|drained$
+c3|draining
+c5|drained
+c[1-2,10]|mixed
+c[4,8-9]|idle
+c6|down

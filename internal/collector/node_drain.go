@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,8 +17,16 @@ type DrainReasonMetrics struct {
 	Since     string // ISO8601 timestamp when the reason was set
 }
 
-// ParseDrainReasonMetrics parses "sinfo -h -N -o '%N|%E|%H|%T'" output.
-// Only nodes with a non-empty, non-"none" reason are returned.
+/*
+ParseDrainReasonMetrics parses the old "sinfo -h -N -o '%N|%E|%H|%T'" output.
+Only nodes with a non-empty, non-"none" reason are returned.
+
+Nothing in the exporter calls this any more — #254 replaced the per-node sinfo
+call it reads, which ran at 4.1 s against a 5 s default timeout and so was
+killed on some scrapes. It is kept as the reference implementation the
+equivalence test compares BuildDrainReasonMetrics against, over a capture of
+both commands taken at the same moment.
+*/
 func ParseDrainReasonMetrics(input []byte) []DrainReasonMetrics {
 	var results []DrainReasonMetrics
 	seen := make(map[string]bool) // deduplicate by node (node can appear in multiple partitions)
@@ -57,10 +66,58 @@ func ParseDrainReasonMetrics(input []byte) []DrainReasonMetrics {
 	return results
 }
 
-// DrainReasonData executes sinfo to retrieve node drain/down reasons.
-// Uses -N (per-node) to get one line per node.
-func DrainReasonData(log *logger.Logger) ([]byte, error) {
-	return Execute(log, "sinfo", []string{"-h", "-N", "-o", "%N|%E|%H|%T"})
+/*
+BuildDrainReasonMetrics assembles the drain/down reasons from the two cheap
+commands that replaced `sinfo -N` (#254): `scontrol show nodes -o` for the
+reason and its timestamp, `sinfo -h -o "%N|%T"` for the state string.
+
+The filter is the one the old path applied, on the same sinfo state string:
+only nodes sinfo reports as down or drained, and only those carrying a reason
+that says something. Results are sorted by node name so the output is
+deterministic, which map iteration is not.
+*/
+func BuildDrainReasonMetrics(scontrolOut, stateOut []byte) []DrainReasonMetrics {
+	nodes := ParseScontrolNodes(scontrolOut)
+	states := ParseNodeStates(stateOut)
+
+	names := make([]string, 0, len(nodes))
+	for name := range nodes {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	var results []DrainReasonMetrics
+	for _, name := range names {
+		n := nodes[name]
+		state, _ := nodeStateFor(n, states)
+		// Only interested in degraded node states
+		if !nodeStateDown.MatchString(state) && !nodeStateDrain.MatchString(state) {
+			continue
+		}
+		reasonLower := strings.ToLower(n.reason)
+		if n.reason == "" || reasonLower == "none" || reasonLower == "not responding" || reasonLower == "unknown" {
+			continue
+		}
+		results = append(results, DrainReasonMetrics{
+			Node:   n.name,
+			Reason: n.reason,
+			Since:  n.reasonSince,
+		})
+	}
+	return results
+}
+
+// DrainReasonGetMetrics fetches and assembles the drain/down reasons.
+func DrainReasonGetMetrics(log *logger.Logger) ([]DrainReasonMetrics, error) {
+	scontrolOut, err := ScontrolNodesData(log)
+	if err != nil {
+		return nil, err
+	}
+	stateOut, err := NodeStateData(log)
+	if err != nil {
+		return nil, err
+	}
+	return BuildDrainReasonMetrics(scontrolOut, stateOut), nil
 }
 
 // DrainReasonCollector collects slurm_node_drain_reason_info for degraded nodes.
@@ -90,12 +147,11 @@ func (c *DrainReasonCollector) Describe(ch chan<- *prometheus.Desc) {
 func (c *DrainReasonCollector) Collect(ch chan<- prometheus.Metric) { _ = c.tryCollect(ch) }
 
 func (c *DrainReasonCollector) tryCollect(ch chan<- prometheus.Metric) error {
-	data, err := DrainReasonData(c.logger)
+	metrics, err := DrainReasonGetMetrics(c.logger)
 	if err != nil {
 		c.logger.Error("Failed to get drain reason data", "err", err)
 		return err
 	}
-	metrics := ParseDrainReasonMetrics(data)
 	for _, m := range metrics {
 		ch <- prometheus.MustNewConstMetric(
 			c.info,

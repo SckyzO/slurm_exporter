@@ -61,11 +61,16 @@ c2||Unknown|mixed
 func TestDrainReasonCollector_Collect(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
-	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		return []byte(`c1|audit-drain|2026-04-01T10:00:00|drained
-c2|hw-fail|2026-04-01T09:00:00|down
-`), nil
-	}
+	resetNodeCaches()
+
+	var calls []string
+	Execute = recordingExecute(
+		`NodeName=c1 CPUAlloc=0 CPUTot=8 RealMemory=1000 AllocMem=0 State=IDLE+DRAIN Reason=audit-drain [alice@2026-04-01T10:00:00] Partitions=cpu
+NodeName=c2 CPUAlloc=0 CPUTot=8 RealMemory=1000 AllocMem=0 State=DOWN+DRAIN Reason=hw-fail [root@2026-04-01T09:00:00] ReservationName=maint Partitions=cpu
+NodeName=c3 CPUAlloc=0 CPUTot=8 RealMemory=1000 AllocMem=0 State=IDLE Partitions=cpu`,
+		"c1|drained\nc2|down\nc3|idle\n",
+		&calls,
+	)
 
 	log := logger.NewLogger("error")
 	c := NewDrainReasonCollector(log)
@@ -76,15 +81,35 @@ c2|hw-fail|2026-04-01T09:00:00|down
 	require.NoError(t, err)
 	require.Len(t, mfs, 1)
 	assert.Equal(t, "slurm_node_drain_reason_info", mfs[0].GetName())
-	assert.Len(t, mfs[0].Metric, 2)
+	require.Len(t, mfs[0].Metric, 2, "c3 is healthy and must not appear")
+
+	labels := make(map[string]map[string]string)
+	for _, m := range mfs[0].Metric {
+		got := make(map[string]string)
+		for _, l := range m.GetLabel() {
+			got[l.GetName()] = l.GetValue()
+		}
+		labels[got["node"]] = got
+	}
+	assert.Equal(t, "audit-drain", labels["c1"]["reason"])
+	assert.Equal(t, "2026-04-01T10:00:00", labels["c1"]["since"])
+	// c2 carries a ReservationName= after its reason, the field that broke
+	// the first parser.
+	assert.Equal(t, "hw-fail", labels["c2"]["reason"])
+	assert.Equal(t, "2026-04-01T09:00:00", labels["c2"]["since"])
 }
 
 func TestDrainReasonCollector_EmptyCluster(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
-	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
-		return []byte("c1|none|Unknown|idle\n"), nil
-	}
+	resetNodeCaches()
+
+	var calls []string
+	Execute = recordingExecute(
+		`NodeName=c1 CPUAlloc=0 CPUTot=8 RealMemory=1000 AllocMem=0 State=IDLE Partitions=cpu`,
+		"c1|idle\n",
+		&calls,
+	)
 
 	log := logger.NewLogger("error")
 	c := NewDrainReasonCollector(log)
@@ -99,6 +124,9 @@ func TestDrainReasonCollector_EmptyCluster(t *testing.T) {
 func TestDrainReasonCollector_ErrorHandling(t *testing.T) {
 	oldExecute := Execute
 	defer func() { Execute = oldExecute }()
+	// Without this the collector would be served a previous test's output
+	// from the shared caches and the error path would never be reached.
+	resetNodeCaches()
 	Execute = func(l *logger.Logger, command string, args []string) ([]byte, error) {
 		return nil, assert.AnError
 	}

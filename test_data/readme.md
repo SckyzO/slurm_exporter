@@ -38,8 +38,21 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/node.go`
 
-- `sinfo -h -N -O NodeList,AllocMem,Memory,CPUsState,StateLong,Partition`: per-node detail.
-  - Test file: **`sinfo_mem.txt`**
+- `scontrol show nodes -o`: per-node memory, CPU counts, state flags and
+  partition membership. Shared with `nodes.go` and `reservation_nodes.go`
+  through `scontrolNodesCache`, so one call serves every collector per scrape.
+  - Test file: **`slurm-25.11.2/scontrol_nodes.txt`**
+- `sinfo -h -o "%N|%T"`: the node state string, one row per (partition, state)
+  group with the node list collapsed into a hostlist expression.
+  - Test file: **`slurm-25.11.2/node_state.txt`**
+
+  This pair replaced `sinfo -h -N -O "NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: ,Partition:"`
+  in #254: asking sinfo for the partition column of every node cost one to two
+  minutes on a large multi-partition cluster, past `--command.timeout`, so no
+  `slurm_node_*` series was exposed at all. The old command's output is kept as
+  **`slurm-25.11.2/node_detail.txt`** and **`sinfo_mem.txt`**, which is what
+  `ParseNodeMetrics` still parses — not in production, but as the reference the
+  equivalence test compares the new path against.
 
 ## `collector/nodes.go`
 
@@ -97,8 +110,41 @@ and reservation names have been replaced with generic equivalents).
 
 ## `collector/node_drain.go`
 
-- `sinfo -h -N -o "%N|%E|%H|%T"`: node drain/down reason and timestamp.
-  - No dedicated test file (data varies by cluster state, tested with inline fixtures).
+- `scontrol show nodes -o`: the drain/down reason and its timestamp, read from
+  `Reason=`. Served from the same cache as `node.go`, so this collector adds no
+  call of its own.
+  - Test file: **`slurm-25.11.2/scontrol_nodes.txt`**
+- `sinfo -h -o "%N|%T"`: the state string the reason is filtered on.
+  - Test file: **`slurm-25.11.2/node_state.txt`**
+
+  Replaced `sinfo -h -N -o "%N|%E|%H|%T"` in #254, which ran at about 4 s
+  against a 5 s default timeout and was killed on some scrapes. Its output is
+  kept as **`slurm-25.11.2/drain_reason.txt`** for the equivalence test.
+
+### `slurm-25.11.2/` — the paired capture
+
+The four files above were captured in one run on the `scripts/testing` cluster
+(Slurm 25.11.2, 10 nodes, partitions `cpu`/`debug`/`gpu`/`high`), with the node
+states driven on purpose so the comparison has something to compare:
+
+| Node | State | What it covers |
+|---|---|---|
+| `c1`, `c2`, `c10` | `mixed` | free CPUs count as idle on a healthy node; `c1`/`c2` sit in three partitions |
+| `c3` | `draining` (`MIXED+DRAIN`) | free CPUs of a *busy* degraded node count as other, not idle — the case #255 listed as unproven |
+| `c4`, `c8`, `c9` | `idle` | the baseline |
+| `c5` | `drained` | a plain `Reason=` with its `[user@timestamp]` suffix |
+| `c6` | `down` | a reason containing brackets (`NHC: check_hw_eth [eth0] failed`) |
+| `c7` | `drained$` | a node in a maintenance reservation, so `ReservationName=` follows `Reason=`, and the `$` state suffix |
+
+Two notes for whoever recaptures this:
+
+- **Row order in `node_detail.txt` is not stable.** Two consecutive runs of
+  `sinfo -N` list a multi-partition node's rows in a different order. The
+  content is identical; the parser sorts its input, and the equivalence test
+  compares partitions as sets. A reordering is not a regression.
+- `CPUEfctv` equals `CPUTot` on every node here, so this capture cannot say
+  whether sinfo's CPU total follows one or the other when `CoreSpecCount` is
+  set. That gap stays open in #255.
 
 ## `collector/users.go`
 

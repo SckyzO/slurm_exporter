@@ -69,6 +69,12 @@ func (c *timedCache) AgeSeconds() float64 {
 // scrape always gets fresh data without double-fetching.
 var scontrolNodesCache = &timedCache{ttl: 25 * time.Second}
 
+// sinfoNodeStateCache holds the output of the grouped `sinfo -h -o "%N|%T"`
+// call. The node and drain_reason collectors both need the state string and
+// both run on every scrape, so without this they would pay for the call twice.
+// Same TTL as above, for the same reason.
+var sinfoNodeStateCache = &timedCache{ttl: 25 * time.Second}
+
 // ── Cache age metric ──────────────────────────────────────────────────────────
 
 var cacheAgeGauge = prometheus.NewGaugeVec(
@@ -90,4 +96,5 @@ func RegisterCacheMetrics(reg prometheus.Registerer) {
 // Called from collectors that use caches so the metric stays up to date.
 func updateCacheAge() {
 	cacheAgeGauge.WithLabelValues("scontrol_nodes").Set(scontrolNodesCache.AgeSeconds())
+	cacheAgeGauge.WithLabelValues("sinfo_node_state").Set(sinfoNodeStateCache.AgeSeconds())
 }
