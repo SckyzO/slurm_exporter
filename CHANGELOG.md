@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.8.6] - 2026-10-27
 
 A performance and correctness release. Every Slurm-derived metric keeps the
 same name, labels and values as v1.8.5 — proven on the integration cluster by a
@@ -16,40 +16,46 @@ The one surface change is internal: `slurm_exporter_cache_age_seconds` gains
 two label values, `cache="sinfo_node_state"` and `cache="squeue_jobs"`, for the
 two caches introduced below. Nothing is removed.
 
-Measured on a cluster of about 6,000 nodes, two of whose partitions are hidden
-from unprivileged users, as root, with the same collectors enabled and the same
-23,001 (node, partition) pairs throughout. The middle column is this branch
-with #254 and #149 fixed but before the three backports below, which is what
-isolates what each half of the work bought:
+Measured as root on a cluster of about 6,000 nodes, two of whose partitions are
+hidden from unprivileged users, 23,001 (node, partition) pairs throughout.
 
-| | v1.8.3, as deployed | after #254 and #149 | this release |
-|---|---|---|---|
-| full `/metrics` scrape | 119.7 s (one sample) | median 11.6 s, worst 47.3 s | **median 4.4 s, worst 10.5 s** |
-| `node` collector | 103.4 s | 0.11–0.51 s | 0.13–0.15 s |
-| `info` collector | not measured | 2.28 s every scrape | 0.000005 s after the first |
-| `slurm_node_*` series | 162,068 | 163,6xx | 162,594 |
+| | v1.8.3, as deployed | this release |
+|---|---|---|
+| `node` collector | 103.4 s | **0.13–0.48 s** |
+| `drain_reason` collector | 4.1 s for its command | **0.012–0.022 s** |
+| `info` collector | 2.28 s every scrape | 2.0 s once, then ~5 µs |
+| whole `/metrics` scrape, quiet controller | — | **~5 s** |
+| whole `/metrics` scrape, controller under load | 119.7 s cold, 71.9 s as recorded by Prometheus | 6.4–17.6 s warm, 38 s cold |
+| `slurm_node_*` series | 162,068 | unchanged, to the series |
+| `slurm_exporter_collector_success` | 1 while commands timed out | 15/15, and 0 on real failure |
 
-The v1.8.3 figure is a single sample taken on a cluster whose scrape times
-swing by a factor of seven, so treat it as an order of magnitude, not a
-measurement. The two eight-scrape distributions are comparable with each other.
+**One number would misrepresent this.** Scrape time on this cluster swings by a
+factor of five within two minutes, and the swing is in `slurmctld`, not here:
+across five scrapes taken thirty seconds apart, `fairshare` — the only
+collector that asks nothing about nodes — held 0.48–0.52 s while `cpus`,
+`partitions` and `gpus` rose together by a factor of five and fell back. The
+two collectors this release fixes sat at 0.14 s and 0.016 s throughout,
+indifferent to it.
 
-The middle column is the interesting one: fixing #254 removed the collector
-that took 103 s, and the scrape still spent 47.3 s on its worst run. Those
-peaks were never the same collector twice — 20.2 s in `gpus`, 15.7 s in
-`users`, 12.6 s in `queue` — while every other collector held its quiet value.
-Sharing the `squeue` snapshot removes three of those calls per scrape and with
-them the `users` and `accounts` peaks. That is consistent with the exporter
-having contended with itself on a single `slurmctld`, which I have not proven —
-only the effect is measured.
+What remains of the scrape is the collectors that still walk the node table
+through `sinfo`: `nodes` (grouped by partition × state × feature set, measured
+between 1.5 s and 11.9 s in the same two minutes), `partitions` (two calls,
+#263), and `gpus` (three calls, #145 and #264). On this cluster those calls
+cost roughly six times as much as root than as an unprivileged user for twice
+the rows — the superlinear behaviour #254 documents — so the structural work
+left is to stop walking that table, not to tune timeouts.
 
-The `gpus` peak is not addressed here. That collector still takes three `sinfo`
-snapshots and subtracts them (#145); the fix exists on `master` but it moves
-`slurm_gpus_idle` and `slurm_gpus_other` to a different definition of which
-node states count as available, and a patch release is the wrong place to
-change what a metric means. It is tracked in #264 and #263.
+### Upgrade notes
 
-`slurm_exporter_collector_success` reads 15/15 on every scrape of both
-distributions, and now reports 0 when a command actually fails (#138).
+- **`--command.timeout`** should be at least 30 s on a cluster of this size.
+  With the 5 s default, a command that takes longer is killed and that
+  collector now reports `collector_success=0` rather than silently reporting
+  success with no data.
+- A Prometheus scrape timeout of 60 s and an interval of 2 min leave ample
+  margin against the worst scrape measured here. Tighten only against your own
+  `scrape_duration_seconds`.
+- Nothing requires a dashboard or alert change: every Slurm-derived metric
+  keeps its name, labels and values.
 
 ### ⚡ Performance
 
