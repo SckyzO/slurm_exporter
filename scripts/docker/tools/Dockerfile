@@ -31,7 +31,7 @@ RUN apk add --no-cache git bash curl ca-certificates findutils \
 # tool that raises its own `go` directive past that line stops installing and
 # takes the whole image — and therefore `make check`, `make test` and
 # `make lint` — down with it, on every branch at once. osv-scanner v2.7.0 did
-# exactly that: it requires go >= 1.27.0 against the 1.26.8 here, and because
+# exactly that: it requires go >= 1.27.0, past the line pinned above, and because
 # CI runs these tools through setup-go rather than this image, nothing went
 # red to say so.
 #
