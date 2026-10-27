@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-A performance and correctness release for the per-node collectors. No metric,
-label or value changes: `node`, `drain_reason` and `info` emit exactly the same
-series as v1.8.5, proven by an equivalence test that captures the old and the
-new commands at the same instant on the integration cluster.
+A performance and correctness release. Every Slurm-derived metric keeps the
+same name, labels and values as v1.8.5 — proven on the integration cluster by a
+full-surface comparison, 251 series byte for byte, and by an equivalence test
+that captures the old and the new commands at the same instant.
+
+The one surface change is internal: `slurm_exporter_cache_age_seconds` gains
+two label values, `cache="sinfo_node_state"` and `cache="squeue_jobs"`, for the
+two caches introduced below. Nothing is removed.
+
+Measured per scrape on the integration cluster: `sinfo` calls 7 → 5, `squeue`
+calls 5 → 2 (one shared snapshot plus `queue`, which stays separate).
 
 ### ⚡ Performance
 
@@ -58,6 +65,26 @@ new commands at the same instant on the integration cluster.
   restarted. Whatever performs the upgrade restarts the exporter in every
   supported deployment, but the behaviour did change.
 
+- **The `gpus` collector derives every GPU metric from one `sinfo` snapshot
+  (#145).** It ran three calls per scrape — total, allocated, idle — and
+  subtracted them. Once #254 is fixed those three calls are the most expensive
+  thing left in a scrape: measured at 20.2 s for a single scrape on a cluster of
+  about 6,000 nodes, against 0.98 s on the same cluster when `slurmctld` is
+  idle. They become one consolidated call, and because total, allocated and idle
+  now come from the same instant, the `other >= 0` and `utilization <= 1`
+  invariants hold by construction — the issue #16 clamp that masked the
+  three-call race is provably unreachable and is removed. Backported from
+  `master` (`c6aa13a`).
+
+- **One `squeue` snapshot is shared by `accounts`, `users` and `partitions`
+  (#144).** The three collectors each dumped the whole job queue from
+  `slurmctld` on every scrape — five separate `squeue` calls, run serially. They
+  now read one per-scrape cached snapshot and project the exact column layout
+  each parser already consumed, so their fixtures and values are untouched.
+  `queue` is deliberately left out: it omits `-a`/`-r` and toggles
+  `--states=all`, and sharing it would change how job arrays and
+  hidden-partition jobs are counted. Backported from `master` (`ebc1655`).
+
 - **Each `scontrol show nodes -o` line is read in a single pass.** The first
   implementation ran eight anchored regexes per ~700-byte line, costing 344 ms
   at 5,884 nodes; the single-pass scanner does the same work in 10.2 ms, below
@@ -72,6 +99,17 @@ new commands at the same instant on the integration cluster.
   before the status tracker saw it. The thirteen collectors concerned now
   propagate the failure, so `success=0` means what it says. Backported from
   `master` (`725664e`).
+
+- **`SIGTERM` and `SIGINT` now stop the exporter (#139).** The signal context
+  existed but was only wired into the `sacct_efficiency` collector:
+  `web.ListenAndServe` blocked for the life of the process, nothing called
+  `server.Shutdown()`, and the graceful-shutdown block sat after the listen call
+  where it could never run. Ctrl-C did nothing and a container or pod could only
+  be stopped by the `SIGKILL` at the end of its grace period. `runServer` now
+  selects over the listener result and `ctx.Done()`, shuts the server down with
+  a 10 s bound and waits for the background goroutine. Verified both ways on the
+  integration cluster: the previous build ignores `SIGINT` and needs `SIGKILL`,
+  this one exits in about a second. Backported from `master` (`c8d9007`).
 
 - **`FAIL` and `NOT_RESPONDING` no longer move a node's CPUs to `other`.** The
   field correspondence published in #254 listed five state flags as degraded;
