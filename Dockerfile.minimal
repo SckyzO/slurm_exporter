@@ -40,7 +40,7 @@
 # Extract libmunge from a Debian 13 stage. The shell `cp` consolidates the
 # arch-specific Debian multi-arch path (x86_64-linux-gnu vs aarch64-linux-gnu)
 # into a fixed /libs/ directory — the next COPY then doesn't need TARGETARCH.
-FROM debian:13-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS munge-extractor
+FROM debian:13-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS munge-extractor
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         libmunge2 \
@@ -51,14 +51,14 @@ RUN apt-get update && \
 
 # ---
 
-FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:3ee00291cf386ec52a552e6a858d555debd74776eb4bfa53fa3df2cd6677515e
 
 # libmunge is needed by the host-mounted Slurm binaries (sinfo, squeue,
 # scontrol, …) which are dynamically linked against it. Shipping it here
 # spares operators from having to mount /usr/lib*/libmunge.so.2 manually,
 # which varies across host distributions (/usr/lib64 on RHEL, /usr/lib/
 # x86_64-linux-gnu on Debian).
-# /usr/lib/ is in the default glibc search path on distroless cc-debian12,
+# /usr/lib/ is in the default glibc search path on distroless cc-debian13,
 # so host-mounted binaries find libmunge.so.2 there regardless of arch.
 COPY --from=munge-extractor /libs/libmunge.so.2     /usr/lib/libmunge.so.2
 COPY --from=munge-extractor /libs/libmunge.so.2.0.0 /usr/lib/libmunge.so.2.0.0
