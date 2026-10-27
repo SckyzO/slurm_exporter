@@ -37,12 +37,16 @@ The middle column is the interesting one: fixing #254 removed the collector
 that took 103 s, and the scrape still spent 47.3 s on its worst run. Those
 peaks were never the same collector twice — 20.2 s in `gpus`, 15.7 s in
 `users`, 12.6 s in `queue` — while every other collector held its quiet value.
-Cutting the per-scrape command count removed them: on the integration cluster,
-sixteen `sinfo` and `squeue` calls per scrape become ten, and on the production
-cluster a steady-state scrape now issues five `sinfo`, one `squeue`, two
-`scontrol`, one `sdiag` and one `sshare`. That is consistent with the exporter
+Sharing the `squeue` snapshot removes three of those calls per scrape and with
+them the `users` and `accounts` peaks. That is consistent with the exporter
 having contended with itself on a single `slurmctld`, which I have not proven —
 only the effect is measured.
+
+The `gpus` peak is not addressed here. That collector still takes three `sinfo`
+snapshots and subtracts them (#145); the fix exists on `master` but it moves
+`slurm_gpus_idle` and `slurm_gpus_other` to a different definition of which
+node states count as available, and a patch release is the wrong place to
+change what a metric means. It is tracked in #264 and #263.
 
 `slurm_exporter_collector_success` reads 15/15 on every scrape of both
 distributions, and now reports 0 when a command actually fails (#138).
@@ -81,17 +85,6 @@ distributions, and now reports 0 when a command actually fails (#138).
   exporter is no longer reflected in `slurm_info` until the process is
   restarted. Whatever performs the upgrade restarts the exporter in every
   supported deployment, but the behaviour did change.
-
-- **The `gpus` collector derives every GPU metric from one `sinfo` snapshot
-  (#145).** It ran three calls per scrape — total, allocated, idle — and
-  subtracted them. Once #254 is fixed those three calls are the most expensive
-  thing left in a scrape: measured at 20.2 s for a single scrape on a cluster of
-  about 6,000 nodes, against 0.98 s on the same cluster when `slurmctld` is
-  idle. They become one consolidated call, and because total, allocated and idle
-  now come from the same instant, the `other >= 0` and `utilization <= 1`
-  invariants hold by construction — the issue #16 clamp that masked the
-  three-call race is provably unreachable and is removed. Backported from
-  `master` (`c6aa13a`).
 
 - **One `squeue` snapshot is shared by `accounts`, `users` and `partitions`
   (#144).** The three collectors each dumped the whole job queue from
