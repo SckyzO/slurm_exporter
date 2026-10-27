@@ -206,8 +206,16 @@ func TestCPUIdleOtherSplit(t *testing.T) {
 		{name: "drained", state: "IDLE+DRAIN", alloc: 0, total: 32, wantIdle: 0, wantOther: 32},
 		{name: "draining while busy", state: "MIXED+DRAIN", alloc: 8, total: 32, wantIdle: 0, wantOther: 24},
 		{name: "down", state: "DOWN+NOT_RESPONDING", alloc: 0, total: 32, wantIdle: 0, wantOther: 32},
-		{name: "invalid registration", state: "IDLE+DRAIN+INVALID_REG", alloc: 0, total: 16, wantIdle: 0, wantOther: 16},
-		{name: "failed", state: "FAIL", alloc: 0, total: 8, wantIdle: 0, wantOther: 8},
+		// INVALID_REG has only ever been seen alongside DRAIN or DOWN, which
+		// is what decides the split; it is not in the flag list itself.
+		{name: "invalid registration with drain", state: "IDLE+DRAIN+INVALID_REG", alloc: 0, total: 16, wantIdle: 0, wantOther: 16},
+		{name: "not responding with down", state: "DOWN+DRAIN+NOT_RESPONDING", alloc: 0, total: 16, wantIdle: 0, wantOther: 16},
+		// Observed on the test cluster, not assumed: sinfo reports a failed
+		// node's free CPUs as idle. #254 proposed treating FAIL as degraded,
+		// which would have moved every failed node's capacity to cpu_other.
+		{name: "fail is not degraded, idle node", state: "IDLE+DYNAMIC_NORM+FAIL", alloc: 0, total: 10, wantIdle: 10, wantOther: 0},
+		{name: "fail is not degraded, busy node", state: "MIXED+DYNAMIC_NORM+FAIL", alloc: 4, total: 10, wantIdle: 6, wantOther: 0},
+		{name: "drain wins over fail", state: "IDLE+DRAIN+DYNAMIC_NORM+FAIL", alloc: 0, total: 10, wantIdle: 0, wantOther: 10},
 		{name: "alloc above total does not underflow", state: "IDLE", alloc: 40, total: 32, wantIdle: 0, wantOther: 0},
 	}
 	for _, tt := range tests {

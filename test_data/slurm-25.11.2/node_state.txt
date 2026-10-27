@@ -1,6 +1,9 @@
 c7|drained$
+c10|failing
+c9|fail
+c8|idle*
 c3|draining
 c5|drained
-c[1-2,10]|mixed
-c[4,8-9]|idle
+c[1-2]|mixed
+c4|idle
 c6|down
