@@ -111,42 +111,49 @@ func expandSet(set string) (values []string, ok bool) {
 		return nil, false
 	}
 	for _, item := range strings.Split(set, ",") {
-		item = strings.TrimSpace(item)
-		lo, hi, isRange := strings.Cut(item, "-")
-		if !isRange {
-			if !isDigits(item) {
-				return nil, false
-			}
-			values = append(values, item)
-			continue
-		}
-		if !isDigits(lo) || !isDigits(hi) {
+		got, ok := expandSetItem(strings.TrimSpace(item))
+		if !ok {
 			return nil, false
 		}
-		first, err := strconv.Atoi(lo)
-		if err != nil {
+		values = append(values, got...)
+	}
+	return values, true
+}
+
+// expandSetItem expands one item of a bracket group: either a single number or
+// a "lo-hi" range. ok is false when it is not one of those, which makes the
+// caller keep the whole expression verbatim.
+func expandSetItem(item string) (values []string, ok bool) {
+	lo, hi, isRange := strings.Cut(item, "-")
+	if !isRange {
+		if !isDigits(item) {
 			return nil, false
 		}
-		last, err := strconv.Atoi(hi)
-		if err != nil || last < first {
-			return nil, false
+		return []string{item}, true
+	}
+	if !isDigits(lo) || !isDigits(hi) {
+		return nil, false
+	}
+	first, err := strconv.Atoi(lo)
+	if err != nil {
+		return nil, false
+	}
+	last, err := strconv.Atoi(hi)
+	if err != nil || last < first || last-first+1 > maxExpandedHosts {
+		return nil, false
+	}
+	// Slurm pads to the width the low bound was written with, so "[08-10]"
+	// yields 08,09,10 while "[8-10]" yields 8,9,10.
+	width := 0
+	if len(lo) > 1 && lo[0] == '0' {
+		width = len(lo)
+	}
+	for n := first; n <= last; n++ {
+		s := strconv.Itoa(n)
+		if width > 0 && len(s) < width {
+			s = strings.Repeat("0", width-len(s)) + s
 		}
-		if last-first+1 > maxExpandedHosts {
-			return nil, false
-		}
-		// Slurm pads to the width the low bound was written with, so
-		// "[08-10]" yields 08,09,10 while "[8-10]" yields 8,9,10.
-		width := 0
-		if len(lo) > 1 && lo[0] == '0' {
-			width = len(lo)
-		}
-		for n := first; n <= last; n++ {
-			s := strconv.Itoa(n)
-			if width > 0 && len(s) < width {
-				s = strings.Repeat("0", width-len(s)) + s
-			}
-			values = append(values, s)
-		}
+		values = append(values, s)
 	}
 	return values, true
 }

@@ -144,25 +144,11 @@ so it takes the rest of the line and is cut by parseScontrolReason.
 func parseScontrolLine(line string) *scontrolNode {
 	n := &scontrolNode{}
 	for i := 0; i < len(line); {
-		for i < len(line) && line[i] == ' ' {
-			i++
-		}
-		if i >= len(line) {
-			break
-		}
-		start := i
-		for i < len(line) && line[i] != ' ' && line[i] != '=' {
-			i++
-		}
-		if i >= len(line) || line[i] != '=' {
-			// Not a KEY=VALUE token — a word from inside OS=, say.
-			for i < len(line) && line[i] != ' ' {
-				i++
-			}
+		key, next := scanScontrolKey(line, i)
+		i = next
+		if key == "" {
 			continue
 		}
-		key := line[start:i]
-		i++ // past '='
 
 		if key == "Reason" {
 			// Takes the remainder: the reason text contains spaces, and on a
@@ -175,35 +161,60 @@ func parseScontrolLine(line string) *scontrolNode {
 		for i < len(line) && line[i] != ' ' {
 			i++
 		}
-		value := line[valueStart:i]
-
-		switch key {
-		case "NodeName":
-			n.name = value
-		case "CPUAlloc":
-			n.cpuAlloc = parseUint(value)
-		case "CPUTot":
-			n.cpuTotal = parseUint(value)
-		case "AllocMem":
-			n.memAlloc = parseUint(value)
-		case "RealMemory":
-			n.memTotal = parseUint(value)
-		case "State":
-			n.state = value
-		case "Partitions":
-			for _, part := range strings.Split(value, ",") {
-				// sinfo marks the default partition with "*", scontrol does
-				// not; TrimRight keeps the label identical either way.
-				if part = strings.TrimRight(part, "*"); part != "" {
-					n.partitions = appendUnique(n.partitions, part)
-				}
-			}
-		}
+		n.setField(key, line[valueStart:i])
 	}
 	if n.name == "" {
 		return nil
 	}
 	return n
+}
+
+// setField stores one space-free KEY=VALUE pair from a scontrol line. Keys the
+// node and drain_reason collectors do not read are ignored, which is most of
+// them. Reason= is not handled here: its value contains spaces.
+func (n *scontrolNode) setField(key, value string) {
+	switch key {
+	case "NodeName":
+		n.name = value
+	case "CPUAlloc":
+		n.cpuAlloc = parseUint(value)
+	case "CPUTot":
+		n.cpuTotal = parseUint(value)
+	case "AllocMem":
+		n.memAlloc = parseUint(value)
+	case "RealMemory":
+		n.memTotal = parseUint(value)
+	case "State":
+		n.state = value
+	case "Partitions":
+		for _, part := range strings.Split(value, ",") {
+			// sinfo marks the default partition with "*", scontrol does not;
+			// TrimRight keeps the label identical either way.
+			if part = strings.TrimRight(part, "*"); part != "" {
+				n.partitions = appendUnique(n.partitions, part)
+			}
+		}
+	}
+}
+
+/*
+scanScontrolKey reads the next "KEY=" token starting at i and returns the key
+and the index just past the '='. It returns an empty key when the token is not
+one — a bare word from inside the OS= field, or the end of the line — with next
+positioned after it so the caller simply carries on.
+*/
+func scanScontrolKey(line string, i int) (key string, next int) {
+	for i < len(line) && line[i] == ' ' {
+		i++
+	}
+	start := i
+	for i < len(line) && line[i] != ' ' && line[i] != '=' {
+		i++
+	}
+	if i >= len(line) || line[i] != '=' {
+		return "", i
+	}
+	return line[start:i], i + 1
 }
 
 func parseUint(s string) uint64 {
