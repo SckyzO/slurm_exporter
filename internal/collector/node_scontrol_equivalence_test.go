@@ -65,7 +65,7 @@ func pairedCaptureDirs(t *testing.T) []string {
 	return dirs
 }
 
-func readFixture(t *testing.T, path string) []byte {
+func readNodeFixture(t *testing.T, path string) []byte {
 	t.Helper()
 	b, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -75,10 +75,10 @@ func readFixture(t *testing.T, path string) []byte {
 func TestNewNodePathMatchesTheOldSinfoPath(t *testing.T) {
 	for _, dir := range pairedCaptureDirs(t) {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
-			want := ParseNodeMetrics(readFixture(t, filepath.Join(dir, "node_detail.txt")))
+			want := ParseNodeMetrics(readNodeFixture(t, filepath.Join(dir, "node_detail.txt")))
 			got, derivedStates := BuildNodeMetrics(
-				readFixture(t, filepath.Join(dir, "scontrol_nodes.txt")),
-				readFixture(t, filepath.Join(dir, "node_state.txt")),
+				readNodeFixture(t, filepath.Join(dir, "scontrol_nodes.txt")),
+				readNodeFixture(t, filepath.Join(dir, "node_state.txt")),
 			)
 
 			assert.Zero(t, derivedStates,
@@ -113,10 +113,10 @@ func TestNewNodePathMatchesTheOldSinfoPath(t *testing.T) {
 func TestNewDrainReasonPathMatchesTheOldSinfoPath(t *testing.T) {
 	for _, dir := range pairedCaptureDirs(t) {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
-			want := ParseDrainReasonMetrics(readFixture(t, filepath.Join(dir, "drain_reason.txt")))
+			want := ParseDrainReasonMetrics(readNodeFixture(t, filepath.Join(dir, "drain_reason.txt")))
 			got := BuildDrainReasonMetrics(
-				readFixture(t, filepath.Join(dir, "scontrol_nodes.txt")),
-				readFixture(t, filepath.Join(dir, "node_state.txt")),
+				readNodeFixture(t, filepath.Join(dir, "scontrol_nodes.txt")),
+				readNodeFixture(t, filepath.Join(dir, "node_state.txt")),
 			)
 
 			byNode := func(ms []DrainReasonMetrics) map[string]DrainReasonMetrics {
@@ -144,7 +144,7 @@ func TestNewDrainReasonPathMatchesTheOldSinfoPath(t *testing.T) {
 func TestAtLeastOneCaptureCarriesADrainReason(t *testing.T) {
 	total := 0
 	for _, dir := range pairedCaptureDirs(t) {
-		total += len(ParseDrainReasonMetrics(readFixture(t, filepath.Join(dir, "drain_reason.txt"))))
+		total += len(ParseDrainReasonMetrics(readNodeFixture(t, filepath.Join(dir, "drain_reason.txt"))))
 	}
 	assert.Positive(t, total,
 		"no captured node carries a drain reason, so the reason and since labels are untested against real output")
