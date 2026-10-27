@@ -54,10 +54,42 @@ var (
 	scontrolNextFieldRe = regexp.MustCompile(` [A-Za-z_][A-Za-z0-9_]*=`)
 )
 
-// degradedStateFlags are the State= flags under which sinfo reports the free
-// CPUs of a node as "other" rather than "idle". Verified against paired
-// `sinfo -N` / `scontrol show nodes -o` captures taken at the same moment.
-var degradedStateFlags = []string{"DRAIN", "DOWN", "FAIL", "INVALID_REG", "NOT_RESPONDING"}
+/*
+degradedStateFlags are the State= flags under which sinfo reports a node's free
+CPUs as "other" rather than "idle".
+
+The list is deliberately short, and it is shorter than the one #254 proposed.
+That one also carried FAIL, INVALID_REG and NOT_RESPONDING, extrapolated from a
+production sample in which none of the three ever appeared on its own — they
+only ever occurred alongside DRAIN or DOWN, which already decide the outcome.
+
+FAIL turned out not to belong there at all. Driven on the test cluster, sinfo
+reports the free CPUs of a failed node as idle:
+
+	c9   State=IDLE+DYNAMIC_NORM+FAIL    sinfo: 0/10/0/10  "fail"
+	c10  State=MIXED+DYNAMIC_NORM+FAIL   sinfo: 4/6/0/10   "failing"
+
+Both have other=0. Had FAIL stayed in the list, every failed node would have
+reported its capacity under slurm_node_cpu_other instead of
+slurm_node_cpu_idle — a wrong value, which is worse than a slow one.
+
+NOT_RESPONDING is wrong there too, and for a node that matters: it is the state
+a node sits in between losing contact and SlurmdTimeout expiring. Produced by
+stopping a worker on the test cluster:
+
+	c8   State=IDLE+DYNAMIC_NORM+NOT_RESPONDING   sinfo: 0/10/0/10  "idle*"
+
+Also idle, not other — so an unreachable node's capacity would have been moved
+to cpu_other for the whole timeout window.
+
+INVALID_REG stays out on the same grounds. No capture shows it deciding the
+split on its own; in every production state of #254 it appears alongside DRAIN
+or DOWN, which already decide. Including it would be the same untested guess
+that FAIL and NOT_RESPONDING turned out to be. Every state in that sample is
+still classified identically by this shorter list. The cases still uncovered
+are tracked in #255.
+*/
+var degradedStateFlags = []string{"DRAIN", "DOWN"}
 
 // scontrolNode holds the per-node fields the node and drain_reason collectors
 // read out of `scontrol show nodes -o`.

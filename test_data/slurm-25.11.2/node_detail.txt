@@ -10,6 +10,6 @@ c4 0 31728 0/10/0/10 idle cpu*
 c5 0 31728 0/0/10/10 drained cpu*
 c6 0 31728 0/0/10/10 down cpu*
 c7 0 31728 0/0/10/10 drained$ cpu*
-c8 0 31728 0/10/0/10 idle cpu*
-c9 0 31728 0/10/0/10 idle cpu*
-c10 31728 31728 4/6/0/10 mixed cpu*
+c8 0 31728 0/10/0/10 idle* cpu*
+c9 0 31728 0/10/0/10 fail cpu*
+c10 31728 31728 4/6/0/10 failing cpu*

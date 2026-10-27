@@ -129,12 +129,21 @@ states driven on purpose so the comparison has something to compare:
 
 | Node | State | What it covers |
 |---|---|---|
-| `c1`, `c2`, `c10` | `mixed` | free CPUs count as idle on a healthy node; `c1`/`c2` sit in three partitions |
+| `c1`, `c2` | `mixed` | free CPUs count as idle on a healthy node; both sit in three partitions |
 | `c3` | `draining` (`MIXED+DRAIN`) | free CPUs of a *busy* degraded node count as other, not idle — the case #255 listed as unproven |
-| `c4`, `c8`, `c9` | `idle` | the baseline |
+| `c4` | `idle` | the baseline |
 | `c5` | `drained` | a plain `Reason=` with its `[user@timestamp]` suffix |
 | `c6` | `down` | a reason containing brackets (`NHC: check_hw_eth [eth0] failed`) |
 | `c7` | `drained$` | a node in a maintenance reservation, so `ReservationName=` follows `Reason=`, and the `$` state suffix |
+| `c8` | `idle*` (`IDLE+NOT_RESPONDING`) | an unreachable node before SlurmdTimeout: free CPUs count as **idle**, and the `*` suffix survives (#243) |
+| `c9` | `fail` (`IDLE+FAIL`) | a failed node's free CPUs count as **idle** |
+| `c10` | `failing` (`MIXED+FAIL`) | the same on a busy node, and a reason on a node neither path reports (the drain filter matches only down/drain) |
+
+`c8`, `c9` and `c10` are the reason this capture was taken twice. #254 proposed
+treating `FAIL`, `INVALID_REG` and `NOT_RESPONDING` as states that move a node's
+free CPUs to `other`. Two of the three are wrong, and this capture is what
+proves it: with the rule as the issue wrote it, the equivalence test fails on
+exactly these three nodes.
 
 Two notes for whoever recaptures this:
 
@@ -145,6 +154,10 @@ Two notes for whoever recaptures this:
 - `CPUEfctv` equals `CPUTot` on every node here, so this capture cannot say
   whether sinfo's CPU total follows one or the other when `CoreSpecCount` is
   set. That gap stays open in #255.
+- `c8` is only `NOT_RESPONDING` while its worker container is stopped and
+  `SlurmdTimeout` (300s here) has not yet expired; it reached that state about
+  90s after the container was stopped. Recapturing it means stopping a worker
+  and watching for the state rather than sleeping a fixed amount.
 
 ## `collector/users.go`
 
