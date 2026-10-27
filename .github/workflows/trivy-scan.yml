@@ -5,8 +5,10 @@
 # any are found in packages that have a fix available. Unfixable CVEs (no
 # upstream patch yet) are reported in the summary but don't block the merge.
 #
-# Also runs weekly on a cron against the published images so we catch new
-# CVEs reported after release.
+# Also runs on push to master or a release branch when those same paths move,
+# so the branch stops advertising a failure it has already fixed; weekly on a
+# cron against the published images, to catch CVEs reported after release; and
+# on demand, which is what makes a fix confirmable instead of a week's wait.
 #
 # The Dockerfiles COPY the binary from $TARGETPLATFORM/slurm_exporter (the
 # GoReleaser dockers_v2 layout), so this workflow compiles the binary into
@@ -23,8 +25,23 @@ on:
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/trivy-scan.yml'
+  # Without this, merging a scan fix left master still showing the failure it
+  # had just fixed, until the next Monday. The branch badge is what a reader
+  # believes, so it has to follow the merge rather than the cron.
+  push:
+    branches: [master, 'release-*']
+    paths:
+      - 'Dockerfile'
+      - 'Dockerfile.minimal'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/trivy-scan.yml'
   schedule:
     - cron: '0 6 * * 1'
+  # A scan that cannot be re-run on demand cannot be used to confirm a fix:
+  # after moving the minimal image off cc-debian12 there was no way to refresh
+  # master's state and it kept reporting a CVE that was already gone.
+  workflow_dispatch:
 
 permissions:
   contents: read
