@@ -5,6 +5,110 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+A performance and correctness release for the per-node collectors. No metric,
+label or value changes: `node`, `drain_reason` and `info` emit exactly the same
+series as v1.8.5, proven by an equivalence test that captures the old and the
+new commands at the same instant on the integration cluster.
+
+### ⚡ Performance
+
+- **`node` and `drain_reason` no longer run `sinfo -N` (#254).** Both collectors
+  asked `sinfo` for one line per (node, partition) pair, and `node` additionally
+  requested the `Partition:` field, which makes `sinfo` re-walk its node table
+  per partition. On a cluster of about 6,000 nodes, two of whose partitions are
+  hidden from unprivileged users, that single command took 84–119 s — longer
+  than the whole scrape budget, so the per-node series were simply missing most
+  of the time.
+
+  The per-node values now come from `scontrol show nodes -o` (0.4 s on the same
+  cluster) and the state text from `sinfo -h -o "%N|%T"` (1.1 s), whose host
+  lists are expanded in Go rather than by forking `scontrol show hostnames`. A
+  25 s `sinfo_node_state` cache entry joins the existing `scontrol_nodes` one,
+  so two collectors in the same scrape share a single pair of commands.
+
+  Measured end to end on that cluster, with the same collectors enabled and the
+  same ~23,000 (node, partition) pairs on both sides:
+
+  | | before | this branch |
+  |---|---|---|
+  | full `/metrics` scrape | 119.7 s | 10.4 s |
+  | `node` collector | 103.4 s | 0.12 s |
+  | `slurm_node_*` series | 162,068 | 162,068 |
+
+  The baseline was taken with the v1.8.3 binary that cluster runs. The only
+  change these two collectors saw in v1.8.4 and v1.8.5 is the #69 label fix
+  (`partition="cpu*"` → `"cpu"`), which leaves the command and its cost
+  untouched.
+
+  The defect this fixes is availability, not latency: with a 2 min scrape
+  interval and a 1 m 50 s timeout — both already stretched to accommodate the
+  old command — only 35 of 719 daily scrapes carried the complete set, so a
+  `slurm_node_status` series received 8 samples a day instead of 719.
+
+- **The `info` collector resolves binary versions once instead of forking
+  `--version` every scrape (#149).** Six required forks plus up to three
+  optional ones, with `sinfo` probed twice, ran on each scrape to read values
+  that cannot change while the process lives. They are now probed on the first
+  scrape through a `sync.Once` and served from memory.
+
+  **Operational note:** a Slurm upgrade performed in place under a running
+  exporter is no longer reflected in `slurm_info` until the process is
+  restarted. Whatever performs the upgrade restarts the exporter in every
+  supported deployment, but the behaviour did change.
+
+- **Each `scontrol show nodes -o` line is read in a single pass.** The first
+  implementation ran eight anchored regexes per ~700-byte line, costing 344 ms
+  at 5,884 nodes; the single-pass scanner does the same work in 10.2 ms, below
+  the 13.8 ms the `sinfo` parser it replaces needed. Benchmarks live in
+  `node_scontrol_bench_test.go`.
+
+### 🐛 Bug Fixes
+
+- **`slurm_exporter_collector_success` now reports Slurm command failures
+  (#138).** Every collector reported `success=1` even when its command failed,
+  exited non-zero or timed out, because the error was logged and swallowed
+  before the status tracker saw it. The thirteen collectors concerned now
+  propagate the failure, so `success=0` means what it says. Backported from
+  `master` (`725664e`).
+
+- **`FAIL` and `NOT_RESPONDING` no longer move a node's CPUs to `other`.** The
+  field correspondence published in #254 listed five state flags as degraded;
+  driven against a live cluster, only `DRAIN` and `DOWN` behave that way.
+  `sinfo` reports `0/10/0/10` for an `IDLE+FAIL` node, `4/6/0/10` for
+  `MIXED+FAIL` and `0/10/0/10` for `IDLE+NOT_RESPONDING` — `other` stays at
+  zero in all three. `INVALID_REG` was dropped for the same reason. The fixture
+  carries those three nodes, so the equivalence test fails if the five-flag list
+  ever comes back.
+
+### 🧪 Tests & Quality
+
+- **The GPU fixture tests are honest about version directories (#148, #177).**
+  `TestGPUsMetrics` globbed `../test_data/slurm-*` — one directory level short
+  of the fixtures — so it had never run against a single capture. The path is
+  fixed and it now reads six GPU captures. `TestGPUsGetMetrics` skips the
+  version directories that carry no `sinfo_gpus_total.txt` instead of failing on
+  them, and both tests fail if no directory carries GPU fixtures at all.
+
+- A `node_state`/`scontrol_nodes` fixture pair captured on Slurm 25.11.2 pins
+  the two parsing traps the field correspondence does not mention: `OS=` values
+  contain spaces and `#`, and `State=` is a suffix of `NextState=`.
+
+- Degenerate-line coverage for the single-pass scanner (runs of spaces, a bare
+  `=`, empty lines) guards against a non-advancing scan.
+
+### ⚙️ CI/CD
+
+- **The tools image pins every tool it installs.** `make tools-image` had nine
+  `@latest` installs; `osv-scanner` resolved to a version requiring a newer Go
+  than the image provides, which broke the image build and with it `vet`,
+  `lint`, `test`, `race`, `vuln`, `actionlint`, `zizmor` and `deadcode` — the
+  whole verification chain, on a branch that could not then be checked at all.
+  The nine are pinned, and `govulncheck` is pinned in
+  `.github/workflows/govulncheck.yml`, which was the last `@latest` left in a
+  workflow.
+
 ## [1.8.5] - 2026-09-04
 
 A security-only release. No collector, parser, metric, label or dashboard
