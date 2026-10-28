@@ -1,0 +1,6 @@
+2 idle+dynamic_norm+planned (null) (null)
+2 idle+dynamic_norm+fail (null) (null)
+3 idle+drain+dynamic_norm (null) (null)
+1 mixed+dynamic_norm (null) (null)
+1 allocated+dynamic_norm (null) (null)
+1 down+dynamic_norm (null) (null)

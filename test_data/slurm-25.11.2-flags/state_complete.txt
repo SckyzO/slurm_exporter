@@ -1,0 +1,6 @@
+c[1-2] planned idle+dynamic_norm+planned 2 (null) (null)
+c[9-10] fail idle+dynamic_norm+fail 2 (null) (null)
+c[3,5,7] drained idle+drain+dynamic_norm 3 (null) (null)
+c8 mixed mixed+dynamic_norm 1 (null) (null)
+c4 allocated allocated+dynamic_norm 1 (null) (null)
+c6 down down+dynamic_norm 1 (null) (null)

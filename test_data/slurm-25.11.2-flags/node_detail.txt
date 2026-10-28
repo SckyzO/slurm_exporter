@@ -1,0 +1,15 @@
+c1 0 31728 0/10/0/10 planned cpu*
+c1 0 31728 0/10/0/10 planned debug
+c1 0 31728 0/10/0/10 planned high
+c2 0 31728 0/10/0/10 planned cpu*
+c2 0 31728 0/10/0/10 planned debug
+c2 0 31728 0/10/0/10 planned high
+c3 0 31728 0/0/10/10 drained cpu*
+c3 0 31728 0/0/10/10 drained high
+c4 31728 31728 10/0/0/10 allocated cpu*
+c5 0 31728 0/0/10/10 drained cpu*
+c6 0 31728 0/0/10/10 down cpu*
+c7 0 31728 0/0/10/10 drained cpu*
+c8 31728 31728 4/6/0/10 mixed cpu*
+c9 0 31728 0/10/0/10 fail cpu*
+c10 0 31728 0/10/0/10 fail cpu*

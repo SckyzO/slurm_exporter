@@ -1,0 +1,6 @@
+2 planned (null) (null)
+2 fail (null) (null)
+3 drained (null) (null)
+1 mixed (null) (null)
+1 allocated (null) (null)
+1 down (null) (null)

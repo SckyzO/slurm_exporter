@@ -1,0 +1,10 @@
+cpu|2|planned|cpu
+cpu|2|fail|cpu
+cpu|3|drained|cpu
+cpu|1|mixed|cpu
+cpu|1|allocated|cpu
+cpu|1|down|cpu
+gpu|0|n/a|(null)
+debug|2|planned|cpu
+high|2|planned|cpu
+high|1|drained|cpu

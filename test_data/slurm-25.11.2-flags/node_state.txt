@@ -1,0 +1,6 @@
+c[1-2]|planned
+c[9-10]|fail
+c[3,5,7]|drained
+c8|mixed
+c4|allocated
+c6|down

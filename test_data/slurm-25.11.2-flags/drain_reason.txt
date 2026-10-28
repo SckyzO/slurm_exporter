@@ -1,0 +1,15 @@
+c1|none|Unknown|planned
+c1|none|Unknown|planned
+c1|none|Unknown|planned
+c2|none|Unknown|planned
+c2|none|Unknown|planned
+c2|none|Unknown|planned
+c3|rolling kernel upgrade|2026-10-27T13:28:31|drained
+c3|rolling kernel upgrade|2026-10-27T13:28:31|drained
+c4|none|Unknown|allocated
+c5|disk-slow maintenance|2026-10-27T13:28:31|drained
+c6|NHC: check_hw_eth [eth0] failed|2026-10-27T13:28:31|down
+c7|awaiting firmware|2026-10-27T13:28:31|drained
+c8|none|Unknown|mixed
+c9|failed memory module|2026-10-27T14:16:05|fail
+c10|PSU replacement scheduled|2026-10-27T14:16:30|fail

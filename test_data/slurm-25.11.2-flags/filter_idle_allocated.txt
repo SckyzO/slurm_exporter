@@ -1,0 +1,5 @@
+idle+dynamic_norm+planned c[1-2] 
+idle+dynamic_norm+fail c[9-10] 
+idle+drain+dynamic_norm c[3,5,7] 
+mixed+dynamic_norm c8 
+allocated+dynamic_norm c4 
