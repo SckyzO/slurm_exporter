@@ -17,8 +17,9 @@ The one surface change is internal: `slurm_exporter_cache_age_seconds` gains
 two label values, `cache="sinfo_node_state"` and `cache="squeue_jobs"`, for the
 two caches introduced below. Nothing is removed.
 
-Measured as root on a cluster of about 6,000 nodes, two of whose partitions are
-hidden from unprivileged users, 23,001 (node, partition) pairs throughout.
+Measured as root on a large multi-partition cluster, some of its partitions
+hidden from unprivileged users, with the same (node, partition) pairs
+throughout.
 
 | | v1.8.3, as deployed | this release |
 |---|---|---|
@@ -27,7 +28,6 @@ hidden from unprivileged users, 23,001 (node, partition) pairs throughout.
 | `info` collector | 2.28 s every scrape | 2.0 s once, then ~5 µs |
 | whole `/metrics` scrape, quiet controller | — | **~5 s** |
 | whole `/metrics` scrape, controller under load | 119.7 s cold, 71.9 s as recorded by Prometheus | 6.4–17.6 s warm, 38 s cold |
-| `slurm_node_*` series | 162,068 | unchanged, to the series |
 | `slurm_exporter_collector_success` | 1 while commands timed out | 15/15, and 0 on real failure |
 
 **One number would misrepresent this.** Scrape time on this cluster swings by a
@@ -100,8 +100,8 @@ left is to stop walking that table, not to tune timeouts.
 - **`node` and `drain_reason` no longer run `sinfo -N` (#254).** Both collectors
   asked `sinfo` for one line per (node, partition) pair, and `node` additionally
   requested the `Partition:` field, which makes `sinfo` re-walk its node table
-  per partition. On a cluster of about 6,000 nodes, two of whose partitions are
-  hidden from unprivileged users, that single command took 84–119 s — longer
+  per partition. On a large multi-partition cluster, some of its partitions
+  hidden from unprivileged users, that single command took 84–119 s, longer
   than the whole scrape budget, so the per-node series were simply missing most
   of the time.
 
@@ -111,8 +111,9 @@ left is to stop walking that table, not to tune timeouts.
   25 s `sinfo_node_state` cache entry joins the existing `scontrol_nodes` one,
   so two collectors in the same scrape share a single pair of commands.
 
-  The `node` collector went from 103.4 s to 0.14 s on that cluster, emitting the
-  same 162,068 `slurm_node_*` series; see the table above for the whole scrape.
+  The `node` collector went from 103.4 s to 0.14 s on that cluster, emitting
+  the same `slurm_node_*` series down to the last one; see the table above for
+  the whole scrape.
 
   The defect this fixes is availability, not latency: with a 2 min scrape
   interval and a 1 m 50 s timeout — both already stretched to accommodate the
