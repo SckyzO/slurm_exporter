@@ -540,13 +540,37 @@ The PRs #29 / issue #27 responses from the v1.8.2 cycle are good templates.
 ## 12. Security backport onto `release-1.8`
 
 Everything above describes cutting a release from `master`. A security
-backport is a different, much shorter flow, and it is the only reason to
-touch `release-1.8`.
+backport is a different, much shorter flow, and it remains the only reason to
+cut a release from `release-1.8`.
 
 `release-1.8` was cut from the `v1.8.4` tag. It carries none of the 2.x work
 and is not a development branch: nothing lands on it that is not a security
 fix. What it is eligible for, and until when, is in
 [`SECURITY.md`](../SECURITY.md#supported-versions).
+
+**One thing may ride along with a security release, and only along with one.**
+A P0 or P2 defect that makes the exporter unusable on a cluster that cannot
+upgrade — unusable meaning metrics missing or wrong, not merely late — may be
+included in a release that was already justified by a security fix, provided
+all four of these hold:
+
+1. the fix already exists on `master`, cherry-picked with `-x`;
+2. it changes no metric's name, labels or values;
+3. the release notes carry the measurement that justifies it;
+4. it does not grow the release beyond what one reviewer can read.
+
+It never justifies a release on its own. A speed-up that is merely a speed-up
+waits for the next major version, and a change to what a metric means is not
+eligible at any priority, however correct the new meaning is.
+
+v1.8.6 is the worked example. It was eligible because `govulncheck` reported
+ten reachable standard-library advisories and the Trivy gate was failing on
+`libssl3`; riding along with that were #254, #138, #149, #144 and #139, which
+between them took the `node` collector from 103 s to 0.14 s on a 6,000-node
+cluster where its metrics had effectively stopped existing. Two measured
+backports were dropped for failing rule 2: #145 moves GPUs between
+`slurm_gpus_idle` and `slurm_gpus_other` (#264), and #153 changes partition
+job counts. Both stay on `master`.
 
 ```bash
 git fetch origin
